@@ -1,0 +1,2 @@
+# Bu dosya git'in tools/whisper/ klasörünü boş olarak takip etmesini sağlar.
+# Modeller ve binary'ler scripts/setup.ps1 ile bu klasöre indirilecektir.

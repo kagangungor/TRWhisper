@@ -1,0 +1,58 @@
+# ==============================================================================
+# .gitignore for TRWhisper (.NET 9 WPF/WinForms + Whisper.cpp)
+# ==============================================================================
+
+# --- .NET Derleme Çıktıları & Ara Bellekler ---
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+*.pdb
+*.cache
+*.FileListAbsolute.txt
+
+# --- Yayın ve Dağıtım Paketleri ---
+publish/
+dist/
+
+# --- Whisper.cpp Motoru ve GGML Modelleri (>100MB Dosyalar) ---
+# (setup.ps1 betiği bunları otomatik olarak indirir)
+tools/whisper/*
+!tools/whisper/.gitkeep
+*.bin
+*.onnx
+*.pt
+
+# --- Çalışma Zamanı İkilileri (.exe & .dll) ---
+# (Proje kaynak kodundan derlenir veya setup.ps1 ile çekilir)
+*.exe
+*.dll
+
+# --- Ses Kayıtları ve Günlükler (Gizlilik) ---
+*.wav
+*.mp3
+*.m4a
+*.log
+*.old
+trwhisper_temp.wav
+
+# --- Geliştirici Ortamı & IDE Ayarları ---
+.vs/
+.vscode/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.idea/
+
+# --- İşletim Sistemi Dosyaları ---
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# --- Yerel Ortam & Gizli Yapılandırma ---
+*.local.json
+.env
+.env.*
