@@ -1,66 +1,68 @@
-# TRWhisper: Windows 11 Yerel Bas-Konuş Dikte Uygulaması 🎙️
+# TRWhisper: Local Push-to-Talk Dictation App for Windows 11 🎙️
 
-**TRWhisper**, Windows 11 için geliştirilmiş, Superwhisper alternatifi, tamamen yerel çalışan, sıfır telemetrili bir "bas-konuş" (push-to-talk) dikte uygulamasıdır.
+[🇬🇧 English](README.md) | [🇹🇷 Türkçe](READMETR.md)
 
----
-
-## 🚀 Temel Özellikler
-
-- **Global Kısayol Tuşu**: Varsayılan olarak **Sağ Ctrl (Right Ctrl)** tuşuna basılı tuttuğunuzda konuşmayı kaydeder, tuşu bıraktığınız anda yerel yapay zeka ile metne dönüştürür.
-- **Akıllı Pano ve Otomatik Yapıştırma**:
-  1. O anki pano (clipboard) içeriğini belleğe yedekler.
-  2. Transkript metnini panoya kopyalar.
-  3. Win32 `SendInput` API'si ile `Ctrl + V` tuşlayarak imlecin bulunduğu aktif alana anında yapıştırır.
-  4. 150 ms sonra orijinal panonuzu geri yükler (panonuzdaki metin/görseller kaybolmaz).
-- **Tamamen Çevrimdışı & Güvenli (STT)**: `whisper.cpp` yerel motoru (`ggml-small.bin`) kullanır. Sesiniz hiçbir sunucuya veya buluta gönderilmez.
-- **Opsiyonel LLM Temizleme Modu**: **Sağ Ctrl + Sağ Shift** kombinasyonuyla konuşursanız, transkript Gemini veya OpenAI API'sine iletilerek dolgu kelimeleri (`ııı`, `eee`, `şey`, `yani`) temizlenir, noktalama düzeltilir ve öyle yapıştırılır.
-- **Sistem Tepsisi (System Tray)**:
-  - 🔵 **Mavi**: Boşta (Hazır)
-  - 🔴 **Kırmızı**: Kaydediyor (Konuşun)
-  - 🟡 **Sarı**: Çözümlüyor (Transkribe ediliyor)
-  - Sağ tık menüsünde: **Son 10 transkript**, tek tıkla kopyalama, dikte klasörünü açma, ayarlar ve çıkış.
-- **Yerel Günlük**: Her başarılı transkript zaman damgasıyla `%USERPROFILE%\Dictation\YYYY-MM.md` dosyasına kaydedilir. Geçici ses dosyası diskten derhal silinir.
+**TRWhisper** is a completely local, zero-telemetry "push-to-talk" dictation application built for Windows 11 as an alternative to Superwhisper.
 
 ---
 
-## 🛠️ Kurulum ve Gereksinimler
+## 🚀 Key Features
 
-### 1. Windows Mikrofon İzinleri
-Windows 11'de mikrofon erişiminin açık olduğundan emin olun:
-1. **Ayarlar (Win + I)** > **Gizlilik ve Güvenlik** > **Mikrofon**.
-2. **"Mikrofon erişimi"** seçeneğini açık konuma getirin.
-3. **"Masaüstü uygulamalarının mikrofonunuza erişmesine izin verin"** seçeneğinin **Açık** olduğundan emin olun.
+- **Global Hotkey**: By default, hold down **Right Ctrl** to record audio; releasing the key instantly transcribes the speech to text using local AI.
+- **Smart Clipboard & Auto-Paste**:
+  1. Backs up the current clipboard content in memory.
+  2. Copies the transcribed text to the clipboard.
+  3. Uses the Win32 `SendInput` API to simulate `Ctrl + V`, instantly pasting into the active focused field.
+  4. Restores your original clipboard content after 150 ms (ensuring text or images in your clipboard are not lost).
+- **Completely Offline & Private (STT)**: Powered by the local `whisper.cpp` engine (`ggml-small.bin`). Your voice is never transmitted to any cloud or remote server.
+- **Optional LLM Cleanup Mode**: When speaking with the **Right Ctrl + Right Shift** combination, the transcript is sent to the Gemini or OpenAI API to clean up filler words (`um`, `uh`, `like`, `you know` / `ııı`, `eee`, `şey`, `yani`), correct punctuation, and paste the cleaned text.
+- **System Tray**:
+  - 🔵 **Blue**: Idle (Ready)
+  - 🔴 **Red**: Recording (Speak)
+  - 🟡 **Yellow**: Processing (Transcribing)
+  - Context (right-click) menu: **Last 10 transcripts**, one-click copy, open dictation folder, settings, and exit.
+- **Local Logging**: Every successful transcript is logged with a timestamp to `%USERPROFILE%\Dictation\YYYY-MM.md`. The temporary audio file is immediately deleted from disk.
 
-### 2. Whisper Motoru ve Model Kurulumu (Otomatik)
-Proje kök dizinindeyken PowerShell ile otomatik kurulum betiğini çalıştırın:
+---
+
+## 🛠️ Installation & Requirements
+
+### 1. Windows Microphone Permissions
+Ensure microphone access is enabled in Windows 11:
+1. **Settings (Win + I)** > **Privacy & security** > **Microphone**.
+2. Toggle **"Microphone access"** to **On**.
+3. Ensure **"Let desktop apps access your microphone"** is set to **On**.
+
+### 2. Whisper Engine and Model Setup (Automatic)
+Run the automated setup script with PowerShell from the project root directory:
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\setup.ps1
 ```
-Bu betik:
-- `tools\whisper\` klasörünü oluşturur.
-- Son sürüm `whisper.cpp` Windows x64 binary'sini indirir.
-- Hugging Face üzerinden Türkçe için optimize edilmiş `ggml-small.bin` (~465 MB) modelini indirir.
-- `%USERPROFILE%\Dictation\` klasörünü hazırlar.
+This script:
+- Creates the `tools\whisper\` directory.
+- Downloads the latest Windows x64 binary of `whisper.cpp`.
+- Downloads the `ggml-small.bin` (~465 MB) model optimized for Turkish via Hugging Face.
+- Prepares the `%USERPROFILE%\Dictation\` folder.
 
-> **Manuel İndirmek İsterseniz:**
-> - Whisper Binary: [whisper.cpp Releases](https://github.com/ggerganov/whisper.cpp/releases) -> `whisper-bin-x64.zip` indirip içindeki `whisper-cli.exe` dosyasını `tools\whisper\` içine atın.
-> - GGML Modeli: [Hugging Face ggml-small.bin](https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin) dosyasını indirip `tools\whisper\ggml-small.bin` olarak kaydedin.
+> **Manual Download Alternative:**
+> - Whisper Binary: [whisper.cpp Releases](https://github.com/ggerganov/whisper.cpp/releases) -> Download `whisper-bin-x64.zip` and extract `whisper-cli.exe` into `tools\whisper\`.
+> - GGML Model: Download [Hugging Face ggml-small.bin](https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin) and save it as `tools\whisper\ggml-small.bin`.
 
-### 3. Windows SmartScreen ve Defender Uyarılarını Geçme
-TRWhisper yerel bir low-level klavye hook (`WH_KEYBOARD_LL`) ve `SendInput` API'si kullandığı için Windows Defender veya SmartScreen ilk çalıştırmada koruma uyarısı verebilir:
-1. **SmartScreen penceresi çıkarsa:** **"Ek Bilgi" (More Info)** butonuna tıklayın ve **"Yine de çalıştır" (Run anyway)** seçeneğini seçin.
-2. **Windows Defender İstisnası Eklemek (Opsiyonel):**
+### 3. Bypassing Windows SmartScreen and Defender Warnings
+Because TRWhisper uses a local low-level keyboard hook (`WH_KEYBOARD_LL`) and the `SendInput` API, Windows Defender or SmartScreen may display a warning on first launch:
+1. **If the SmartScreen prompt appears:** Click **"More info"** and select **"Run anyway"**.
+2. **Adding a Windows Defender Exclusion (Optional):**
    ```powershell
-   # PowerShell'i Yönetici olarak proje dizininde açıp istisnalara ekleyebilirsiniz:
+   # Open PowerShell as Administrator in the project directory and run:
    Add-MpPreference -ExclusionPath (Get-Location).Path
-   # veya tam yol belirterek: Add-MpPreference -ExclusionPath "C:\KlasorYolunuz\TRWHISPER"
+   # Or specify the full path: Add-MpPreference -ExclusionPath "C:\YourFolderPath\TRWHISPER"
    ```
 
 ---
 
-## ⚙️ Yapılandırma (`config.json`)
+## ⚙️ Configuration (`config.json`)
 
-Uygulama dizinindeki `config.json` dosyasını Not Defteri ile açarak veya Sistem Tepsisi simgesine sağ tıklayıp **"⚙️ Ayarları Aç"** diyerek düzenleyebilirsiniz:
+You can edit `config.json` in the application directory by opening it with Notepad, or by right-clicking the System Tray icon and selecting **"⚙️ Ayarları Aç"** (Open Settings):
 
 ```json
 {
@@ -89,17 +91,17 @@ Uygulama dizinindeki `config.json` dosyasını Not Defteri ile açarak veya Sist
 }
 ```
 
-> **İpucu:** Gemini API anahtarınızı Google AI Studio üzerinden ücretsiz alıp `ApiKey` alanına yapıştırabilirsiniz. Anahtar boş bırakılırsa LLM temizleme modu devre dışı kalır ve doğrudan yerel ham transkript yapıştırılır.
+> **Tip:** You can obtain a free Gemini API key from Google AI Studio and paste it into the `ApiKey` field. If left blank, the LLM cleaning mode will be disabled and the raw local transcript will be pasted directly.
 
 ---
 
-## 🚀 Projeyi Derleme ve Çalıştırma
+## 🚀 Building and Running the Project
 
-PowerShell ile:
+Using PowerShell:
 ```powershell
-# Geliştirme modunda çalıştırma
+# Run in development mode
 powershell -ExecutionPolicy Bypass -File scripts\build.ps1 -Run
 
-# Bağımsız Release paketi oluşturma
+# Create a standalone Release package
 powershell -ExecutionPolicy Bypass -File scripts\build.ps1 -Publish
 ```
