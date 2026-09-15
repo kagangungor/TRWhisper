@@ -14,7 +14,9 @@
   2. Transkript metnini panoya kopyalar.
   3. Win32 `SendInput` API'si ile `Ctrl + V` tuşlayarak imlecin bulunduğu aktif alana anında yapıştırır.
   4. 150 ms sonra orijinal panonuzu geri yükler (panonuzdaki metin/görseller kaybolmaz).
-- **Tamamen Çevrimdışı & Güvenli (STT)**: `whisper.cpp` yerel motoru (`ggml-small.bin`) kullanır. Sesiniz hiçbir sunucuya veya buluta gönderilmez.
+- **Tamamen Çevrimdışı & Güvenli (STT)**: `whisper.cpp` yerel motoru ve **Whisper Large-v3 Turbo** (`ggml-large-v3-turbo-q5_0.bin`) modeli kullanır. Sesiniz hiçbir sunucuya veya buluta gönderilmez.
+- **Modern Kayan Durum Hapı (Floating Pill Overlay)**: Dikte sırasında ekranınızda anlık durum bildirimleri gösterir (🔴 Dinliyor... / 🟡 Çözümleniyor... / 🟢 Tamamlandı).
+- **Konuşma Dışı Ses Filtreleme**: Modelin ürettiği `[MÜZİK ÇALIYOR]`, `[SESSİZLİK]`, `[BLANK_AUDIO]` gibi konuşma dışı etiketleri otomatik olarak temizler.
 - **Opsiyonel LLM Temizleme Modu**: **Sağ Ctrl + Sağ Shift** kombinasyonuyla konuşursanız, transkript Gemini veya OpenAI API'sine iletilerek dolgu kelimeleri (`ııı`, `eee`, `şey`, `yani`) temizlenir, noktalama düzeltilir ve öyle yapıştırılır.
 - **Sistem Tepsisi (System Tray)**:
   - 🔵 **Mavi**: Boşta (Hazır)
@@ -41,12 +43,12 @@ powershell -ExecutionPolicy Bypass -File scripts\setup.ps1
 Bu betik:
 - `tools\whisper\` klasörünü oluşturur.
 - Son sürüm `whisper.cpp` Windows x64 binary'sini indirir.
-- Hugging Face üzerinden Türkçe için optimize edilmiş `ggml-small.bin` (~465 MB) modelini indirir.
+- Hugging Face üzerinden `ggml-large-v3-turbo-q5_0.bin` (~547 MB) modelini indirir.
 - `%USERPROFILE%\Dictation\` klasörünü hazırlar.
 
 > **Manuel İndirmek İsterseniz:**
 > - Whisper Binary: [whisper.cpp Releases](https://github.com/ggerganov/whisper.cpp/releases) -> `whisper-bin-x64.zip` indirip içindeki `whisper-cli.exe` dosyasını `tools\whisper\` içine atın.
-> - GGML Modeli: [Hugging Face ggml-small.bin](https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin) dosyasını indirip `tools\whisper\ggml-small.bin` olarak kaydedin.
+> - GGML Modeli: [Hugging Face ggml-large-v3-turbo-q5_0.bin](https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q5_0.bin) dosyasını indirip `tools\whisper\ggml-large-v3-turbo-q5_0.bin` olarak kaydedin.
 
 ### 3. Windows SmartScreen ve Defender Uyarılarını Geçme
 TRWhisper yerel bir low-level klavye hook (`WH_KEYBOARD_LL`) ve `SendInput` API'si kullandığı için Windows Defender veya SmartScreen ilk çalıştırmada koruma uyarısı verebilir:
@@ -73,9 +75,10 @@ Uygulama dizinindeki `config.json` dosyasını Not Defteri ile açarak veya Sist
   },
   "Whisper": {
     "CliPath": "tools\\whisper\\whisper-cli.exe",
-    "ModelPath": "tools\\whisper\\ggml-small.bin",
-    "Threads": 4,
-    "NoTimestamps": true
+    "ModelPath": "tools\\whisper\\ggml-large-v3-turbo-q5_0.bin",
+    "Threads": 8,
+    "NoTimestamps": true,
+    "TimeoutSeconds": 120
   },
   "LlmCleaning": {
     "EnabledByDefault": false,

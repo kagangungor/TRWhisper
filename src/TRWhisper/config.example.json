@@ -6,7 +6,7 @@
   },
   "Whisper": {
     "CliPath": "tools\\whisper\\whisper-cli.exe",
-    "ModelPath": "tools\\whisper\\ggml-small.bin",
+    "ModelPath": "tools\\whisper\\ggml-large-v3-turbo-q5_0.bin",
     "Threads": 8,
     "NoTimestamps": true,
     "TimeoutSeconds": 120

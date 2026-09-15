@@ -21,7 +21,7 @@ namespace TRWhisper.Core.Config
     public class WhisperConfig
     {
         public string CliPath { get; set; } = "tools\\whisper\\whisper-cli.exe";
-        public string ModelPath { get; set; } = "tools\\whisper\\ggml-small.bin";
+        public string ModelPath { get; set; } = "tools\\whisper\\ggml-large-v3-turbo-q5_0.bin";
         public int Threads { get; set; } = 4;
         public bool NoTimestamps { get; set; } = true;
 

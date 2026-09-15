@@ -4,7 +4,7 @@
 #>
 
 param (
-    [string]$Model = "small" # tiny, base, small, medium
+    [string]$Model = "large-v3-turbo-q5_0" # small, large-v3-turbo-q5_0, medium
 )
 
 $ErrorActionPreference = "Stop"
