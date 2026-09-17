@@ -10,6 +10,7 @@
     <RootNamespace>TRWhisper</RootNamespace>
     <AssemblyName>TRWhisper</AssemblyName>
     <StartupObject>TRWhisper.Program</StartupObject>
+    <ApplicationIcon>..\..\assets\TRWhisper.ico</ApplicationIcon>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <Version>1.0.0</Version>
     <FileVersion>1.0.0.0</FileVersion>

@@ -61,6 +61,7 @@ Compression=lzma2/max
 SolidCompression=yes
 LZMANumBlockThreads=4
 WizardStyle=modern
+SetupIconFile=..\assets\TRWhisper.ico
 ArchiveExtraction=full
 LicenseFile=..\LICENSE
 ; Uygulama çalışıyorsa kullanıcıdan kapatması istenir (Program.cs'deki mutex adı).
@@ -71,7 +72,7 @@ ShowLanguageDialog=yes
 LanguageDetectionMethod=uilanguage
 
 [Languages]
-Name: "tr"; MessagesFile: "compiler:Languages\Turkish.isl"; InfoBeforeFile: "i18n\info-tr.txt"
+Name: "tr"; MessagesFile: "compiler:Languages\Turkish.isl"; LicenseFile: "i18n\license-tr.txt"; InfoBeforeFile: "i18n\info-tr.txt"
 Name: "en"; MessagesFile: "compiler:Default.isl"; InfoBeforeFile: "i18n\info-en.txt"
 
 [CustomMessages]
