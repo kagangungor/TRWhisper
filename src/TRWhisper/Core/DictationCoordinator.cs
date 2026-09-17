@@ -134,7 +134,7 @@ namespace TRWhisper.Core
                     await Task.Yield();
 
                     _trayController.SetState(AppState.Transcribing);
-                    _overlayWindow?.ShowProcessing();
+                    _overlayWindow?.ShowProcessing(overallTimeout + TimeSpan.FromSeconds(5));
                     FileLog.Write($"[DictationCoordinator] kısayol bırakıldı (LLM={shouldCleanWithLlm}), çözümleme başlıyor.");
 
                     // 1. Kaydı durdur (en fazla 2000 ms bekle)

@@ -45,12 +45,10 @@ namespace TRWhisper.UI
                 HideWithFade();
             };
 
-            // Emniyet sübabı: "Çözümleniyor..." durumunda beklenmedik bir durumda
-            // pencerenin ekranda asılı kalmaması için 25 saniye sonra otomatik kapatılır.
-            _processingFailSafeTimer = new DispatcherTimer
-            {
-                Interval = TimeSpan.FromSeconds(25)
-            };
+            // Emniyet sübabı: "Çözümleniyor..." durumunda pencerenin ekranda asılı kalmaması için.
+            // Normalde coordinator pill'i kendisi kapatır; süre ShowProcessing çağrısında
+            // coordinator'ın watchdog süresinin biraz üstüne ayarlanır (yavaş CPU'da erken kapanmasın).
+            _processingFailSafeTimer = new DispatcherTimer();
             _processingFailSafeTimer.Tick += (_, _) =>
             {
                 _processingFailSafeTimer.Stop();
@@ -93,7 +91,7 @@ namespace TRWhisper.UI
             });
         }
 
-        public void ShowProcessing()
+        public void ShowProcessing(TimeSpan failSafeTimeout)
         {
             Dispatcher.Invoke(() =>
             {
@@ -106,6 +104,7 @@ namespace TRWhisper.UI
                 Reposition();
 
                 _processingFailSafeTimer.Stop();
+                _processingFailSafeTimer.Interval = failSafeTimeout;
                 _processingFailSafeTimer.Start();
             });
         }
