@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
@@ -11,6 +11,13 @@
     <AssemblyName>TRWhisper</AssemblyName>
     <StartupObject>TRWhisper.Program</StartupObject>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Version>1.0.0</Version>
+    <FileVersion>1.0.0.0</FileVersion>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <Product>TRWhisper</Product>
+    <Company>Mustafa Kağan Güngör</Company>
+    <Copyright>Copyright (c) 2026 Mustafa Kağan Güngör</Copyright>
+    <Description>Windows 11 için yerel bas-konuş dikte uygulaması</Description>
   </PropertyGroup>
 
   <ItemGroup>

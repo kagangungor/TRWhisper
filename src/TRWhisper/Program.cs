@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Threading;
 using System.Windows;
 using System.Windows.Forms;
@@ -57,6 +57,7 @@ namespace TRWhisper
             var overlayWindow = new PillOverlayWindow();
 
             var configManager = new ConfigManager();
+            EnsureModelAvailable(configManager);
             var history = new TranscriptHistory();
             var logger = new MarkdownLogger(configManager);
             var llmCleaner = new LlmCleanerService(configManager);
@@ -114,6 +115,30 @@ namespace TRWhisper
                 FileLog.Write($"[Program] Fatal error in Main: {ex}");
                 System.Windows.Forms.MessageBox.Show($"TRWhisper başlatılamadı: {ex.Message}", "TRWhisper Hatası", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
+        }
+
+        /// <summary>
+        /// Yapılandırmadaki model dosyası yoksa (kurulumda seçilmemiş ya da kullanıcı silmiş)
+        /// kurulu olan ilk modele geçer; aksi hâlde dikte sessizce boş sonuç döndürür.
+        /// </summary>
+        private static void EnsureModelAvailable(ConfigManager configManager)
+        {
+            var cfg = configManager.Current;
+            if (System.IO.File.Exists(cfg.Whisper.ResolvedModelPath))
+                return;
+
+            foreach (var model in TrayIconController.WhisperModels)
+            {
+                if (!System.IO.File.Exists(WhisperConfig.ResolvePath(model.Path)))
+                    continue;
+
+                FileLog.Write($"[Program] Model bulunamadı ({cfg.Whisper.ModelPath}), kurulu modele geçiliyor: {model.Path}");
+                cfg.Whisper.ModelPath = model.Path;
+                configManager.Save(cfg);
+                return;
+            }
+
+            FileLog.Write($"[Program] UYARI: Hiçbir whisper modeli bulunamadı ({cfg.Whisper.ModelPath}).");
         }
     }
 }

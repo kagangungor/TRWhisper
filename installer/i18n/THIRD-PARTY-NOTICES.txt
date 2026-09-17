@@ -1,0 +1,51 @@
+﻿TRWhisper — Üçüncü Taraf Bileşen Bildirimleri / Third-Party Notices
+==================================================================
+
+TRWhisper (MIT License, © 2026 Mustafa Kağan Güngör) aşağıdaki üçüncü taraf
+bileşenleri kullanır / uses the following third-party components:
+
+1) whisper.cpp + ggml (build b4938 / v1.9.3)
+   https://github.com/ggml-org/whisper.cpp
+   MIT License — Copyright (c) 2023-2024 The ggml authors
+
+2) OpenAI Whisper model weights (GGML/GGUF conversions)
+   ggml-large-v3-turbo-q5_0.bin, ggml-small.bin
+   https://huggingface.co/ggerganov/whisper.cpp
+   MIT License — Copyright (c) 2022 OpenAI
+
+3) Silero VAD (ggml-silero-v6.2.0.bin)
+   https://huggingface.co/ggml-org/whisper-vad
+   https://github.com/snakers4/silero-vad
+   MIT License — Copyright (c) 2024 Silero Team
+
+4) NAudio 2.2.1
+   https://github.com/naudio/NAudio
+   MIT License — Copyright (c) 2020 Mark Heath
+
+5) .NET 9 Runtime (self-contained olarak uygulamaya gömülüdür /
+   embedded in the application)
+   https://github.com/dotnet/runtime
+   MIT License — Copyright (c) .NET Foundation and Contributors
+
+6) NVIDIA CUDA Runtime & cuBLAS (cudart64_12.dll, cublas64_12.dll,
+   cublasLt64_12.dll) — YALNIZCA "NVIDIA GPU" motoru seçilirse kurulur /
+   installed ONLY if the "NVIDIA GPU" engine is selected.
+   https://developer.nvidia.com/cuda-toolkit
+   NVIDIA CUDA Toolkit End User License Agreement:
+   https://docs.nvidia.com/cuda/eula/index.html
+   Bu dosyalar NVIDIA CUDA EULA'nın "Redistributable Software" maddesi
+   uyarınca whisper.cpp yayınından indirilerek kurulur.
+
+7) Inno Setup 6 (bu kurulum sihirbazını üretir / builds this installer)
+   https://jrsoftware.org/isinfo.php
+   Inno Setup License — Copyright (c) 1997-2025 Jordan Russell
+
+8) Microsoft Visual C++ 2015-2022 Redistributable (x64)
+   whisper.cpp ikilileri için gereklidir; eksikse Microsoft'un resmî
+   dağıtımı indirilip kurulur / required by the whisper.cpp binaries;
+   if missing, Microsoft's official redistributable is downloaded and
+   installed. https://aka.ms/vs/17/release/vc_redist.x64.exe
+   Microsoft Software License Terms.
+
+Tam lisans metinleri yukarıdaki adreslerde yer alır.
+Full license texts are available at the URLs listed above.

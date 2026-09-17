@@ -16,6 +16,8 @@ x86/
 # --- Yayın ve Dağıtım Paketleri ---
 publish/
 dist/
+installer/Output/
+installer/cache/
 
 # --- Whisper.cpp Motoru ve GGML Modelleri (>100MB Dosyalar) ---
 # (setup.ps1 betiği bunları otomatik olarak indirir)

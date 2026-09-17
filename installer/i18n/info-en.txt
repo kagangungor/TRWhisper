@@ -1,0 +1,75 @@
+﻿TRWhisper — What will this setup do?
+==================================================================
+
+TRWhisper is a fully LOCAL push-to-talk dictation app for Windows 11.
+Hold the Right Ctrl key while you speak; when you release it, your
+speech is transcribed on your own PC and pasted into the active window.
+
+
+1) WHERE IS IT INSTALLED?
+------------------------------------------------------------------
+  %LOCALAPPDATA%\Programs\TRWhisper  (default, you can change it)
+
+  No administrator password is required. The only exception: if the
+  "Microsoft Visual C++ 2015-2022 Runtime" is missing on your PC,
+  Windows will show a single UAC prompt to install it.
+
+
+2) ALWAYS INSTALLED
+------------------------------------------------------------------
+  * TRWhisper application (.NET 9 embedded — you do NOT need to
+    install .NET separately)                             ~175 MB
+  * Silero VAD silence-detection model                   ~1 MB
+  * config.json settings file, license and notice files
+  * Microsoft Visual C++ 2015-2022 Runtime (x64)
+    — downloaded and installed ONLY if missing           ~25 MB
+
+
+3) YOUR CHOICES (on the next pages)
+------------------------------------------------------------------
+  a) Speech engine:
+     * CPU build        — works on every PC, included in this setup
+     * NVIDIA GPU (CUDA) — 8-10x faster if you have an NVIDIA GPU,
+       ~640 MB download (~1.2 GB on disk)
+
+  b) Speech models (you must select at least one):
+     * Large-v3 Turbo — most accurate, GPU recommended  ~547 MB down.
+     * Small          — fast on CPU, less accurate      ~465 MB down.
+     You can install both and switch between them at any time from
+     the system tray menu.
+
+  c) Shortcuts: desktop, Start menu and start-with-Windows — all
+     optional.
+
+
+4) INTERNET USE AND PRIVACY
+------------------------------------------------------------------
+  * During setup only the components you selected are downloaded.
+    Sources: github.com/ggml-org (whisper.cpp), huggingface.co
+    (models), aka.ms (Microsoft Visual C++ Runtime). Every download
+    is verified with SHA-256.
+  * After installation, speech recognition runs COMPLETELY OFFLINE.
+    Your voice is never sent to any server.
+  * The only exception: if you enable the optional "LLM cleanup"
+    feature with your own API key, only the text (never audio) is
+    sent to Gemini/OpenAI. It is DISABLED by default.
+
+
+5) OTHER FILES WRITTEN TO YOUR PC
+------------------------------------------------------------------
+  * %USERPROFILE%\Dictation\YYYY-MM.md   — your dictation history
+  * %USERPROFILE%\Dictation\trwhisper.log — diagnostic log
+  * The temporary audio file (%TEMP%) is deleted right after use.
+  Uninstall will ask whether to delete this folder; you may keep it.
+
+
+6) AFTER INSTALLATION
+------------------------------------------------------------------
+  * Windows microphone access must be enabled (Settings > Privacy &
+    security > Microphone). Setup can open that page for you.
+  * The app lives in the system tray: blue = ready, red = recording,
+    amber = transcribing.
+  * Windows SmartScreen may warn about an "unknown publisher";
+    choose "More info" > "Run anyway".
+
+Click Next to continue.

@@ -37,6 +37,45 @@
 - [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0) (kaynak koddan derlemek için)
 - İsteğe bağlı: GPU hızlandırma için güncel sürücülü (CUDA 12.4 destekli) bir NVIDIA ekran kartı
 
+### ⚡ Kolay Kurulum (Önerilen): Tek Dosyalık Kurulum Sihirbazı
+
+En son sürümü **[Releases](https://github.com/kagangungor/TRWhisper/releases/latest)** sayfasından
+indirin (`TRWhisper-Setup-x.y.z.exe`, ~51 MB) ve çalıştırın. Yönetici şifresi gerekmez;
+uygulama `%LOCALAPPDATA%\Programs\TRWhisper` klasörüne kurulur.
+
+Sihirbaz Türkçe ve İngilizce'dir ve kuruluma başlamadan önce ne kurulacağını açıkça yazar:
+
+| Bileşen | Durum |
+|---|---|
+| TRWhisper uygulaması (.NET 9 gömülü, ayrıca .NET gerekmez) | Her zaman (kurulum dosyasının içinde) |
+| Silero VAD sessizlik modeli | Her zaman (kurulum dosyasının içinde) |
+| Whisper **CPU** motoru | Kurulum dosyasının içinde — her bilgisayarda çalışır |
+| Whisper **NVIDIA GPU (CUDA 12.4)** motoru | Seçime bağlı, ~640 MB indirilir (NVIDIA kartınız varsa otomatik önerilir) |
+| **Large-v3 Turbo** modeli (~547 MB) | Seçime bağlı |
+| **Small** modeli (~465 MB) | Seçime bağlı |
+| Microsoft Visual C++ 2015-2022 Runtime | Yalnızca bilgisayarınızda yoksa indirilip kurulur (tek seferlik UAC) |
+| Masaüstü / Başlat menüsü kısayolu, Windows açılışında başlatma | Seçime bağlı |
+
+- En az bir model seçmelisiniz; ikisini birden kurup sistem tepsisindeki menüden istediğiniz an
+  geçiş yapabilirsiniz.
+- İndirilen her dosya **SHA-256** ile doğrulanır; zaten kurulu olan dosyalar yeniden indirilmez
+  (kurulumu tekrar çalıştırıp motor/model seçiminizi değiştirebilirsiniz).
+- Kaldırma: **Ayarlar > Uygulamalar > TRWhisper**. Dikte kayıtlarınızın (`%USERPROFILE%\Dictation`)
+  silinip silinmeyeceği size sorulur.
+- Sessiz kurulum (kurumsal dağıtım):
+  ```powershell
+  TRWhisper-Setup-1.0.0.exe /SILENT /ENGINE=cuda /MODELS=turbo,small /TASKS=desktopicon
+  ```
+
+> Kurulum dosyası imzasız olduğu için Windows SmartScreen "bilinmeyen yayımcı" uyarısı gösterebilir:
+> **Daha fazla bilgi > Yine de çalıştır**.
+
+---
+
+### 🔧 Kaynaktan Kurulum (geliştiriciler için)
+
+Aşağıdaki adımlar yalnızca projeyi kaynak koddan derleyecekseniz gereklidir.
+
 ### 1. Windows Mikrofon İzinleri
 Windows 11'de mikrofon erişiminin açık olduğundan emin olun:
 1. **Ayarlar (Win + I)** > **Gizlilik ve Güvenlik** > **Mikrofon**.

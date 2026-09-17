@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -36,7 +36,7 @@ namespace TRWhisper.Core.Tray
         private bool _isLlmCleaningEnabled;
 
         // Tepsiden seçilebilen whisper modelleri. NeedsGpu: GPU olmadan CPU'da çok yavaş (~20+ sn).
-        private static readonly (string Label, string Path, bool NeedsGpu)[] WhisperModels =
+        public static readonly (string Label, string Path, bool NeedsGpu)[] WhisperModels =
         {
             ("Small (hızlı, daha az doğru)", "tools\\whisper\\ggml-small.bin", false),
             ("Large-v3 Turbo (en doğru)", "tools\\whisper\\ggml-large-v3-turbo-q5_0.bin", true),

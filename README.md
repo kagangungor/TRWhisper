@@ -37,6 +37,46 @@
 - [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0) (to build from source)
 - Optional: an NVIDIA GPU with an up-to-date driver (CUDA 12.4 support) for GPU acceleration
 
+### ⚡ Easy Installation (Recommended): Single-File Setup Wizard
+
+Download the latest **[release](https://github.com/kagangungor/TRWhisper/releases/latest)**
+(`TRWhisper-Setup-x.y.z.exe`, ~51 MB) and run it. No administrator password is required;
+the app is installed into `%LOCALAPPDATA%\Programs\TRWhisper`.
+
+The wizard is available in Turkish and English and states exactly what will be installed
+before it starts:
+
+| Component | Status |
+|---|---|
+| TRWhisper application (.NET 9 embedded, no separate .NET needed) | Always (inside the setup file) |
+| Silero VAD silence model | Always (inside the setup file) |
+| Whisper **CPU** engine | Inside the setup file — works on every PC |
+| Whisper **NVIDIA GPU (CUDA 12.4)** engine | Optional, ~640 MB download (auto-recommended if an NVIDIA GPU is found) |
+| **Large-v3 Turbo** model (~547 MB) | Optional |
+| **Small** model (~465 MB) | Optional |
+| Microsoft Visual C++ 2015-2022 Runtime | Only downloaded and installed if missing (one UAC prompt) |
+| Desktop / Start menu shortcut, start with Windows | Optional |
+
+- At least one model must be selected; you can install both and switch between them any time
+  from the system tray menu.
+- Every download is verified with **SHA-256**, and files that are already installed are not
+  downloaded again (re-run the setup to change your engine/model choice).
+- Uninstall: **Settings > Apps > TRWhisper**. You are asked whether your dictation records
+  (`%USERPROFILE%\Dictation`) should be deleted as well.
+- Silent installation (for deployment):
+  ```powershell
+  TRWhisper-Setup-1.0.0.exe /SILENT /ENGINE=cuda /MODELS=turbo,small /TASKS=desktopicon
+  ```
+
+> The setup file is not code-signed, so Windows SmartScreen may warn about an "unknown
+> publisher": **More info > Run anyway**.
+
+---
+
+### 🔧 Installing from Source (for developers)
+
+The steps below are only needed if you want to build the project from source.
+
 ### 1. Windows Microphone Permissions
 Ensure microphone access is enabled in Windows 11:
 1. **Settings (Win + I)** > **Privacy & security** > **Microphone**.

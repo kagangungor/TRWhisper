@@ -1,0 +1,75 @@
+﻿TRWhisper — Bu kurulum ne yapacak?
+==================================================================
+
+TRWhisper, Windows 11 için tamamen YEREL çalışan bir bas-konuş dikte
+uygulamasıdır. Sağ Ctrl tuşunu basılı tutup konuşursunuz, bıraktığınızda
+konuşmanız bilgisayarınızda metne çevrilir ve aktif pencereye yapıştırılır.
+
+
+1) NEREYE KURULUR?
+------------------------------------------------------------------
+  %LOCALAPPDATA%\Programs\TRWhisper  (varsayılan, değiştirilebilir)
+
+  Yönetici şifresi GEREKMEZ. Tek istisna: bilgisayarınızda "Microsoft
+  Visual C++ 2015-2022 Runtime" yoksa, onun kurulumu için Windows bir
+  kez izin (UAC) penceresi gösterir.
+
+
+2) HER ZAMAN KURULANLAR
+------------------------------------------------------------------
+  * TRWhisper uygulaması (.NET 9 gömülü — ayrıca .NET kurmanız
+    gerekmez)                                            ~175 MB
+  * Silero VAD sessizlik algılama modeli                 ~1 MB
+  * config.json ayar dosyası, lisans ve bildirim dosyaları
+  * Microsoft Visual C++ 2015-2022 Runtime (x64)
+    — YALNIZCA bilgisayarınızda yoksa indirilip kurulur  ~25 MB
+
+
+3) SİZİN SEÇECEKLERİNİZ (sonraki ekranlarda)
+------------------------------------------------------------------
+  a) Ses tanıma motoru:
+     * CPU sürümü        — her bilgisayarda çalışır, kuruluma dahil
+     * NVIDIA GPU (CUDA) — NVIDIA ekran kartınız varsa 8-10 kat daha
+       hızlıdır, ~640 MB indirilir (diskte ~1,2 GB)
+
+  b) Konuşma modelleri (en az birini seçmelisiniz):
+     * Large-v3 Turbo — en doğru sonuç, GPU önerilir   ~547 MB indirme
+     * Small          — CPU'da hızlı, doğruluğu düşük  ~465 MB indirme
+     İkisini birden kurabilir, dilediğiniz an sistem tepsisindeki
+     menüden aralarında geçiş yapabilirsiniz.
+
+  c) Kısayollar: masaüstü, Başlat menüsü ve Windows açılışında
+     otomatik başlatma — hepsi isteğe bağlıdır.
+
+
+4) İNTERNET KULLANIMI VE GİZLİLİK
+------------------------------------------------------------------
+  * Kurulum sırasında yalnızca seçtiğiniz bileşenler indirilir.
+    Kaynaklar: github.com/ggml-org (whisper.cpp), huggingface.co
+    (modeller), aka.ms (Microsoft Visual C++ Runtime). İndirilen her
+    dosya SHA-256 ile doğrulanır.
+  * Kurulumdan sonra ses tanıma TAMAMEN ÇEVRİMDIŞI çalışır. Sesiniz
+    hiçbir sunucuya gönderilmez.
+  * Tek istisna: isteğe bağlı "LLM Temizleme" özelliğini kendiniz açıp
+    kendi API anahtarınızı girerseniz, yalnızca metin (ses değil)
+    Gemini/OpenAI'ye gönderilir. Varsayılan olarak KAPALIDIR.
+
+
+5) BİLGİSAYARINIZA YAZILAN DİĞER DOSYALAR
+------------------------------------------------------------------
+  * %USERPROFILE%\Dictation\YYYY-AA.md  — dikte geçmişiniz
+  * %USERPROFILE%\Dictation\trwhisper.log — tanılama günlüğü
+  * Geçici ses kaydı (%TEMP%) işlem biter bitmez silinir.
+  Bu klasör kaldırma sırasında size sorulur; isterseniz korunur.
+
+
+6) KURULUMDAN SONRA
+------------------------------------------------------------------
+  * Windows mikrofon izni açık olmalıdır (Ayarlar > Gizlilik ve
+    güvenlik > Mikrofon). Kurulum sonunda bu ekranı açabilirsiniz.
+  * Uygulama sistem tepsisinde (sağ altta) çalışır: mavi = hazır,
+    kırmızı = kayıt, sarı = çözümleniyor.
+  * Windows SmartScreen "bilinmeyen yayımcı" uyarısı gösterebilir;
+    "Daha fazla bilgi" > "Yine de çalıştır" ile devam edin.
+
+İleri'ye basarak kuruluma devam edebilirsiniz.
