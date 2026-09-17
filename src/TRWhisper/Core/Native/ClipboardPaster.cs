@@ -41,9 +41,24 @@ namespace TRWhisper.Core.Native
             public UIntPtr dwExtraInfo;
         }
 
+        [StructLayout(LayoutKind.Sequential)]
+        private struct MOUSEINPUT
+        {
+            public int dx;
+            public int dy;
+            public uint mouseData;
+            public uint dwFlags;
+            public uint time;
+            public UIntPtr dwExtraInfo;
+        }
+
+        // MOUSEINPUT hiç kullanılmıyor ama birliğin en büyük üyesi o; eksik olursa
+        // Marshal.SizeOf<INPUT>() 64-bit'te 40 yerine 32 olur ve SendInput cbSize'ı
+        // reddeder (ERROR_INVALID_PARAMETER, 0 olay gönderilir → hiç yapıştırılmaz).
         [StructLayout(LayoutKind.Explicit)]
         private struct InputUnion
         {
+            [FieldOffset(0)] public MOUSEINPUT mi;
             [FieldOffset(0)] public KEYBDINPUT ki;
         }
 
@@ -66,72 +81,62 @@ namespace TRWhisper.Core.Native
         [DllImport("user32.dll")]
         private static extern IntPtr GetForegroundWindow();
 
-        public async Task PasteTextAsync(string text, int restoreDelayMs = 150)
+        public async Task<bool> PasteTextAsync(string text)
         {
-            if (string.IsNullOrEmpty(text)) return;
+            if (string.IsNullOrEmpty(text)) return false;
 
-            // 1. O anki panoyu yedekle (Retry mekanizması ile)
-            IDataObject? originalData = null;
+            // Önceki pano içeriği BİLEREK geri yüklenmiyor: Clipboard.GetDataObject() bir kopya
+            // değil canlı OLE pano nesnesi döndürür; onu geri yazmak ~11 sn zaman aşımına
+            // takılıp panoyu boşaltıyor ve kullanıcının Kopyala işlemini eziyordu.
+            // Dikte metni panoda kalır.
+
+            // Dikte edilen hedef pencereyi not al (yapıştırma öncesi tekrar kontrol edilir)
+            var targetWindow = GetForegroundWindow();
+
+            // 1. Metni panoya kopyala ve panonun gerçekten güncellendiğini doğrula
+            if (!await SetTextAsync(text))
+            {
+                // Metnimiz panoya yazılamadı (başka uygulama panoyu kilitliyor).
+                // Ctrl+V gönderirsek hedefe yanlış/eski içerik gider — iptal et.
+                FileLog.Write("[ClipboardPaster] Pano güncellenemedi, yapıştırma iptal edildi.");
+                return false;
+            }
+
+            // Kullanıcının fiziksel tuşları bıraktığından emin olmak için minik bir nefes payı
+            await Task.Delay(25);
+
+            if (targetWindow != IntPtr.Zero && GetForegroundWindow() != targetWindow)
+            {
+                FileLog.Write("[ClipboardPaster] Uyarı: ön plandaki pencere değişti, yapıştırma farklı bir hedefe gidebilir.");
+            }
+
+            // 2. Win32 SendInput ile Ctrl + V simüle et
+            SendCtrlV();
+            return true;
+        }
+
+        /// <summary>
+        /// Metni kısa ömürlü bir STA thread'inde panoya yazar ve panonun gerçekten güncellendiğini
+        /// (sequence number) doğrular. Otomatik yapıştırma ve pill'deki Kopyala butonu birlikte kullanır;
+        /// çağıran thread'i (UI dahil) bloklamaz.
+        /// </summary>
+        public static async Task<bool> SetTextAsync(string text)
+        {
+            uint seqBefore = GetClipboardSequenceNumber();
             await RunOnStaThreadAsync(() =>
             {
-                originalData = SafeGetClipboardData();
+                SafeSetClipboardText(text);
             });
 
-            try
+            // Chromium/UWP tabanlı hedefler (VS Code, tarayıcı, Slack) panoyu asenkron
+            // okur; Ctrl+V'den önce yazımın tamamlandığından emin ol
+            // (normalde 0-10 ms, en fazla ~200 ms).
+            for (int i = 0; i < 20; i++)
             {
-                // Dikte edilen hedef pencereyi not al (yapıştırma öncesi tekrar kontrol edilir)
-                var targetWindow = GetForegroundWindow();
-
-                // 2. Metni panoya kopyala ve panonun gerçekten güncellendiğini doğrula
-                uint seqBefore = GetClipboardSequenceNumber();
-                await RunOnStaThreadAsync(() =>
-                {
-                    SafeSetClipboardText(text);
-                });
-
-                // Chromium/UWP tabanlı hedefler (VS Code, tarayıcı, Slack) panoyu asenkron
-                // okur; Ctrl+V'den önce yazımın tamamlandığından emin ol
-                // (normalde 0-10 ms, en fazla ~200 ms).
-                bool clipboardUpdated = false;
-                for (int i = 0; i < 20; i++)
-                {
-                    if (GetClipboardSequenceNumber() != seqBefore) { clipboardUpdated = true; break; }
-                    await Task.Delay(10);
-                }
-
-                if (!clipboardUpdated)
-                {
-                    // Metnimiz panoya yazılamadı (başka uygulama panoyu kilitliyor).
-                    // Ctrl+V gönderirsek hedefe yanlış/eski içerik gider — iptal et.
-                    FileLog.Write("[ClipboardPaster] Pano güncellenemedi, yapıştırma iptal edildi.");
-                    return;
-                }
-
-                // Kullanıcının fiziksel tuşları bıraktığından emin olmak için minik bir nefes payı
-                await Task.Delay(25);
-
-                if (targetWindow != IntPtr.Zero && GetForegroundWindow() != targetWindow)
-                {
-                    FileLog.Write("[ClipboardPaster] Uyarı: ön plandaki pencere değişti, yapıştırma farklı bir hedefe gidebilir.");
-                }
-
-                // 3. Win32 SendInput ile Ctrl + V simüle et
-                SendCtrlV();
-
-                // 4. Hedef uygulamanın (Notepad, Word, tarayıcı vb.) panodan veriyi okuması için bekle
-                await Task.Delay(restoreDelayMs);
+                if (GetClipboardSequenceNumber() != seqBefore) return true;
+                await Task.Delay(10);
             }
-            finally
-            {
-                // 5. Orijinal panoyu geri yükle
-                if (originalData != null)
-                {
-                    await RunOnStaThreadAsync(() =>
-                    {
-                        SafeRestoreClipboardData(originalData);
-                    });
-                }
-            }
+            return false;
         }
 
         private void SendCtrlV()
@@ -175,28 +180,7 @@ namespace TRWhisper.Core.Native
             }
         };
 
-        private IDataObject? SafeGetClipboardData()
-        {
-            for (int i = 0; i < 5; i++)
-            {
-                try
-                {
-                    return Clipboard.GetDataObject();
-                }
-                catch (ExternalException)
-                {
-                    Thread.Sleep(20);
-                }
-                catch (Exception ex)
-                {
-                    FileLog.Write($"[ClipboardPaster] Pano okuma hatası: {ex.Message}");
-                    break;
-                }
-            }
-            return null;
-        }
-
-        private void SafeSetClipboardText(string text)
+        private static void SafeSetClipboardText(string text)
         {
             for (int i = 0; i < 5; i++)
             {
@@ -212,29 +196,6 @@ namespace TRWhisper.Core.Native
                 catch (Exception ex)
                 {
                     FileLog.Write($"[ClipboardPaster] Pano yazma hatası: {ex.Message}");
-                    break;
-                }
-            }
-        }
-
-        private void SafeRestoreClipboardData(IDataObject data)
-        {
-            // Office uygulamaları (Word/Excel) yapıştırma sonrası panoyu daha uzun süre
-            // açık tutar; geri yükleme için daha geniş bir retry penceresi kullan.
-            for (int i = 0; i < 10; i++)
-            {
-                try
-                {
-                    Clipboard.SetDataObject(data, true);
-                    return;
-                }
-                catch (ExternalException)
-                {
-                    Thread.Sleep(30);
-                }
-                catch (Exception ex)
-                {
-                    FileLog.Write($"[ClipboardPaster] Pano geri yükleme hatası: {ex.Message}");
                     break;
                 }
             }

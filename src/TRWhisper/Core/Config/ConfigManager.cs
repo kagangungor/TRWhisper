@@ -22,6 +22,12 @@ namespace TRWhisper.Core.Config
     {
         public string CliPath { get; set; } = "tools\\whisper\\whisper-cli.exe";
         public string ModelPath { get; set; } = "tools\\whisper\\ggml-large-v3-turbo-q5_0.bin";
+
+        /// <summary>
+        /// whisper-cli'nin yerleşik Silero VAD modeli. Dosya varsa konuşma içermeyen kısımlar
+        /// atlanır; tamamen sessiz kayıtta whisper "Altyazı M.K." gibi uydurma metin üretmez.
+        /// </summary>
+        public string VadModelPath { get; set; } = "tools\\whisper\\ggml-silero-v6.2.0.bin";
         public int Threads { get; set; } = 4;
         public bool NoTimestamps { get; set; } = true;
 
@@ -44,7 +50,13 @@ namespace TRWhisper.Core.Config
             get => ResolvePath(ModelPath);
         }
 
-        private static string ResolvePath(string path)
+        [JsonIgnore]
+        public string ResolvedVadModelPath
+        {
+            get => ResolvePath(VadModelPath);
+        }
+
+        public static string ResolvePath(string path)
         {
             var expanded = Environment.ExpandEnvironmentVariables(path);
             if (Path.IsPathRooted(expanded) && File.Exists(expanded))
@@ -81,17 +93,11 @@ namespace TRWhisper.Core.Config
         public string SystemPrompt { get; set; } = "Aşağıdaki metin Türkçe sesli dikte çıktısıdır. Dolgu kelimelerini (ııı, eee, şey, yani) temizle, noktalama ve imlayı düzelt. YALNIZCA düzeltilmiş metni döndür.";
     }
 
-    public class PasteSettingsConfig
-    {
-        public int RestoreClipboardDelayMs { get; set; } = 150;
-    }
-
     public class AppConfig
     {
         public GeneralConfig General { get; set; } = new();
         public WhisperConfig Whisper { get; set; } = new();
         public LlmCleaningConfig LlmCleaning { get; set; } = new();
-        public PasteSettingsConfig PasteSettings { get; set; } = new();
     }
 
     public class ConfigManager

@@ -5,9 +5,10 @@ namespace TRWhisper.Core.Native
     public interface IClipboardPaster
     {
         /// <summary>
-        /// O anki panoyu yedekler, verilen metni panoya yazar, Win32 SendInput ile Ctrl+V simüle eder
-        /// ve restoreDelayMs süre sonra orijinal pano içeriğini geri yükler.
+        /// Verilen metni panoya yazar ve Win32 SendInput ile Ctrl+V simüle eder. Metin panoda kalır
+        /// (önceki pano içeriği geri yüklenmez). Metin panoya yazılabildiyse true döner; yazılamadıysa
+        /// Ctrl+V gönderilmez ve false döner.
         /// </summary>
-        Task PasteTextAsync(string text, int restoreDelayMs = 150);
+        Task<bool> PasteTextAsync(string text);
     }
 }

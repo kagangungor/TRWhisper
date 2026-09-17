@@ -63,7 +63,7 @@ namespace TRWhisper.Core
                         {
                             if (!_audioRecorder.IsRecording) return;
                         }
-                        var path = await _audioRecorder.StopRecordingAsync();
+                        var path = await _audioRecorder.StopRecordingAsync().ConfigureAwait(false);
                         if (File.Exists(path)) { try { File.Delete(path); } catch { } }
                         _trayController.SetState(AppState.Idle);
                     });
@@ -139,8 +139,8 @@ namespace TRWhisper.Core
 
                     // 1. Kaydı durdur (en fazla 2000 ms bekle)
                     var stopTask = _audioRecorder.StopRecordingAsync();
-                    var stopFinished = await Task.WhenAny(stopTask, Task.Delay(2000, ct));
-                    wavPath = stopFinished == stopTask ? await stopTask : null;
+                    var stopFinished = await Task.WhenAny(stopTask, Task.Delay(2000, ct)).ConfigureAwait(false);
+                    wavPath = stopFinished == stopTask ? await stopTask.ConfigureAwait(false) : null;
 
                     // Çok kısa basma kontrolü (< 350ms ise muhtemelen yanlışlıkla basılmıştır)
                     var duration = DateTime.Now - _recordingStartTime;
@@ -162,7 +162,7 @@ namespace TRWhisper.Core
                     // 2. Yerel Whisper ile transkribe et
                     FileLog.Write($"[DictationCoordinator] Whisper transkripsiyonu başlatılıyor ({wavPath})...");
                     var language = _configManager.Current.General.Language;
-                    var rawTranscript = await _transcriptionEngine.TranscribeAsync(wavPath, language, ct);
+                    var rawTranscript = await _transcriptionEngine.TranscribeAsync(wavPath, language, ct).ConfigureAwait(false);
                     ct.ThrowIfCancellationRequested();
 
                     if (string.IsNullOrWhiteSpace(rawTranscript))
@@ -185,7 +185,7 @@ namespace TRWhisper.Core
                     {
                         try
                         {
-                            finalTranscript = await _llmCleaner.CleanTranscriptAsync(rawTranscript, ct);
+                            finalTranscript = await _llmCleaner.CleanTranscriptAsync(rawTranscript, ct).ConfigureAwait(false);
                         }
                         catch (Exception ex)
                         {
@@ -196,17 +196,17 @@ namespace TRWhisper.Core
 
                     ct.ThrowIfCancellationRequested();
 
-                    // 4. Pop-up penceresinde sonucu göster (Kopyalama butonuyla birlikte)
-                    _overlayWindow?.ShowResult(finalTranscript, autoCopiedToClipboard: true);
-
-                    // 5. Panoyu yedekle, metni yapıştır, panoyu geri yükle
+                    // 4. Metni panoya yaz ve yapıştır (metin panoda kalır)
                     FileLog.Write($"[DictationCoordinator] Pano yapıştırma başlatılıyor...");
-                    var delay = _configManager.Current.PasteSettings.RestoreClipboardDelayMs;
-                    await _clipboardPaster.PasteTextAsync(finalTranscript, delay);
-                    FileLog.Write($"[DictationCoordinator] Pano yapıştırma tamamlandı.");
+                    var copiedToClipboard = await _clipboardPaster.PasteTextAsync(finalTranscript).ConfigureAwait(false);
+                    FileLog.Write($"[DictationCoordinator] Pano yapıştırma tamamlandı (panoya yazıldı={copiedToClipboard}).");
+
+                    // 5. Pop-up penceresinde sonucu göster (Kopyalama butonuyla birlikte);
+                    // "Panoya kopyalandı" yalnızca metin gerçekten panoya yazıldıysa gösterilir.
+                    _overlayWindow?.ShowResult(finalTranscript, autoCopiedToClipboard: copiedToClipboard);
 
                     // 6. Yerel Günlüğe (%USERPROFILE%\Dictation\YYYY-MM.md) yaz
-                    await _logger.LogTranscriptAsync(finalTranscript, shouldCleanWithLlm, rawTranscript);
+                    await _logger.LogTranscriptAsync(finalTranscript, shouldCleanWithLlm, rawTranscript).ConfigureAwait(false);
 
                     // 7. Tepsi menüsündeki son 10 transkript listesine ekle
                     _history.Add(finalTranscript, shouldCleanWithLlm, rawTranscript);
@@ -217,7 +217,7 @@ namespace TRWhisper.Core
                 try
                 {
                     var pipeline = RunPipelineAsync(cts.Token);
-                    var finished = await Task.WhenAny(pipeline, Task.Delay(overallTimeout));
+                    var finished = await Task.WhenAny(pipeline, Task.Delay(overallTimeout)).ConfigureAwait(false);
 
                     if (finished != pipeline)
                     {
@@ -235,13 +235,13 @@ namespace TRWhisper.Core
                         {
                             _ = Task.Run(async () =>
                             {
-                                try { await _audioRecorder.StopRecordingAsync(); } catch { }
+                                try { await _audioRecorder.StopRecordingAsync().ConfigureAwait(false); } catch { }
                             });
                         }
                         return;
                     }
 
-                    await pipeline; // hattaki istisnaları yeniden fırlat
+                    await pipeline.ConfigureAwait(false); // hattaki istisnaları yeniden fırlat
                 }
                 catch (OperationCanceledException)
                 {

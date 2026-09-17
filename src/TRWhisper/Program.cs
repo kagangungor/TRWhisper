@@ -97,6 +97,13 @@ namespace TRWhisper
                 configManager.Save(cfg);
             };
 
+            trayController.WhisperModelChanged += (modelPath) =>
+            {
+                var cfg = configManager.Current;
+                cfg.Whisper.ModelPath = modelPath;
+                configManager.Save(cfg);
+            };
+
             coordinator.Start();
 
             // WPF Message Loop çalıştır

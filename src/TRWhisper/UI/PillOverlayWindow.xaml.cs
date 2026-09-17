@@ -4,6 +4,8 @@ using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media.Animation;
 using System.Windows.Threading;
+using TRWhisper.Core.Diagnostics;
+using TRWhisper.Core.Native;
 
 namespace TRWhisper.UI
 {
@@ -174,13 +176,15 @@ namespace TRWhisper.UI
             RequestFinish?.Invoke();
         }
 
-        private void CopyButton_Click(object sender, RoutedEventArgs e)
+        private async void CopyButton_Click(object sender, RoutedEventArgs e)
         {
             if (!string.IsNullOrEmpty(_currentTranscript))
             {
-                try
+                // WPF Clipboard.SetText UI thread'inde panoyu iki kez açar (yazma + flush); başka bir
+                // uygulama panoyu kısa süre kilitlediğinde yeniden dener ya da takılır ve pill donar.
+                // Otomatik yapıştırmanın STA + doğrulama yolunu arka planda kullan.
+                if (await ClipboardPaster.SetTextAsync(_currentTranscript))
                 {
-                    System.Windows.Clipboard.SetText(_currentTranscript);
                     ResultInfoText.Text = "Panoya kopyalandı ✓";
 
                     var copyText = CopyButton.Template.FindName("CopyText", CopyButton) as System.Windows.Controls.TextBlock;
@@ -195,9 +199,10 @@ namespace TRWhisper.UI
                     };
                     closeTimer.Start();
                 }
-                catch (Exception ex)
+                else
                 {
-                    Console.WriteLine($"[PillOverlay] Pano kopyalama hatası: {ex.Message}");
+                    FileLog.Write("[PillOverlay] Kopyala: pano güncellenemedi (başka bir uygulama panoyu kilitliyor olabilir).");
+                    ResultInfoText.Text = "Kopyalanamadı, tekrar deneyin";
                 }
             }
         }

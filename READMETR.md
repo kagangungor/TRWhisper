@@ -2,32 +2,40 @@
 
 [🇹🇷 Türkçe](READMETR.md) | [🇬🇧 English](README.md)
 
-**TRWhisper**, Windows 11 için geliştirilmiş, Superwhisper alternatifi, tamamen yerel çalışan, sıfır telemetrili bir "bas-konuş" (push-to-talk) dikte uygulamasıdır.
+**TRWhisper**, Windows 11 için geliştirilmiş, Superwhisper alternatifi, tamamen yerel çalışan, sıfır telemetrili bir "bas-konuş" (push-to-talk) dikte uygulamasıdır. Türkçe dikte için ayarlanmıştır.
 
 ---
 
 ## 🚀 Temel Özellikler
 
-- **Global Kısayol Tuşu**: Varsayılan olarak **Sağ Ctrl (Right Ctrl)** tuşuna basılı tuttuğunuzda konuşmayı kaydeder, tuşu bıraktığınız anda yerel yapay zeka ile metne dönüştürür.
-- **Akıllı Pano ve Otomatik Yapıştırma**:
-  1. O anki pano (clipboard) içeriğini belleğe yedekler.
-  2. Transkript metnini panoya kopyalar.
-  3. Win32 `SendInput` API'si ile `Ctrl + V` tuşlayarak imlecin bulunduğu aktif alana anında yapıştırır.
-  4. 150 ms sonra orijinal panonuzu geri yükler (panonuzdaki metin/görseller kaybolmaz).
-- **Tamamen Çevrimdışı & Güvenli (STT)**: `whisper.cpp` yerel motoru ve **Whisper Large-v3 Turbo** (`ggml-large-v3-turbo-q5_0.bin`) modeli kullanır. Sesiniz hiçbir sunucuya veya buluta gönderilmez.
-- **Modern Kayan Durum Hapı (Floating Pill Overlay)**: Dikte sırasında ekranınızda anlık durum bildirimleri gösterir (🔴 Dinliyor... / 🟡 Çözümleniyor... / 🟢 Tamamlandı).
-- **Konuşma Dışı Ses Filtreleme**: Modelin ürettiği `[MÜZİK ÇALIYOR]`, `[SESSİZLİK]`, `[BLANK_AUDIO]` gibi konuşma dışı etiketleri otomatik olarak temizler.
-- **Opsiyonel LLM Temizleme Modu**: **Sağ Ctrl + Sağ Shift** kombinasyonuyla konuşursanız, transkript Gemini veya OpenAI API'sine iletilerek dolgu kelimeleri (`ııı`, `eee`, `şey`, `yani`) temizlenir, noktalama düzeltilir ve öyle yapıştırılır.
-- **Sistem Tepsisi (System Tray)**:
-  - 🔵 **Mavi**: Boşta (Hazır)
-  - 🔴 **Kırmızı**: Kaydediyor (Konuşun)
-  - 🟡 **Sarı**: Çözümlüyor (Transkribe ediliyor)
-  - Sağ tık menüsünde: **Son 10 transkript**, tek tıkla kopyalama, dikte klasörünü açma, ayarlar ve çıkış.
-- **Yerel Günlük**: Her başarılı transkript zaman damgasıyla `%USERPROFILE%\Dictation\YYYY-MM.md` dosyasına kaydedilir. Geçici ses dosyası diskten derhal silinir.
+- **Global Kısayol Tuşu**: **Sağ Ctrl** tuşunu basılı tutarak konuşun; tuşu bıraktığınızda konuşma yerel olarak metne dönüştürülür.
+- **Otomatik Yapıştırma**:
+  1. Transkript metnini panoya (clipboard) kopyalar.
+  2. Win32 `SendInput` API'si ile `Ctrl + V` tuşlayarak imlecin bulunduğu alana yapıştırır.
+  3. Metin panoda kalır; başka bir yere de `Ctrl + V` ile yapıştırabilirsiniz (önceki pano içeriğinin yerini alır; Windows pano geçmişi açıksa `Win + V` ile hâlâ erişilebilir).
+- **Tamamen Çevrimdışı ve Gizli (STT)**: Yerel `whisper.cpp` motoruyla çalışır. Sesiniz hiçbir sunucuya gönderilmez.
+- **NVIDIA GPU Hızlandırma (isteğe bağlı)**: `whisper.cpp`'nin CUDA derlemesiyle **Large-v3 Turbo** modeli kısa bir dikteyi işlemcideki ~23 saniye yerine ~2–3 saniyede çözer (bkz. [Performans](#-performans)). GPU yoksa otomatik olarak işlemciye geçer.
+- **Tepsiden Model Seçimi**: **Small** (işlemcide daha hızlı, daha az doğru) ile **Large-v3 Turbo** (en doğru) arasında istediğiniz an geçiş yapabilirsiniz; yeniden başlatma gerekmez. Dosyası olmayan model menüde soluk görünür; kullanılabilir NVIDIA GPU'su olmayan bir bilgisayarda Turbo seçilirse "yavaş olabilir" uyarısı gösterilir.
+- **Sessizlik Algılama ve Uydurma Metin Filtresi**:
+  - `whisper.cpp`'nin yerleşik **Silero VAD** özelliği konuşma olmayan kısımları atlar. Kısayola basıp konuşmazsanız hiçbir şey yapıştırılmaz ("Altyazı M.K." gibi hayalet metinler yerine).
+  - Whisper'ın bilinen uydurmaları (ör. `Altyazı M.K.`, `İzlediğiniz için teşekkür ederim.`) ve konuşma dışı etiketler (`[MÜZİK ÇALIYOR]`, `(Müzik)`, `[BLANK_AUDIO]`) temizlenir. Bu yalnızca satırın tamamı böyleyse yapılır, gerçek dikte kesilmez.
+- **Kayan Durum Hapı (Pill Overlay)**: Kayıt sırasında **Dinleniyor**, işlem sırasında **Çözümleniyor...** gösterir; iptal (✕) ve bitir (✓) düğmeleri vardır. İş bitince transkripti bir **Kopyala** düğmesiyle birlikte gösterir.
+- **İsteğe Bağlı LLM Temizleme Modu**: Konuşurken **Sağ Ctrl + Shift** tuşlarını basılı tutarsanız (veya tepsi menüsünden **✨ LLM Temizleme**'yi açarsanız) transkript Gemini veya OpenAI API'sine gönderilir; dolgu kelimeleri (`ııı`, `eee`, `şey`, `yani`) temizlenip noktalama düzeltildikten sonra yapıştırılır.
+- **Sistem Tepsisi**:
+  - 🔵 **Mavi**: Boşta (hazır)
+  - 🔴 **Kırmızı**: Kaydediyor (konuşun)
+  - 🟡 **Amber**: Çözümlüyor
+  - Sağ tık menüsü: LLM temizleme anahtarı, **🧠 Whisper Modeli**, **son 10 transkript** (tıklayınca kopyalanır), dikte klasörünü açma, ayarları açma ve çıkış.
+- **Yerel Günlük**: Her transkript zaman damgasıyla `%USERPROFILE%\Dictation\YYYY-MM.md` dosyasına kaydedilir. Geçici ses dosyası hemen silinir. Tanılama mesajları `%USERPROFILE%\Dictation\trwhisper.log` dosyasına yazılır.
 
 ---
 
 ## 🛠️ Kurulum ve Gereksinimler
+
+**Gereksinimler**
+- Windows 11 x64
+- [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0) (kaynak koddan derlemek için)
+- İsteğe bağlı: GPU hızlandırma için güncel sürücülü (CUDA 12.4 destekli) bir NVIDIA ekran kartı
 
 ### 1. Windows Mikrofon İzinleri
 Windows 11'de mikrofon erişiminin açık olduğundan emin olun:
@@ -36,24 +44,39 @@ Windows 11'de mikrofon erişiminin açık olduğundan emin olun:
 3. **"Masaüstü uygulamalarının mikrofonunuza erişmesine izin verin"** seçeneğinin **Açık** olduğundan emin olun.
 
 ### 2. Whisper Motoru ve Model Kurulumu (Otomatik)
-Proje kök dizinindeyken PowerShell ile otomatik kurulum betiğini çalıştırın:
+Proje kök dizinindeyken PowerShell ile kurulum betiğini çalıştırın:
+
 ```powershell
+# İşlemci (CPU) derlemesi + Large-v3 Turbo modeli + VAD modeli
 powershell -ExecutionPolicy Bypass -File scripts\setup.ps1
+
+# Bunun yerine NVIDIA GPU (CUDA 12.4) derlemesi — NVIDIA ekran kartınız varsa önerilir
+powershell -ExecutionPolicy Bypass -File scripts\setup.ps1 -Cuda
+
+# Ek olarak Small modelini indirmek için (tepsiden modeller arasında geçiş yapabilmek için)
+powershell -ExecutionPolicy Bypass -File scripts\setup.ps1 -Model small
 ```
+
 Bu betik:
-- `tools\whisper\` klasörünü oluşturur.
-- Son sürüm `whisper.cpp` Windows x64 binary'sini indirir.
-- Hugging Face üzerinden `ggml-large-v3-turbo-q5_0.bin` (~547 MB) modelini indirir.
-- `%USERPROFILE%\Dictation\` klasörünü hazırlar.
+- `tools\whisper\` ve `%USERPROFILE%\Dictation\` klasörlerini oluşturur.
+- Test edilmiş `whisper.cpp` **v1.9.3** (derleme `b4938`) Windows x64 dosyalarını indirir: işlemci derlemesi (~8 MB) ya da `-Cuda` ile CUDA 12.4 derlemesi (~640 MB indirme, açılmış hali ~1,2 GB). Mevcut bir işlemci kurulumunda `-Cuda` ile tekrar çalıştırmak onu GPU derlemesine yükseltir.
+- Seçilen modeli (varsayılan `large-v3-turbo-q5_0`) ve Silero VAD modelini indirir.
+- Zaten mevcut olan dosyaları atlar.
+
+| Dosya | Boyut | Amaç |
+|---|---|---|
+| `ggml-large-v3-turbo-q5_0.bin` | ~547 MB | Varsayılan model, en doğru |
+| `ggml-small.bin` | ~465 MB | İşlemcide daha hızlı, daha az doğru |
+| `ggml-silero-v6.2.0.bin` | ~1 MB | Ses etkinliği algılama (sessizlik filtresi) |
 
 > **Manuel İndirmek İsterseniz:**
-> - Whisper Binary: [whisper.cpp Releases](https://github.com/ggerganov/whisper.cpp/releases) -> `whisper-bin-x64.zip` indirip içindeki `whisper-cli.exe` dosyasını `tools\whisper\` içine atın.
-> - GGML Modeli: [Hugging Face ggml-large-v3-turbo-q5_0.bin](https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q5_0.bin) dosyasını indirip `tools\whisper\ggml-large-v3-turbo-q5_0.bin` olarak kaydedin.
+> - Whisper dosyaları ([b4938 sürümü](https://github.com/ggml-org/whisper.cpp/releases/tag/b4938)): `whisper-bin-x64.zip` (işlemci) veya `whisper-cublas-12.4.0-bin-x64.zip` (NVIDIA GPU) paketini indirip içindeki `Release` klasörünün **tüm dosyalarını** `tools\whisper\` içine çıkarın.
+> - Modeller: [ggml-large-v3-turbo-q5_0.bin](https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q5_0.bin), [ggml-small.bin](https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin) ve [ggml-silero-v6.2.0.bin](https://huggingface.co/ggml-org/whisper-vad/resolve/main/ggml-silero-v6.2.0.bin) dosyalarını `tools\whisper\` içine kaydedin.
 
 ### 3. Windows SmartScreen ve Defender Uyarılarını Geçme
-TRWhisper yerel bir low-level klavye hook (`WH_KEYBOARD_LL`) ve `SendInput` API'si kullandığı için Windows Defender veya SmartScreen ilk çalıştırmada koruma uyarısı verebilir:
-1. **SmartScreen penceresi çıkarsa:** **"Ek Bilgi" (More Info)** butonuna tıklayın ve **"Yine de çalıştır" (Run anyway)** seçeneğini seçin.
-2. **Windows Defender İstisnası Eklemek (Opsiyonel):**
+TRWhisper düşük seviyeli bir klavye kancası (`WH_KEYBOARD_LL`) ve `SendInput` API'si kullandığı için Windows Defender veya SmartScreen ilk çalıştırmada uyarı verebilir:
+1. **SmartScreen penceresi çıkarsa:** **"Ek Bilgi" (More Info)** düğmesine tıklayın ve **"Yine de çalıştır" (Run anyway)** seçeneğini seçin.
+2. **Windows Defender İstisnası Eklemek (İsteğe bağlı):**
    ```powershell
    # PowerShell'i Yönetici olarak proje dizininde açıp istisnalara ekleyebilirsiniz:
    Add-MpPreference -ExclusionPath (Get-Location).Path
@@ -64,7 +87,7 @@ TRWhisper yerel bir low-level klavye hook (`WH_KEYBOARD_LL`) ve `SendInput` API'
 
 ## ⚙️ Yapılandırma (`config.json`)
 
-Uygulama dizinindeki `config.json` dosyasını Not Defteri ile açarak veya Sistem Tepsisi simgesine sağ tıklayıp **"⚙️ Ayarları Aç"** diyerek düzenleyebilirsiniz:
+Uygulama dizinindeki `config.json` dosyasını Not Defteri ile açarak veya tepsi simgesine sağ tıklayıp **"⚙️ Ayarları Aç"** diyerek düzenleyebilirsiniz:
 
 ```json
 {
@@ -76,6 +99,7 @@ Uygulama dizinindeki `config.json` dosyasını Not Defteri ile açarak veya Sist
   "Whisper": {
     "CliPath": "tools\\whisper\\whisper-cli.exe",
     "ModelPath": "tools\\whisper\\ggml-large-v3-turbo-q5_0.bin",
+    "VadModelPath": "tools\\whisper\\ggml-silero-v6.2.0.bin",
     "Threads": 8,
     "NoTimestamps": true,
     "TimeoutSeconds": 120
@@ -87,14 +111,41 @@ Uygulama dizinindeki `config.json` dosyasını Not Defteri ile açarak veya Sist
     "Model": "gemini-2.5-flash",
     "Endpoint": "https://generativelanguage.googleapis.com/v1beta/models",
     "SystemPrompt": "Aşağıdaki metin Türkçe sesli dikte çıktısıdır. Dolgu kelimelerini (ııı, eee, şey, yani) temizle, noktalama ve imlayı düzelt. YALNIZCA düzeltilmiş metni döndür."
-  },
-  "PasteSettings": {
-    "RestoreClipboardDelayMs": 150
   }
 }
 ```
 
-> **İpucu:** Gemini API anahtarınızı Google AI Studio üzerinden ücretsiz alıp `ApiKey` alanına yapıştırabilirsiniz. Anahtar boş bırakılırsa LLM temizleme modu devre dışı kalır ve doğrudan yerel ham transkript yapıştırılır.
+- **`ModelPath`**: kullanılan model. Tepsi menüsünden model seçildiğinde bu alan güncellenir.
+- **`VadModelPath`**: sessizlik algılama modeli. Dosya yoksa TRWhisper VAD olmadan çalışmaya devam eder ve log'a not düşer.
+- **`TimeoutSeconds`**: tek bir çözümlemenin en uzun süresi; aşılırsa `whisper-cli` durdurulur.
+- **`Provider`**: `Gemini` veya `OpenAI`.
+
+> **İpucu:** Gemini API anahtarınızı Google AI Studio üzerinden ücretsiz alıp `ApiKey` alanına yapıştırabilirsiniz. Anahtar boş bırakılırsa LLM temizleme atlanır ve yerel ham transkript yapıştırılır.
+
+---
+
+## ⚡ Performans
+
+Intel Core i5-12450H + NVIDIA GeForce RTX 3050 Laptop GPU (4 GB) üzerinde, Türkçe konuşma örnekleriyle ölçülmüştür. Süreler, her diktede yeniden yapılan model yüklemesini de içerir.
+
+| Motor | Model | 3,2 sn konuşma | 10,7 sn konuşma |
+|---|---|---|---|
+| İşlemci (CPU) | Small | 6,5 sn | 9,3 sn |
+| İşlemci (CPU) | Large-v3 Turbo | 23,1 sn | 24,4 sn |
+| CUDA (RTX 3050) | Small | 2,2 sn | 2,8 sn |
+| CUDA (RTX 3050) | Large-v3 Turbo | 2,5 sn | 3,1 sn |
+
+- GPU'da Turbo, işlemcideki Small'dan hem daha hızlı hem daha doğrudur; ~1,2 GB VRAM kullanır.
+- GPU bir süre boşta kaldıktan sonraki ilk dikte birkaç saniye daha uzun sürebilir.
+- Konuşma yoksa VAD sayesinde ağır işlem atlanır; boş bir kayıt ~1–2 saniyede biter.
+
+---
+
+## 🩺 Sorun Giderme
+
+- **Bir şey beklendiği gibi çalışmıyorsa:** `%USERPROFILE%\Dictation\trwhisper.log` dosyasına bakın.
+- **Yönetici olarak çalışan bir uygulamaya metin yapıştırılmıyor:** Windows, normal bir uygulamanın yönetici yetkili pencerelere tuş göndermesini engeller. Metin yine panodadır; `Ctrl + V` ile yapıştırabilirsiniz.
+- **Çözümleme 20 saniyeden uzun sürüyor:** büyük ihtimalle Large-v3 Turbo işlemcide çalışıyor. NVIDIA ekran kartınız varsa `setup.ps1 -Cuda` ile CUDA derlemesini kurun ya da tepsi menüsünden **Small** modelini seçin.
 
 ---
 
@@ -105,6 +156,8 @@ PowerShell ile:
 # Geliştirme modunda çalıştırma
 powershell -ExecutionPolicy Bypass -File scripts\build.ps1 -Run
 
-# Bağımsız Release paketi oluşturma
+# Bağımsız, tek dosyalık Release paketi oluşturma (publish\ klasörüne)
 powershell -ExecutionPolicy Bypass -File scripts\build.ps1 -Publish
 ```
+
+> **Not:** Paketi her zaman `build.ps1 -Publish` ile oluşturun. Bu komut WPF'in native kütüphanelerini tek dosyalık exe'nin içine gömer (`IncludeNativeLibrariesForSelfExtract`); bu seçenek olmadan yapılan düz bir `dotnet publish`, açılışta çöken bir exe üretir. Uygulama `tools\whisper\` klasörünü exe'nin yanında ya da üst klasörlerinde bulur.

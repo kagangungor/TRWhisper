@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     TRWhisper projesini derler veya çalıştırır.
 #>

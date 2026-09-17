@@ -17,10 +17,25 @@ namespace TRWhisper.Core.Speech
         private static readonly Regex TimestampRegex = new(@"\[\d{2}:\d{2}:\d{2}\.\d{3}\s*-->\s*\d{2}:\d{2}:\d{2}\.\d{3}\]", RegexOptions.Compiled);
         private static readonly Regex MetaRegex = new(@"\[(BLANK_AUDIO|MUSIC|LAUGHTER|APPLAUSE)\]", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
-        // Tüm satır (veya tüm çıktı) tek bir köşeli-parantez ifadesinden ibaretse bu
-        // whisper'ın konuşma-dışı etiketidir ([MÜZİK ÇALIYOR], [müzik çalıyor], [SESSİZLİK] ...).
+        // Tüm satır (veya tüm çıktı) tek bir köşeli- ya da normal-parantez ifadesinden ibaretse bu
+        // whisper'ın konuşma-dışı etiketidir ([MÜZİK ÇALIYOR], [SESSİZLİK], (Müzik), (Alkış) ...).
         // Türkçe derlemede bu etiketler çıkabiliyor ve olduğu gibi yapıştırılıyordu.
-        private static readonly Regex LineBracketRegex = new(@"^\[[^\]]{0,40}\]$", RegexOptions.Compiled);
+        private static readonly Regex LineBracketRegex = new(@"^(\[[^\]]{0,40}\]|\([^\)]{0,40}\))$", RegexOptions.Compiled);
+
+        // Whisper'ın sessizlik/gürültüde uydurduğu, altyazı verisinden gelen bilinen Türkçe cümleler.
+        // Yalnızca satırın TAMAMI eşleşirse atılır (küçük harfe çevrilip sondaki noktalama
+        // yok sayılarak); böylece gerçek diktedeki "... teşekkür ederim" korunur. VAD asıl
+        // korumadır, bu liste VAD'in kaçırdığı durumlar için ek güvenliktir.
+        private static readonly HashSet<string> KnownHallucinations = new(StringComparer.Ordinal)
+        {
+            "altyazı m.k",
+            "altyazı: m.k",
+            "izlediğiniz için teşekkür ederim",
+            "izlediğiniz için teşekkürler",
+            "abone olmayı unutmayın",
+        };
+
+        private static readonly System.Globalization.CultureInfo TurkishCulture = new("tr-TR");
 
         public WhisperCliRunner(ConfigManager configManager)
         {
@@ -71,6 +86,14 @@ namespace TRWhisper.Core.Speech
             // sonra kapanmıyordu ve Process.WaitForExitAsync _output.EOF/_error.EOF'u
             // (token'sız) sonsuza kadar bekleyip "Çözümleniyor..." takılmasına yol açıyordu.
             var args = $"-m \"{modelPath}\" -f \"{wavFilePath}\" -l {language} -t {cfg.Threads} -nt -otxt";
+
+            // Silero VAD: konuşma yoksa whisper boş çıktı verir (uydurma metin üretmez).
+            // Model dosyası yoksa dikte bozulmasın diye VAD'siz devam edilir.
+            var vadModelPath = cfg.ResolvedVadModelPath;
+            if (File.Exists(vadModelPath))
+                args += $" --vad -vm \"{vadModelPath}\"";
+            else
+                FileLog.Write($"[WhisperCliRunner] VAD modeli bulunamadı, VAD'siz çalışılıyor: {vadModelPath}");
             var sidecarTxt = wavFilePath + ".txt";
             try { if (File.Exists(sidecarTxt)) File.Delete(sidecarTxt); } catch { }
 
@@ -190,6 +213,7 @@ namespace TRWhisper.Core.Speech
                 var t = line.Trim();
                 if (t.Length == 0) continue;
                 if (LineBracketRegex.IsMatch(t)) continue;
+                if (KnownHallucinations.Contains(t.TrimEnd('.', '!', ' ').ToLower(TurkishCulture))) continue;
                 kept.Add(t);
             }
 

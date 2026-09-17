@@ -7,6 +7,7 @@
   "Whisper": {
     "CliPath": "tools\\whisper\\whisper-cli.exe",
     "ModelPath": "tools\\whisper\\ggml-large-v3-turbo-q5_0.bin",
+    "VadModelPath": "tools\\whisper\\ggml-silero-v6.2.0.bin",
     "Threads": 8,
     "NoTimestamps": true,
     "TimeoutSeconds": 120
@@ -18,8 +19,5 @@
     "Model": "gemini-2.5-flash",
     "Endpoint": "https://generativelanguage.googleapis.com/v1beta/models",
     "SystemPrompt": "Aşağıdaki metin Türkçe sesli dikte (speech-to-text) çıktısıdır. Lütfen bu metni konuşma dilinden temiz yazı diline dönüştür:\n1. 'ııı', 'eee', 'şey', 'yani', 'falan', 'hımm' gibi duraksama ve dolgu kelimelerini temizle.\n2. Noktalama işaretlerini (nokta, virgül, soru işareti vb.) ve büyük/küçük harf kullanımını eksiksiz düzelt.\n3. Anlatılmak istenen ana fikri ve kelime anlamlarını kesinlikle değiştirme.\n4. Çıktı olarak YALNIZCA düzeltilmiş metni ver. Başına ya da sonuna açıklama, tırnak işareti, selamlama veya markdown ekleme."
-  },
-  "PasteSettings": {
-    "RestoreClipboardDelayMs": 150
   }
 }

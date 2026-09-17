@@ -3,9 +3,13 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.IO;
+using System.Threading.Tasks;
 using System.Windows.Forms;
+using System.Windows.Threading;
 using TRWhisper.Core.Config;
+using TRWhisper.Core.Diagnostics;
 using TRWhisper.Core.History;
+using TRWhisper.Core.Speech;
 
 namespace TRWhisper.Core.Tray
 {
@@ -22,16 +26,31 @@ namespace TRWhisper.Core.Tray
         private readonly ConfigManager _configManager;
         private readonly TranscriptHistory _history;
 
+        // Denetleyicinin oluşturulduğu UI thread'inin dispatcher'ı. Genel metotlar arka plan
+        // thread'lerinden çağrılır; WinForms kontrolü (ContextMenuStrip) arka plan thread'inde
+        // oluşturulursa o thread'e WindowsFormsSynchronizationContext kurulur ve çağıranın
+        // sonraki await'i mesaj pompalanmayan thread'e post edilip asla devam etmez.
+        private readonly Dispatcher _uiDispatcher;
+
         private AppState _currentState = AppState.Idle;
         private bool _isLlmCleaningEnabled;
 
+        // Tepsiden seçilebilen whisper modelleri. NeedsGpu: GPU olmadan CPU'da çok yavaş (~20+ sn).
+        private static readonly (string Label, string Path, bool NeedsGpu)[] WhisperModels =
+        {
+            ("Small (hızlı, daha az doğru)", "tools\\whisper\\ggml-small.bin", false),
+            ("Large-v3 Turbo (en doğru)", "tools\\whisper\\ggml-large-v3-turbo-q5_0.bin", true),
+        };
+
         public event Action<bool>? LlmCleaningToggled;
+        public event Action<string>? WhisperModelChanged;
         public event Action? ExitRequested;
 
         public TrayIconController(ConfigManager configManager, TranscriptHistory history)
         {
             _configManager = configManager;
             _history = history;
+            _uiDispatcher = Dispatcher.CurrentDispatcher;
             _isLlmCleaningEnabled = configManager.Current.LlmCleaning.EnabledByDefault;
 
             _notifyIcon = new NotifyIcon
@@ -48,16 +67,31 @@ namespace TRWhisper.Core.Tray
 
         public void SetState(AppState state)
         {
-            if (_currentState == state) return;
-            _currentState = state;
-            UpdateIcon(state);
-            RebuildMenuSafe();
+            RunOnUiThread(() =>
+            {
+                if (_currentState == state) return;
+                _currentState = state;
+                UpdateIcon(state);
+                BuildContextMenu();
+            });
         }
 
         public void SetLlmCleaningMode(bool enabled)
         {
-            _isLlmCleaningEnabled = enabled;
-            RebuildMenuSafe();
+            RunOnUiThread(() =>
+            {
+                _isLlmCleaningEnabled = enabled;
+                BuildContextMenu();
+            });
+        }
+
+        // UI thread'indeysek hemen çalıştır; değilsse sıraya koy (FIFO, çağıranı bloklamaz).
+        private void RunOnUiThread(Action action)
+        {
+            if (_uiDispatcher.CheckAccess())
+                action();
+            else
+                _uiDispatcher.BeginInvoke(action);
         }
 
         private void UpdateIcon(AppState state)
@@ -127,19 +161,7 @@ namespace TRWhisper.Core.Tray
 
         private void OnHistoryChanged()
         {
-            RebuildMenuSafe();
-        }
-
-        private void RebuildMenuSafe()
-        {
-            if (_notifyIcon.ContextMenuStrip != null && _notifyIcon.ContextMenuStrip.InvokeRequired)
-            {
-                _notifyIcon.ContextMenuStrip.BeginInvoke(new Action(BuildContextMenu));
-            }
-            else
-            {
-                BuildContextMenu();
-            }
+            RunOnUiThread(BuildContextMenu);
         }
 
         private void BuildContextMenu()
@@ -173,6 +195,42 @@ namespace TRWhisper.Core.Tray
                 BuildContextMenu();
             };
             menu.Items.Add(llmItem);
+
+            // Whisper Modeli Alt Menüsü (dosyası olmayan model soluk/devre dışı gösterilir)
+            var modelMenu = new ToolStripMenuItem("🧠 Whisper Modeli");
+            var currentModelFile = Path.GetFileName(_configManager.Current.Whisper.ModelPath);
+            foreach (var model in WhisperModels)
+            {
+                var exists = File.Exists(WhisperConfig.ResolvePath(model.Path));
+                var modelItem = new ToolStripMenuItem(exists ? model.Label : $"{model.Label} — dosya yok")
+                {
+                    Checked = string.Equals(Path.GetFileName(model.Path), currentModelFile, StringComparison.OrdinalIgnoreCase),
+                    Enabled = exists
+                };
+                modelItem.Click += (_, _) =>
+                {
+                    if (modelItem.Checked) return;
+                    WhisperModelChanged?.Invoke(model.Path);
+                    BuildContextMenu();
+
+                    var cliPath = _configManager.Current.Whisper.ResolvedCliPath;
+                    Task.Run(() =>
+                    {
+                        // cuInit birkaç yüz ms sürebilir; UI thread'ini bekletmemek için arka planda.
+                        var gpu = CudaAvailability.IsAvailable(cliPath);
+                        FileLog.Write($"[TrayIconController] Whisper modeli değişti: {model.Path} (GPU={gpu})");
+                        if (model.NeedsGpu && !gpu)
+                        {
+                            ShowNotification(
+                                "Model Yavaş Olabilir",
+                                "Kullanılabilir bir NVIDIA GPU bulunamadı. Large-v3 Turbo işlemcide çalışacak ve her dikte 20 saniyeden uzun sürebilir. Daha hızlı sonuç için Small modelini seçin.",
+                                ToolTipIcon.Warning);
+                        }
+                    });
+                };
+                modelMenu.DropDownItems.Add(modelItem);
+            }
+            menu.Items.Add(modelMenu);
 
             menu.Items.Add(new ToolStripSeparator());
 
@@ -266,7 +324,7 @@ namespace TRWhisper.Core.Tray
 
         public void ShowNotification(string title, string message, ToolTipIcon icon = ToolTipIcon.Info)
         {
-            _notifyIcon.ShowBalloonTip(2000, title, message, icon);
+            RunOnUiThread(() => _notifyIcon.ShowBalloonTip(2000, title, message, icon));
         }
 
         public void Dispose()
