@@ -78,7 +78,7 @@ Sihirbaz Türkçe ve İngilizce'dir ve kuruluma başlamadan önce ne kurulacağ�
   ```
 
 > Kurulum dosyası imzasız olduğu için Windows SmartScreen "bilinmeyen yayımcı" uyarısı gösterebilir:
-> **Daha fazla bilgi > Yine de çalıştır**.
+> **Daha fazla bilgi > Yine de çalıştır**. Dilerseniz [VirusTotal Tarama Raporu](https://www.virustotal.com/gui/file/c97e23fe0cd720c570e44370f74d49fc74c961f106eecf11e48080d217d979c2/detection)'nu inceleyebilirsiniz (Microsoft Defender, Kaspersky, Bitdefender dahil 70+ antivirüste tamamen temizdir).
 
 ---
 

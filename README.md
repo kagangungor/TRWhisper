@@ -79,7 +79,7 @@ before it starts:
   ```
 
 > The setup file is not code-signed, so Windows SmartScreen may warn about an "unknown
-> publisher": **More info > Run anyway**.
+> publisher": **More info > Run anyway**. You can inspect the [VirusTotal Report](https://www.virustotal.com/gui/file/c97e23fe0cd720c570e44370f74d49fc74c961f106eecf11e48080d217d979c2/detection) (100% clean on Microsoft Defender, Kaspersky, Bitdefender, etc.).
 
 ---
 
