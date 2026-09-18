@@ -2,7 +2,17 @@
 
 [🇬🇧 English](README.md) | [🇹🇷 Türkçe](READMETR.md)
 
+[![Release](https://img.shields.io/github/v/release/kagangungor/TRWhisper?color=blue&logo=github)](https://github.com/kagangungor/TRWhisper/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/kagangungor/TRWhisper/total?color=green&logo=github)](https://github.com/kagangungor/TRWhisper/releases/latest)
+[![Platform](https://img.shields.io/badge/platform-Windows%2011%20x64-0078D6?logo=windows11&logoColor=white)](https://github.com/kagangungor/TRWhisper)
+[![License](https://img.shields.io/github/license/kagangungor/TRWhisper?color=orange)](LICENSE)
+[![.NET](https://img.shields.io/badge/.NET-9.0-512BD4?logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/download/dotnet/9.0)
+
 **TRWhisper** is a completely local, zero-telemetry "push-to-talk" dictation application built for Windows 11 as an alternative to Superwhisper. It is tuned for Turkish dictation.
+
+<p align="center">
+  <img src="assets/Demo.gif" alt="TRWhisper Demo" width="750">
+</p>
 
 ---
 

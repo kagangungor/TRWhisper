@@ -2,7 +2,17 @@
 
 [🇹🇷 Türkçe](READMETR.md) | [🇬🇧 English](README.md)
 
+[![Sürüm](https://img.shields.io/github/v/release/kagangungor/TRWhisper?color=blue&logo=github)](https://github.com/kagangungor/TRWhisper/releases/latest)
+[![İndirmeler](https://img.shields.io/github/downloads/kagangungor/TRWhisper/total?color=green&logo=github)](https://github.com/kagangungor/TRWhisper/releases/latest)
+[![Platform](https://img.shields.io/badge/platform-Windows%2011%20x64-0078D6?logo=windows11&logoColor=white)](https://github.com/kagangungor/TRWhisper)
+[![Lisans](https://img.shields.io/github/license/kagangungor/TRWhisper?color=orange)](LICENSE)
+[![.NET](https://img.shields.io/badge/.NET-9.0-512BD4?logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/download/dotnet/9.0)
+
 **TRWhisper**, Windows 11 için geliştirilmiş, Superwhisper alternatifi, tamamen yerel çalışan, sıfır telemetrili bir "bas-konuş" (push-to-talk) dikte uygulamasıdır. Türkçe dikte için ayarlanmıştır.
+
+<p align="center">
+  <img src="assets/Demo.gif" alt="TRWhisper Demo" width="750">
+</p>
 
 ---
 
