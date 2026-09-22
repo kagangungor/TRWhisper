@@ -120,6 +120,24 @@ namespace TRWhisper.Core
 
             _keyboardHook.HotkeyDown += OnHotkeyDown;
             _keyboardHook.HotkeyUp += OnHotkeyUp;
+
+            CleanupOrphanedTempAudioFiles();
+        }
+
+        private void CleanupOrphanedTempAudioFiles()
+        {
+            try
+            {
+                var tempDir = Path.GetDirectoryName(_configManager.Current.General.ResolvedTempAudioPath);
+                if (string.IsNullOrEmpty(tempDir) || !Directory.Exists(tempDir)) tempDir = Path.GetTempPath();
+                foreach (var file in Directory.EnumerateFiles(tempDir, "trwhisper_*.wav"))
+                {
+                    try { File.Delete(file); } catch { }
+                    var sidecar = file + ".txt";
+                    if (File.Exists(sidecar)) { try { File.Delete(sidecar); } catch { } }
+                }
+            }
+            catch { }
         }
 
         private void OnHotkeyDown(object? sender, HotkeyEventArgs e)
@@ -145,7 +163,9 @@ namespace TRWhisper.Core
 
                 try
                 {
-                    var tempWav = _configManager.Current.General.ResolvedTempAudioPath;
+                    var tempDir = Path.GetDirectoryName(_configManager.Current.General.ResolvedTempAudioPath);
+                    if (string.IsNullOrEmpty(tempDir) || !Directory.Exists(tempDir)) tempDir = Path.GetTempPath();
+                    var tempWav = Path.Combine(tempDir, $"trwhisper_{Guid.NewGuid():N}.wav");
                     _recordingStartTime = DateTime.Now;
                     _audioRecorder.StartRecording(tempWav);
                     _trayController.SetState(AppState.Recording);
@@ -408,7 +428,31 @@ namespace TRWhisper.Core
                     // 2. Yerel Whisper ile transkribe et
                     FileLog.Write($"[DictationCoordinator] Whisper transkripsiyonu başlatılıyor ({wavPath})...");
                     var language = _configManager.Current.General.Language;
-                    var rawTranscript = await _transcriptionEngine.TranscribeAsync(wavPath, language, ct).ConfigureAwait(false);
+                    string rawTranscript;
+                    try
+                    {
+                        rawTranscript = await _transcriptionEngine.TranscribeAsync(wavPath, language, ct).ConfigureAwait(false);
+                    }
+                    catch (FileNotFoundException fnfEx)
+                    {
+                        FileLog.Write($"[DictationCoordinator] Model dosyası bulunamadı: {fnfEx.Message}");
+                        _overlayWindow?.HideWithFade();
+                        _trayController.ShowNotification(
+                            "Model Dosyası Bulunamadı",
+                            "Whisper modeli bulunamadı. Lütfen Sistem Tepsisi > Ayarlar > Model sekmesinden bir model indirin.",
+                            System.Windows.Forms.ToolTipIcon.Error);
+                        return;
+                    }
+                    catch (Exception ex) when (ex is not OperationCanceledException)
+                    {
+                        FileLog.Write($"[DictationCoordinator] Whisper motor hatası: {ex.Message}");
+                        _overlayWindow?.HideWithFade();
+                        _trayController.ShowNotification(
+                            "Dikte Motoru Hatası",
+                            $"Whisper motoru çalıştırılamadı: {ex.Message}",
+                            System.Windows.Forms.ToolTipIcon.Error);
+                        return;
+                    }
                     ct.ThrowIfCancellationRequested();
 
                     if (string.IsNullOrWhiteSpace(rawTranscript))
@@ -423,21 +467,21 @@ namespace TRWhisper.Core
                     }
 
                     rawTranscript = rawTranscript.Trim();
-                    FileLog.Write($"[DictationCoordinator] Whisper tamamlandı: '{rawTranscript}'");
+                    FileLog.Write($"[DictationCoordinator] Whisper tamamlandı ({rawTranscript.Length} karakter).");
 
                     // 2b. Özel sözlük: fonetik yazımları düzelt ("pitonda" -> "Python'da").
                     // rawTranscript bilerek DOKUNULMADAN bırakılır; günlük ve geçmiş ham metni saklar.
                     string finalTranscript = _dictionaryService.Apply(rawTranscript);
                     if (finalTranscript != rawTranscript)
                     {
-                        FileLog.Write($"[DictationCoordinator] Sözlük uygulandı: '{finalTranscript}'");
+                        FileLog.Write("[DictationCoordinator] Sözlük kuralları uygulandı.");
                     }
 
                     // 2c. Sayı/tarih/saat/yüzde/birim normalizasyonu ("yüzde yirmi" -> "%20").
                     var normalized = _normalizer.Normalize(finalTranscript);
                     if (normalized != finalTranscript)
                     {
-                        FileLog.Write($"[DictationCoordinator] Normalizasyon uygulandı: '{normalized}'");
+                        FileLog.Write("[DictationCoordinator] Metin normalizasyonu uygulandı.");
                     }
                     finalTranscript = normalized;
 

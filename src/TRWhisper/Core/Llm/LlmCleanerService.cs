@@ -184,7 +184,8 @@ namespace TRWhisper.Core.Llm
             {
                 model = "gemini-2.0-flash";
             }
-            var url = $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={config.ApiKey}";
+            var safeModel = Uri.EscapeDataString(model);
+            var url = $"https://generativelanguage.googleapis.com/v1beta/models/{safeModel}:generateContent";
             var dataBlock = FormatDataBlock(rawTranscript);
 
             var payload = new
@@ -211,6 +212,10 @@ namespace TRWhisper.Core.Llm
             {
                 Content = new StringContent(jsonContent, Encoding.UTF8, "application/json")
             };
+            if (!string.IsNullOrWhiteSpace(config.ApiKey))
+            {
+                request.Headers.Add("x-goog-api-key", config.ApiKey);
+            }
 
             using var response = await _httpClient.SendAsync(request, cancellationToken);
             if (!response.IsSuccessStatusCode)
@@ -241,7 +246,21 @@ namespace TRWhisper.Core.Llm
         public async Task<string> CallOpenAiAsync(string rawTranscript, LlmCleaningConfig config, string? systemPrompt = null, CancellationToken cancellationToken = default)
         {
             systemPrompt = LlmModeRegistry.EnsureSandboxedPrompt(systemPrompt ?? LlmModeRegistry.GetActiveMode(config).SystemPrompt);
-            var endpoint = string.IsNullOrWhiteSpace(config.Endpoint) ? "https://api.openai.com/v1/chat/completions" : config.Endpoint;
+            var endpoint = string.IsNullOrWhiteSpace(config.Endpoint) ? "https://api.openai.com/v1/chat/completions" : config.Endpoint.Trim();
+
+            if (!Uri.TryCreate(endpoint, UriKind.Absolute, out var parsedUri))
+            {
+                LastError = "Geçersiz API uç noktası URL'si.";
+                return rawTranscript;
+            }
+
+            if (parsedUri.Scheme.Equals(Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase) && !parsedUri.IsLoopback)
+            {
+                LastError = "Güvenlik hatası: Harici API uç noktaları için HTTPS zorunludur. Düz HTTP üzerinden API anahtarı iletilemez.";
+                FileLog.Write("[LlmCleanerService] HATA: Harici HTTP uç noktasına API anahtarı gönderimi engellendi.");
+                return rawTranscript;
+            }
+
             var model = string.IsNullOrWhiteSpace(config.Model) ? "gpt-4o-mini" : config.Model;
             var dataBlock = FormatDataBlock(rawTranscript);
 
@@ -364,7 +383,8 @@ namespace TRWhisper.Core.Llm
                         model = "gemini-2.0-flash";
                     }
 
-                    var url = $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={config.ApiKey}";
+                    var safeModel = Uri.EscapeDataString(model);
+                    var url = $"https://generativelanguage.googleapis.com/v1beta/models/{safeModel}:generateContent";
                     var payload = new
                     {
                         contents = new[]
@@ -379,6 +399,7 @@ namespace TRWhisper.Core.Llm
                     {
                         Content = new StringContent(jsonContent, Encoding.UTF8, "application/json")
                     };
+                    request.Headers.Add("x-goog-api-key", config.ApiKey);
 
                     using var response = await _httpClient.SendAsync(request, testCts.Token);
                     if (response.IsSuccessStatusCode)
@@ -406,7 +427,18 @@ namespace TRWhisper.Core.Llm
                         return (false, "OpenAI API anahtarı boş olamaz. Lütfen API anahtarınızı girin.");
                     }
 
-                    var endpoint = string.IsNullOrWhiteSpace(config.Endpoint) ? "https://api.openai.com/v1/chat/completions" : config.Endpoint;
+                    var endpoint = string.IsNullOrWhiteSpace(config.Endpoint) ? "https://api.openai.com/v1/chat/completions" : config.Endpoint.Trim();
+
+                    if (!Uri.TryCreate(endpoint, UriKind.Absolute, out var parsedUri))
+                    {
+                        return (false, "Geçersiz API uç noktası URL'si.");
+                    }
+
+                    if (parsedUri.Scheme.Equals(Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase) && !parsedUri.IsLoopback)
+                    {
+                        return (false, "Güvenlik uyarısı: Harici API uç noktaları için HTTPS zorunludur. Düz HTTP üzerinden API anahtarı iletilemez.");
+                    }
+
                     var model = string.IsNullOrWhiteSpace(config.Model) ? "gpt-4o-mini" : config.Model;
 
                     var payload = new

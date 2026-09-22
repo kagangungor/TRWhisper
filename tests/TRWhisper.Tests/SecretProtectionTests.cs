@@ -46,5 +46,28 @@ namespace TRWhisper.Tests
 
             Assert.Equal(legacyPlainText, result);
         }
+
+        [Fact]
+        public void Unprotect_LegacyCipherWithoutEntropy_SuccessfullyDecrypts()
+        {
+            const string original = "sk-legacy-test-key-12345";
+            byte[] bytes = System.Text.Encoding.UTF8.GetBytes(original);
+            byte[] legacyEncrypted = System.Security.Cryptography.ProtectedData.Protect(
+                bytes,
+                null,
+                System.Security.Cryptography.DataProtectionScope.CurrentUser);
+            string legacyCipherWithPrefix = SecretProtection.Prefix + System.Convert.ToBase64String(legacyEncrypted);
+
+            string decrypted = SecretProtection.Unprotect(legacyCipherWithPrefix);
+            Assert.Equal(original, decrypted);
+        }
+
+        [Fact]
+        public void Unprotect_CorruptedCipher_ReturnsEmptyString()
+        {
+            string corrupted = SecretProtection.Prefix + "bm90LWEtdmFsaWQtZHBhcGktYmxvYg==";
+            string decrypted = SecretProtection.Unprotect(corrupted);
+            Assert.Equal(string.Empty, decrypted);
+        }
     }
 }

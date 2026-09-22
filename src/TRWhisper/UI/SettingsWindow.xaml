@@ -1032,8 +1032,12 @@
                     <Border Style="{StaticResource Card}">
                         <StackPanel>
                             <TextBlock Style="{StaticResource FieldLabel}" Text="Bellek/VRAM boşaltma süresi" />
-                            <StackPanel Orientation="Horizontal">
-                                <TextBox x:Name="IdleMinutesBox" Width="96" AutomationProperties.Name="Bellek bosaltma suresi (dakika)" PreviewTextInput="NumericOnly_PreviewTextInput" />
+                            <StackPanel Orientation="Horizontal" Margin="0,4,0,4">
+                                <TextBox x:Name="IdleMinutesBox" Width="64" Height="36"
+                                         HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                         TextAlignment="Center" FontWeight="SemiBold" FontSize="13.5"
+                                         AutomationProperties.Name="Bellek bosaltma suresi (dakika)"
+                                         PreviewTextInput="NumericOnly_PreviewTextInput" />
                                 <TextBlock Text="dakika" Foreground="{StaticResource TextMuted}" FontSize="13"
                                            VerticalAlignment="Center" Margin="10,0,0,0" />
                             </StackPanel>

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -225,16 +225,23 @@ namespace TRWhisper.Core.Dictionary
 
             foreach (var rule in _rules)
             {
-                text = rule.Regex.Replace(text, m =>
+                try
                 {
-                    var suffix = m.Groups["sfx"];
-                    if (!suffix.Success || suffix.Length == 0) return rule.Replacement;
+                    text = rule.Regex.Replace(text, m =>
+                    {
+                        var suffix = m.Groups["sfx"];
+                        if (!suffix.Success || suffix.Length == 0) return rule.Replacement;
 
-                    // PreserveSuffix kapalıyken ekli biçime dokunma (kural yalnızca çıplak köke uygulanır).
-                    if (!rule.PreserveSuffix) return m.Value;
+                        // PreserveSuffix kapalıyken ekli biçime dokunma (kural yalnızca çıplak köke uygulanır).
+                        if (!rule.PreserveSuffix) return m.Value;
 
-                    return rule.Replacement + "'" + suffix.Value.ToLower(Turkish);
-                });
+                        return rule.Replacement + "'" + suffix.Value.ToLower(Turkish);
+                    });
+                }
+                catch (RegexMatchTimeoutException)
+                {
+                    FileLog.Write($"[CustomDictionary] Regex zaman aşımı (ReDoS koruması tetiklendi): {rule.Replacement}");
+                }
             }
 
             return text;
@@ -395,7 +402,7 @@ namespace TRWhisper.Core.Dictionary
             var options = RegexOptions.Compiled | RegexOptions.CultureInvariant;
             if (!rule.CaseSensitive) options |= RegexOptions.IgnoreCase;
 
-            return new Regex(pattern, options);
+            return new Regex(pattern, options, TimeSpan.FromMilliseconds(250));
         }
 
         /// <summary>

@@ -44,5 +44,19 @@ namespace TRWhisper.Tests
             Assert.Contains("MB", WhisperModelManager.FormatBytes(500 * 1024 * 1024));
             Assert.Contains("GB", WhisperModelManager.FormatBytes(2L * 1024 * 1024 * 1024));
         }
+
+        [Fact]
+        public void Catalog_AllModelsHaveValidSha256Hash()
+        {
+            var catalog = WhisperModelManager.Catalog;
+            Assert.NotEmpty(catalog);
+
+            foreach (var model in catalog)
+            {
+                Assert.False(string.IsNullOrWhiteSpace(model.Sha256), $"Model {model.Id} is missing SHA-256 hash.");
+                Assert.Equal(64, model.Sha256.Length);
+                Assert.True(model.Sha256.All(c => Uri.IsHexDigit(c)), $"Model {model.Id} SHA-256 hash contains invalid hex characters.");
+            }
+        }
     }
 }

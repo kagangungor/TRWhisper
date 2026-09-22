@@ -56,6 +56,8 @@ Desktop.ini
 .DS_Store
 
 # --- Yerel Ortam & Gizli Yapılandırma ---
+config.json
+dictionary.json
 *.local.json
 .env
 .env.*

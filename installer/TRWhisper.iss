@@ -2,7 +2,7 @@
 ; Derleme: scripts\build-installer.ps1  (elle ISCC çağırmayın; önbellek dosyaları gerekir)
 
 #ifndef AppVersion
-  #define AppVersion "2.0.0"
+  #define AppVersion "2.0.1"
 #endif
 
 #define AppName "TRWhisper"
@@ -12,11 +12,19 @@
 
 ; whisper.cpp sürümü sabittir: "latest" bazı sürümlerde indirilebilir paket içermiyor (404).
 #define WhisperBuild "b4938"
-#define CudaZipName "whisper-cublas-12.4.0-bin-x64.zip"
-#define CudaZipUrl "https://github.com/ggml-org/whisper.cpp/releases/download/b4938/whisper-cublas-12.4.0-bin-x64.zip"
-#define CudaZipSha "c1b17166e1e31a91cc8e9c1f910d3785e3ce757bb2958bf9dce13fdb4880005f"
-#define CudaZipSize 671045732
-#define CudaDllSize 537670144
+
+#ifndef CudaZipName
+  #define CudaZipName "trwhisper-cuda13-win-x64.zip"
+#endif
+#ifndef CudaZipUrl
+  #define CudaZipUrl "https://github.com/kagangungor/TRWhisper/releases/download/v2.0.0/trwhisper-cuda13-win-x64.zip"
+#endif
+#ifndef CudaZipSha
+  #define CudaZipSha "2d397a7077760c74efa2838f42d4e8b502d8d3ccab9259844bbcfe06f5eb922f"
+#endif
+#ifndef CudaZipSize
+  #define CudaZipSize 544457658
+#endif
 
 ; Hugging Face adresleri commit'e sabitlenmiştir (main değişirse SHA-256 tutmazdı).
 #define TurboName "ggml-large-v3-turbo-q5_0.bin"
@@ -32,8 +40,8 @@
 #define VcRedistUrl "https://aka.ms/vs/17/release/vc_redist.x64.exe"
 #define VcRedistSize 25000000
 
-; NVIDIA CUDA 12.4 için en düşük sürücü sürümü (Windows): 551.61
-#define MinNvidiaDriver "551.61"
+; NVIDIA CUDA 13 için en düşük sürücü sürümü (Windows): 580.00
+#define MinNvidiaDriver "580.00"
 
 [Setup]
 AppId={{0A9671E7-5707-4BBF-96D9-5D8DB4E37BF4}
@@ -80,11 +88,11 @@ tr.EnginePageCaption=Ses tanıma motoru
 tr.EnginePageDesc=TRWhisper konuşmanızı hangi donanımla metne çevirsin?
 tr.EnginePageSub=Kurulumdan sonra bu seçimi değiştirmek için kurulumu tekrar çalıştırmanız yeterlidir.
 tr.EngineCpu=CPU sürümü — her bilgisayarda çalışır (kuruluma dahil, ~12 MB)
-tr.EngineCuda=NVIDIA GPU sürümü (CUDA 12.4) — çok daha hızlı (~640 MB indirme, diskte ~1,2 GB)
+tr.EngineCuda=NVIDIA GPU sürümü (CUDA 13) — çok daha hızlı (~335 MB indirme, diskte ~680 MB)
 tr.GpuFound=Bilgisayarınızda NVIDIA ekran kartı bulundu (sürücü %1). GPU sürümü önerilir: Large-v3 Turbo modeli ~23 saniye yerine ~3 saniyede çözümlenir.
-tr.GpuOldDriver=NVIDIA ekran kartı bulundu ama sürücü sürümü (%1) CUDA 12.4 için eski. En az {#MinNvidiaDriver} gerekir; sürücünüzü güncellemeniz önerilir.
+tr.GpuOldDriver=NVIDIA ekran kartı bulundu ama sürücü sürümü (%1) CUDA 13 için eski. En az {#MinNvidiaDriver} gerekir; sürücünüzü güncellemeniz önerilir.
 tr.GpuNotFound=Bilgisayarınızda CUDA destekli NVIDIA ekran kartı bulunamadı. CPU sürümü önerilir.
-tr.GpuConfirm=Bilgisayarınızda CUDA destekli bir NVIDIA ekran kartı bulunamadı. GPU sürümü yine de kurulabilir (ekran kartı yoksa otomatik olarak CPU'ya döner) ama ~640 MB fazladan indirilir.%n%nGPU sürümüyle devam etmek istiyor musunuz?
+tr.GpuConfirm=Bilgisayarınızda CUDA destekli bir NVIDIA ekran kartı bulunamadı. GPU sürümü yine de kurulabilir (ekran kartı yoksa otomatik olarak CPU'ya döner) ama ~335 MB fazladan indirilir.%n%nGPU sürümüyle devam etmek istiyor musunuz?
 tr.ModelPageCaption=Konuşma modelleri
 tr.ModelPageDesc=Hangi Whisper modelleri kurulsun? (en az bir tanesi)
 tr.ModelPageSub=Birden fazla model kurarsanız sistem tepsisindeki menüden istediğiniz an geçiş yapabilirsiniz.
@@ -103,7 +111,7 @@ tr.MemoDownloadNone=Yok (her şey bu kurulum dosyasında mevcut)
 tr.MemoVcRedist=Microsoft Visual C++ 2015-2022 Runtime (x64) — eksik, kurulacak
 tr.MemoAlways=Her zaman kurulur:
 tr.MemoAlwaysItems=TRWhisper uygulaması (.NET 9 gömülü) + Silero VAD sessizlik modeli
-tr.StatusExtractCuda=NVIDIA GPU dosyaları açılıyor (~1,2 GB, biraz sürebilir)...
+tr.StatusExtractCuda=NVIDIA GPU dosyaları açılıyor (~680 MB, biraz sürebilir)...
 tr.StatusVcRedist=Microsoft Visual C++ 2015-2022 Runtime kuruluyor...
 tr.ExtractFailed=NVIDIA GPU paketi açılamadı: %1%n%nTRWhisper CPU sürümüyle kurulmaya devam edilecek.
 tr.VcRedistPrompt=TRWhisper'ın ses tanıma motoru için "Microsoft Visual C++ 2015-2022 Runtime (x64)" gereklidir ve bilgisayarınızda bulunamadı.%n%nŞimdi kurulacak. Windows bir kez yönetici izni (UAC) soracak.
@@ -115,11 +123,11 @@ en.EnginePageCaption=Speech engine
 en.EnginePageDesc=Which hardware should TRWhisper use for transcription?
 en.EnginePageSub=To change this later, simply run this setup again.
 en.EngineCpu=CPU build — works on every PC (included in this setup, ~12 MB)
-en.EngineCuda=NVIDIA GPU build (CUDA 12.4) — much faster (~640 MB download, ~1.2 GB on disk)
+en.EngineCuda=NVIDIA GPU build (CUDA 13) — much faster (~335 MB download, ~680 MB on disk)
 en.GpuFound=An NVIDIA GPU was detected (driver %1). The GPU build is recommended: the Large-v3 Turbo model takes ~3 seconds instead of ~23 seconds.
-en.GpuOldDriver=An NVIDIA GPU was detected, but its driver (%1) is too old for CUDA 12.4. At least {#MinNvidiaDriver} is required; please update your driver.
+en.GpuOldDriver=An NVIDIA GPU was detected, but its driver (%1) is too old for CUDA 13. At least {#MinNvidiaDriver} is required; please update your driver.
 en.GpuNotFound=No CUDA-capable NVIDIA GPU was detected. The CPU build is recommended.
-en.GpuConfirm=No CUDA-capable NVIDIA GPU was detected. The GPU build can still be installed (it falls back to the CPU automatically), but it downloads ~640 MB extra.%n%nContinue with the GPU build?
+en.GpuConfirm=No CUDA-capable NVIDIA GPU was detected. The GPU build can still be installed (it falls back to the CPU automatically), but it downloads ~335 MB extra.%n%nContinue with the GPU build?
 en.ModelPageCaption=Speech models
 en.ModelPageDesc=Which Whisper models should be installed? (at least one)
 en.ModelPageSub=If you install more than one, you can switch between them any time from the system tray menu.
@@ -138,7 +146,7 @@ en.MemoDownloadNone=Nothing (everything is inside this setup file)
 en.MemoVcRedist=Microsoft Visual C++ 2015-2022 Runtime (x64) — missing, will be installed
 en.MemoAlways=Always installed:
 en.MemoAlwaysItems=TRWhisper application (.NET 9 embedded) + Silero VAD silence model
-en.StatusExtractCuda=Extracting NVIDIA GPU files (~1.2 GB, this may take a while)...
+en.StatusExtractCuda=Extracting NVIDIA GPU files (~680 MB, this may take a while)...
 en.StatusVcRedist=Installing Microsoft Visual C++ 2015-2022 Runtime...
 en.ExtractFailed=The NVIDIA GPU package could not be extracted: %1%n%nSetup will continue with the CPU build.
 en.VcRedistPrompt=TRWhisper's speech engine requires the "Microsoft Visual C++ 2015-2022 Runtime (x64)", which was not found on your PC.%n%nIt will be installed now. Windows will ask for administrator permission (UAC) once.
@@ -154,18 +162,19 @@ Name: "autostart"; Description: "{cm:TaskAutostart}"; Flags: unchecked
 [Files]
 ; --- Her zaman kurulanlar ---
 Source: "..\publish\TRWhisper.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\publish\runtimes\win-x64\*"; DestDir: "{app}\runtimes\win-x64"; Flags: ignoreversion recursesubdirs
 Source: "..\LICENSE"; DestDir: "{app}"; DestName: "LICENSE.txt"; Flags: ignoreversion
 Source: "i18n\THIRD-PARTY-NOTICES.txt"; DestDir: "{app}"; Flags: ignoreversion
 Source: "cache\ggml-silero-v6.2.0.bin"; DestDir: "{app}\tools\whisper"; Flags: ignoreversion
 ; Kullanıcının ayarları yükseltmede korunur.
 Source: "..\src\TRWhisper\config.json"; DestDir: "{app}"; Flags: onlyifdoesntexist uninsremovereadonly
 
-; --- CPU motoru (kuruluma gömülü) ---
-Source: "cache\cpu\Release\whisper-cli.exe"; DestDir: "{app}\tools\whisper"; Flags: ignoreversion; Check: UseCpuEngine
-Source: "cache\cpu\Release\whisper.dll"; DestDir: "{app}\tools\whisper"; Flags: ignoreversion; Check: UseCpuEngine
-Source: "cache\cpu\Release\ggml.dll"; DestDir: "{app}\tools\whisper"; Flags: ignoreversion; Check: UseCpuEngine
-Source: "cache\cpu\Release\ggml-base.dll"; DestDir: "{app}\tools\whisper"; Flags: ignoreversion; Check: UseCpuEngine
-Source: "cache\cpu\Release\ggml-cpu-*.dll"; DestDir: "{app}\tools\whisper"; Flags: ignoreversion; Check: UseCpuEngine
+; --- whisper-cli ve CPU motoru ---
+Source: "cache\cpu\Release\whisper-cli.exe"; DestDir: "{app}\tools\whisper"; Flags: ignoreversion
+Source: "cache\cpu\Release\whisper.dll"; DestDir: "{app}\tools\whisper"; Flags: ignoreversion
+Source: "cache\cpu\Release\ggml.dll"; DestDir: "{app}\tools\whisper"; Flags: ignoreversion
+Source: "cache\cpu\Release\ggml-base.dll"; DestDir: "{app}\tools\whisper"; Flags: ignoreversion
+Source: "cache\cpu\Release\ggml-cpu-*.dll"; DestDir: "{app}\tools\whisper"; Flags: ignoreversion
 
 ; --- İndirilen modeller ---
 Source: "{tmp}\{#TurboName}"; DestDir: "{app}\tools\whisper"; Flags: external ignoreversion skipifsourcedoesntexist; Check: WantTurbo
@@ -173,11 +182,15 @@ Source: "{tmp}\{#SmallName}"; DestDir: "{app}\tools\whisper"; Flags: external ig
 
 [InstallDelete]
 ; CPU motoruna geçildiyse CUDA dosyaları kaldırılır (yoksa GPU sanılır).
-Type: files; Name: "{app}\tools\whisper\ggml-cuda.dll"; Check: UseCpuEngine
-Type: files; Name: "{app}\tools\whisper\cublas64_12.dll"; Check: UseCpuEngine
-Type: files; Name: "{app}\tools\whisper\cublasLt64_12.dll"; Check: UseCpuEngine
-Type: files; Name: "{app}\tools\whisper\cudart64_12.dll"; Check: UseCpuEngine
-; Eski (Kurulum.bat ile yapılmış) kurulum artıkları
+Type: files; Name: "{app}\cublas64_13.dll"; Check: UseCpuEngine
+Type: files; Name: "{app}\cublasLt64_13.dll"; Check: UseCpuEngine
+Type: files; Name: "{app}\cudart64_13.dll"; Check: UseCpuEngine
+Type: filesandordirs; Name: "{app}\runtimes\cuda"; Check: UseCpuEngine
+; Eski sürüm artıkları
+Type: files; Name: "{app}\tools\whisper\ggml-cuda.dll"
+Type: files; Name: "{app}\tools\whisper\cublas64_12.dll"
+Type: files; Name: "{app}\tools\whisper\cublasLt64_12.dll"
+Type: files; Name: "{app}\tools\whisper\cudart64_12.dll"
 Type: files; Name: "{app}\Kaldir.bat"
 Type: files; Name: "{userstartup}\TRWhisper.lnk"
 
@@ -203,7 +216,12 @@ Filename: "{sys}\taskkill.exe"; Parameters: "/F /IM {#AppExe}"; Flags: runhidden
 [UninstallDelete]
 ; İndirilerek gelen dosyalar [Files] kaydında olmadığı için elle silinir.
 Type: filesandordirs; Name: "{app}\tools"
+Type: filesandordirs; Name: "{app}\runtimes"
+Type: files; Name: "{app}\cublas64_13.dll"
+Type: files; Name: "{app}\cublasLt64_13.dll"
+Type: files; Name: "{app}\cudart64_13.dll"
 Type: files; Name: "{app}\config.json"
+Type: files; Name: "{app}\dictionary.json"
 Type: dirifempty; Name: "{app}"
 
 [Code]
@@ -348,7 +366,10 @@ end;
 
 function CudaInstalled: Boolean;
 begin
-  Result := FileHasSize(ToolsDir + '\ggml-cuda.dll', {#CudaDllSize});
+  Result := FileExists(ExpandConstant('{app}\cudart64_13.dll')) and
+            FileExists(ExpandConstant('{app}\cublas64_13.dll')) and
+            FileExists(ExpandConstant('{app}\cublasLt64_13.dll')) and
+            FileExists(ExpandConstant('{app}\runtimes\cuda\win-x64\ggml-cuda-whisper.dll'));
 end;
 
 { ---------- Sihirbaz ---------- }
@@ -524,9 +545,23 @@ begin
 
   if UseCudaEngine and not CudaInstalled then
   begin
-    DownloadPage.Add('{#CudaZipUrl}', '{#CudaZipName}', '{#CudaZipSha}');
-    DownloadBytes := DownloadBytes + {#CudaZipSize};
-    CudaDownloaded := True;
+    if FileExists(ExpandConstant('{src}\{#CudaZipName}')) then
+    begin
+      FileCopy(ExpandConstant('{src}\{#CudaZipName}'), ExpandConstant('{tmp}\{#CudaZipName}'), False);
+      CudaDownloaded := True;
+    end
+    else
+    begin
+      if '{#CudaZipSha}' = '' then
+      begin
+        SuppressibleMsgBox('Güvenlik Uyarısı: CUDA paketi için SHA-256 bütünlük doğrulaması tanımlanmamış. Güvensiz indirme engellendi.', mbCriticalError, MB_OK, MB_OK);
+        Result := False;
+        Exit;
+      end;
+      DownloadPage.Add('{#CudaZipUrl}', '{#CudaZipName}', '{#CudaZipSha}');
+      DownloadBytes := DownloadBytes + {#CudaZipSize};
+      CudaDownloaded := True;
+    end;
   end;
 
   if WantTurbo and not TurboInstalled then
@@ -661,53 +696,22 @@ end;
 
 procedure InstallCudaFiles;
 var
-  TempDir, Src, Dest, FileName: String;
-  Names: TArrayOfString;
-  I: Integer;
-  FindRec: TFindRec;
+  ZipPath: String;
 begin
-  TempDir := ExpandConstant('{app}\tools\whisper\_cuda_tmp');
-  WizardForm.StatusLabel.Caption := CustomMessage('StatusExtractCuda');
-  try
-    ExtractArchive(ExpandConstant('{tmp}\{#CudaZipName}'), TempDir, '', True, nil);
-  except
-    MsgBox(FmtMessage(CustomMessage('ExtractFailed'), [GetExceptionMessage]), mbError, MB_OK);
-    DelTree(TempDir, True, True, True);
+  ZipPath := ExpandConstant('{tmp}\{#CudaZipName}');
+  if not FileExists(ZipPath) then
+  begin
+    Log('TRWhisper: CUDA zip dosyasi bulunamadi: ' + ZipPath);
     Exit;
   end;
 
-  SetArrayLength(Names, 8);
-  Names[0] := 'whisper-cli.exe';
-  Names[1] := 'whisper.dll';
-  Names[2] := 'ggml.dll';
-  Names[3] := 'ggml-base.dll';
-  Names[4] := 'ggml-cuda.dll';
-  Names[5] := 'cublas64_12.dll';
-  Names[6] := 'cublasLt64_12.dll';
-  Names[7] := 'cudart64_12.dll';
-
-  for I := 0 to GetArrayLength(Names) - 1 do
-  begin
-    Src := TempDir + '\Release\' + Names[I];
-    Dest := ToolsDir + '\' + Names[I];
-    DeleteFile(Dest);
-    if not RenameFile(Src, Dest) then
-      Log('TRWhisper: CUDA dosyasi tasinamadi: ' + Names[I]);
-  end;
-
-  // ggml-cpu-*.dll (CUDA derlemesinde de gerekli: GPU yoksa CPU'ya döner)
-  if FindFirst(TempDir + '\Release\ggml-cpu-*.dll', FindRec) then
+  WizardForm.StatusLabel.Caption := CustomMessage('StatusExtractCuda');
   try
-    repeat
-      FileName := FindRec.Name;
-      DeleteFile(ToolsDir + '\' + FileName);
-      RenameFile(TempDir + '\Release\' + FileName, ToolsDir + '\' + FileName);
-    until not FindNext(FindRec);
-  finally
-    FindClose(FindRec);
+    ExtractArchive(ZipPath, ExpandConstant('{app}'), '', True, nil);
+    Log('TRWhisper: CUDA 13 dosyalari basariyla acildi.');
+  except
+    MsgBox(FmtMessage(CustomMessage('ExtractFailed'), [GetExceptionMessage]), mbError, MB_OK);
   end;
-
-  DelTree(TempDir, True, True, True);
 end;
 
 procedure InstallVcRedist;

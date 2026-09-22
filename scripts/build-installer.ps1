@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
     TRWhisper'ın tek dosyalık kurulum paketini (TRWhisper-Setup-x.y.z.exe) üretir.
 
@@ -81,7 +81,44 @@ if ($exeBytes -lt 168000000) {
 }
 Write-Ok ("Uygulama hazır: {0:N1} MB" -f ($exeBytes / 1MB))
 
-# 3. Kuruluma gömülecek dosyalar
+# 3. CUDA 13 paketini hazırla (trwhisper-cuda13-win-x64.zip)
+$outputDir = Join-Path $installerDir "Output"
+New-Item -ItemType Directory -Force -Path $outputDir | Out-Null
+$cudaZipOut = Join-Path $outputDir "trwhisper-cuda13-win-x64.zip"
+
+$cudaFilesExist = (Test-Path (Join-Path $root "publish\cublas64_13.dll")) -and
+                  (Test-Path (Join-Path $root "publish\cublasLt64_13.dll")) -and
+                  (Test-Path (Join-Path $root "publish\cudart64_13.dll")) -and
+                  (Test-Path (Join-Path $root "publish\runtimes\cuda\win-x64"))
+
+$cudaSha = "2D397A7077760C74EFA2838F42D4E8B502D8D3CCAB9259844BBCFE06F5EB922F"
+$cudaSize = 544457658
+
+if ($cudaFilesExist) {
+    Write-Step "CUDA 13 paketi hazırlanıyor (trwhisper-cuda13-win-x64.zip)..."
+    $cudaStaging = Join-Path $env:TEMP "trwhisper_cuda13_stg_$([Guid]::NewGuid().ToString('N'))"
+    if (Test-Path $cudaStaging) { Remove-Item $cudaStaging -Recurse -Force }
+    New-Item -ItemType Directory -Path $cudaStaging -Force | Out-Null
+
+    Copy-Item (Join-Path $root "publish\cublas*.dll") $cudaStaging -Force
+    Copy-Item (Join-Path $root "publish\cudart*.dll") $cudaStaging -Force
+    $stgRuntimes = Join-Path $cudaStaging "runtimes\cuda\win-x64"
+    New-Item -ItemType Directory -Path $stgRuntimes -Force | Out-Null
+    Copy-Item (Join-Path $root "publish\runtimes\cuda\win-x64\*") $stgRuntimes -Force
+
+    if (Test-Path $cudaZipOut) { Remove-Item $cudaZipOut -Force }
+    Compress-Archive -Path (Get-ChildItem $cudaStaging).FullName -DestinationPath $cudaZipOut -CompressionLevel Optimal
+    Remove-Item $cudaStaging -Recurse -Force
+
+    $cudaSize = (Get-Item $cudaZipOut).Length
+    $cudaSha = (Get-FileHash $cudaZipOut -Algorithm SHA256).Hash
+    Set-Content -Path "$cudaZipOut.sha256" -Value "$cudaSha *trwhisper-cuda13-win-x64.zip" -Encoding ASCII
+    Write-Ok ("CUDA 13 paketi hazır: {0:N1} MB" -f ($cudaSize / 1MB))
+} else {
+    Write-Host "[!] CUDA runtime dosyaları publish klasöründe eksik, CUDA paketi üretilmedi." -ForegroundColor Yellow
+}
+
+# 4. Kuruluma gömülecek dosyalar
 New-Item -ItemType Directory -Force -Path $cacheDir | Out-Null
 
 $cpuZip = Join-Path $cacheDir "whisper-bin-x64-$whisperBuild.zip"
@@ -96,7 +133,7 @@ Write-Ok "CPU motoru hazır: $cpuDir\Release"
 
 Get-FileOrDownload -Path (Join-Path $cacheDir "ggml-silero-v6.2.0.bin") -Url $vadUrl -Sha256 $vadSha
 
-# 4. Inno Setup ile derle
+# 5. Inno Setup ile derle
 $iscc = @(
     "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe",
     "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
@@ -108,10 +145,29 @@ if (-not $iscc) {
 }
 
 Write-Step "Kurulum dosyası derleniyor (Inno Setup)..."
-& $iscc "/DAppVersion=$Version" (Join-Path $installerDir "TRWhisper.iss")
-if ($LASTEXITCODE -ne 0) { throw "Inno Setup derlemesi başarısız oldu (ISCC çıkış kodu $LASTEXITCODE)." }
+$isccArgs = @("/DAppVersion=$Version")
+if ($cudaSha) {
+    $isccArgs += "/DCudaZipSha=$cudaSha"
+    $isccArgs += "/DCudaZipSize=$cudaSize"
+}
+$isccArgs += (Join-Path $installerDir "TRWhisper.iss")
 
-# 5. Özet + SHA-256
+$maxRetries = 3
+$compiled = $false
+for ($attempt = 1; $attempt -le $maxRetries; $attempt++) {
+    & $iscc $isccArgs
+    if ($LASTEXITCODE -eq 0) {
+        $compiled = $true
+        break
+    }
+    if ($attempt -lt $maxRetries) {
+        Write-Host "[!] Inno Setup derlemesi başarısız oldu (muhtemel antivirüs tarama kilidi). 3 saniye sonra tekrar deneniyor ($attempt/$maxRetries)..." -ForegroundColor Yellow
+        Start-Sleep -Seconds 3
+    }
+}
+if (-not $compiled) { throw "Inno Setup derlemesi başarısız oldu (ISCC çıkış kodu $LASTEXITCODE)." }
+
+# 6. Özet + SHA-256
 $setupExe = Join-Path $installerDir "Output\TRWhisper-Setup-$Version.exe"
 if (-not (Test-Path $setupExe)) { throw "Kurulum dosyası oluşmadı: $setupExe" }
 
@@ -123,3 +179,8 @@ Write-Ok "Kurulum dosyası hazır:"
 Write-Host "    $setupExe" -ForegroundColor White
 Write-Host "    Boyut : $([math]::Round((Get-Item $setupExe).Length / 1MB, 1)) MB" -ForegroundColor White
 Write-Host "    SHA256: $hash" -ForegroundColor White
+if (Test-Path $cudaZipOut) {
+    Write-Host "    CUDA  : $cudaZipOut" -ForegroundColor White
+    Write-Host "    Boyut : $([math]::Round((Get-Item $cudaZipOut).Length / 1MB, 1)) MB" -ForegroundColor White
+    Write-Host "    SHA256: $cudaSha" -ForegroundColor White
+}

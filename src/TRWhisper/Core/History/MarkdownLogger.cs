@@ -20,6 +20,7 @@ namespace TRWhisper.Core.History
         public async Task LogTranscriptAsync(string transcript, bool cleanedWithLlm, string? rawTranscript = null)
         {
             if (string.IsNullOrWhiteSpace(transcript)) return;
+            if (!_configManager.Current.General.EnableHistoryLogging) return;
 
             await _semaphore.WaitAsync();
             try

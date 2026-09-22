@@ -133,9 +133,9 @@ namespace TRWhisper.Core.Speech
             var modelPath = _configManager.Current.Whisper.ResolvedModelPath;
             if (!File.Exists(modelPath))
             {
-                FileLog.Write($"[WhisperNetEngine] HATA: Whisper model dosyası bulunamadı: {modelPath}");
-                FileLog.Write("[WhisperNetEngine] Lütfen 'scripts/setup.ps1' betiğini çalıştırarak modeli indirin.");
-                return string.Empty;
+                var msg = $"Whisper model dosyası bulunamadı: {Path.GetFileName(modelPath)}";
+                FileLog.Write($"[WhisperNetEngine] HATA: {msg} (Tam yol: {modelPath})");
+                throw new FileNotFoundException(msg, modelPath);
             }
 
             await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -182,12 +182,16 @@ namespace TRWhisper.Core.Speech
                 FileLog.Write("[WhisperNetEngine] transkripsiyon iptal edildi.");
                 return string.Empty;
             }
+            catch (FileNotFoundException)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
                 FileLog.Write($"[WhisperNetEngine] transkripsiyon hatası: {ex.Message}");
                 // Bağlam bozulmuş olabilir; bir sonraki çağrı temiz yüklesin.
                 Unload("hata sonrası");
-                return string.Empty;
+                throw;
             }
             finally
             {

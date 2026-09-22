@@ -46,7 +46,7 @@
   - Filters out known Whisper phantom subtitles (`Altyazı M.K.`, `İzlediğiniz için teşekkür ederim.`) and audio bracket tags (`[MÜZİK ÇALIYOR]`).
 - **Floating Pill Overlay**: Real-time status display indicating listening volume, processing status, with cancel (✕) and complete (✓) buttons.
 - **Windows Startup Integration**: Enable or disable autostart on Windows boot with a single switch in the Settings UI.
-- **Automated Test Suite**: 87 automated unit tests and a UI smoke testing utility (`uismoke`) guaranteeing zero XAML template breakage.
+- **Automated Test Suite**: 92 automated unit tests and a UI smoke testing utility (`uismoke`) guaranteeing zero XAML template breakage.
 - **Local Markdown Logging**: Transcripts are automatically logged with timestamps to `%USERPROFILE%\Dictation\YYYY-MM.md`. Logs are written to `%USERPROFILE%\Dictation\trwhisper.log`.
 
 ---
@@ -89,7 +89,7 @@ before it starts:
   (`%USERPROFILE%\Dictation`) should be deleted as well.
 - Silent installation (for deployment):
   ```powershell
-  TRWhisper-Setup-2.0.0.exe /SILENT /ENGINE=cuda /MODELS=turbo,small /TASKS=desktopicon
+  TRWhisper-Setup-2.0.1.exe /SILENT /ENGINE=cuda /MODELS=turbo,small /TASKS=desktopicon
   ```
 
 > [!NOTE]

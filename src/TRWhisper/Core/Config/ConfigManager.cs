@@ -30,6 +30,12 @@ namespace TRWhisper.Core.Config
         /// </summary>
         public bool EnableStreamingPreview { get; set; } = true;
 
+        /// <summary>
+        /// Transkriptlerin yerel günlük dosyasına (%USERPROFILE%\Dictation\YYYY-MM.md) kaydedilmesini sağlar.
+        /// Gizlilik öncelikli kullanım için kapatılabilir.
+        /// </summary>
+        public bool EnableHistoryLogging { get; set; } = true;
+
         [JsonIgnore]
         public string ResolvedLogDirectory => Environment.ExpandEnvironmentVariables(LogDirectory);
 

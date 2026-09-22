@@ -58,8 +58,9 @@ Windows 11 için tamamen yerel çalışan Türkçe bas-konuş dikte uygulamasın
 
 ### 🛡️ Güvenlik & Doğrulama
 - **Dosya:** `TRWhisper-Setup-2.0.0.exe`
-- **Boyut:** ~51.3 MB (53,816,507 bayt)
-- **SHA-256:** `3CAAB66A8A72207E35374F07294B887AFF7EB725D9134CD124C2B451BDB7784E`
+- **Boyut:** ~51.8 MB (54,268,518 bayt)
+- **SHA-256:** `9E4E755A5EC2D71CC346207D0B1B32F074EEFA76D1D326AD5D2131719B9C4BAC`
+- **İsteğe Bağlı CUDA 13 Hızlandırma Paketi:** `trwhisper-cuda13-win-x64.zip` (~519.2 MB, SHA-256: `2D397A7077760C74EFA2838F42D4E8B502D8D3CCAB9259844BBCFE06F5EB922F`) *(Kurulum esnasında uyumlu NVIDIA GPU algılandığında otomatik olarak indirilir)*
 - **VirusTotal Raporu:** [VirusTotal v2.0.0 (67/69 Temiz)](https://www.virustotal.com/gui/file/3caab66a8a72207e35374f07294b887aff7eb725d9134cd124c2b451bdb7784e?nocache=1) (Microsoft Defender, Kaspersky, Bitdefender vb. dahil 67 motor tamamen temizdir. Çıkan 2 ML uyarısı, imzasız binary ve Windows klavye kancası/SendInput API'lerinden kaynaklanan zararsız yanlış pozitiflerdir.)
 
 ---
@@ -117,6 +118,7 @@ Windows 11 için tamamen yerel çalışan Türkçe bas-konuş dikte uygulamasın
 
 ### 🛡️ Checksums & Integrity
 - **File:** `TRWhisper-Setup-2.0.0.exe`
-- **Size:** ~51.3 MB (53,816,507 bytes)
-- **SHA-256:** `3CAAB66A8A72207E35374F07294B887AFF7EB725D9134CD124C2B451BDB7784E`
+- **Size:** ~51.8 MB (54,268,518 bytes)
+- **SHA-256:** `9E4E755A5EC2D71CC346207D0B1B32F074EEFA76D1D326AD5D2131719B9C4BAC`
+- **Optional CUDA 13 Acceleration Package:** `trwhisper-cuda13-win-x64.zip` (~519.2 MB, SHA-256: `2D397A7077760C74EFA2838F42D4E8B502D8D3CCAB9259844BBCFE06F5EB922F`) *(Downloaded automatically by installer if compatible NVIDIA GPU is detected)*
 - **VirusTotal Report:** [VirusTotal v2.0.0 (67/69 Clean)](https://www.virustotal.com/gui/file/3caab66a8a72207e35374f07294b887aff7eb725d9134cd124c2b451bdb7784e?nocache=1) (100% clean on Microsoft Defender, Kaspersky, Bitdefender, etc. The 2 ML flags are benign false positives due to unsigned binary status and low-level keyboard hook / SendInput APIs.)

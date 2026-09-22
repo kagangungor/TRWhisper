@@ -46,7 +46,7 @@
   - Whisper'ın bilinen hayalet altyazıları (`Altyazı M.K.`, `İzlediğiniz için teşekkür ederim.`) ve ses etiketleri (`[MÜZİK ÇALIYOR]`) filtrelenir.
 - **Kayan Durum Kapsülü (Pill Overlay)**: Kayıt sırasında ses seviyesini ve durumunu, işlem sırasında çözümlenmeyi gösterir; iptal (✕) ve bitir (✓) düğmeleri içerir.
 - **Windows Açılışında Başlatma (Autostart)**: Ayarlar menüsünden tek tıkla Windows başlangıcına eklenebilir.
-- **Kapsamlı Test Paketi**: 87 adet otomatik birim testi ve XAML şablon duman testi (`uismoke`) ile yüksek kod kalitesi.
+- **Kapsamlı Test Paketi**: 92 adet otomatik birim testi ve XAML şablon duman testi (`uismoke`) ile yüksek kod kalitesi.
 - **Yerel Günlük**: Her transkript zaman damgasıyla `%USERPROFILE%\Dictation\YYYY-MM.md` dosyasına kaydedilir. Günlük loglar `%USERPROFILE%\Dictation\trwhisper.log` dosyasına yazılır.
 
 ---
@@ -88,7 +88,7 @@ Sihirbaz Türkçe ve İngilizce'dir ve kuruluma başlamadan önce ne kurulacağ�
   silinip silinmeyeceği size sorulur.
 - Sessiz kurulum (kurumsal dağıtım):
   ```powershell
-  TRWhisper-Setup-2.0.0.exe /SILENT /ENGINE=cuda /MODELS=turbo,small /TASKS=desktopicon
+  TRWhisper-Setup-2.0.1.exe /SILENT /ENGINE=cuda /MODELS=turbo,small /TASKS=desktopicon
   ```
 
 > [!NOTE]

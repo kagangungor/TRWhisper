@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -22,9 +23,27 @@ namespace TRWhisper
     {
         private const string MutexName = "Global\\TRWhisper_SingleInstance_Mutex";
 
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern bool SetDefaultDllDirectories(int directoryFlags);
+
+        private const int LOAD_LIBRARY_SEARCH_APPLICATION_DIR = 0x00000200;
+        private const int LOAD_LIBRARY_SEARCH_SYSTEM32 = 0x00000800;
+
         [STAThread]
         private static void Main()
         {
+            AppDomain.CurrentDomain.SetData("REGEX_DEFAULT_MATCH_TIMEOUT", TimeSpan.FromMilliseconds(250));
+
+            try
+            {
+                // DLL Hijacking / Binary Planting koruması: DLL aramalarını sadece uygulama dizini ve System32 ile sınırla
+                SetDefaultDllDirectories(LOAD_LIBRARY_SEARCH_APPLICATION_DIR | LOAD_LIBRARY_SEARCH_SYSTEM32);
+            }
+            catch
+            {
+                // Eski veya kısıtlı Windows ortamlarında akışı bozma
+            }
+
             AppDomain.CurrentDomain.UnhandledException += (s, e) =>
             {
                 FileLog.Write($"[Program] UnhandledException: {e.ExceptionObject}");

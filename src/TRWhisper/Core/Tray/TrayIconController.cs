@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Windows.Threading;
@@ -24,6 +25,9 @@ namespace TRWhisper.Core.Tray
 
     public class TrayIconController : IDisposable
     {
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern bool DestroyIcon(IntPtr hIcon);
+
         private readonly NotifyIcon _notifyIcon;
         private readonly ConfigManager _configManager;
         private readonly TranscriptHistory _history;
@@ -157,9 +161,20 @@ namespace TRWhisper.Core.Tray
                 }
 
                 var hIcon = bmp.GetHicon();
-                var icon = Icon.FromHandle(hIcon);
+                Icon? icon = null;
+                try
+                {
+                    icon = (Icon)Icon.FromHandle(hIcon).Clone();
+                }
+                finally
+                {
+                    DestroyIcon(hIcon);
+                }
 
+                var oldIcon = _notifyIcon.Icon;
                 _notifyIcon.Icon = icon;
+                oldIcon?.Dispose();
+
                 _notifyIcon.Text = statusText.Length > 63 ? statusText.Substring(0, 63) : statusText;
             }
             catch (Exception ex)
@@ -394,6 +409,9 @@ namespace TRWhisper.Core.Tray
         {
             _history.HistoryChanged -= OnHistoryChanged;
             _notifyIcon.Visible = false;
+            var currentIcon = _notifyIcon.Icon;
+            _notifyIcon.Icon = null;
+            currentIcon?.Dispose();
             _notifyIcon.Dispose();
         }
     }

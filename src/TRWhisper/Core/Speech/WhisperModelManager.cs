@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
+using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using TRWhisper.Core.Config;
@@ -26,6 +27,7 @@ namespace TRWhisper.Core.Speech
         public string Description { get; init; } = "";
         public long ApproximateSizeBytes { get; init; }
         public string DownloadUrl { get; init; } = "";
+        public string? Sha256 { get; init; }
         public bool NeedsGpu { get; init; }
         public bool IsVad { get; init; }
 
@@ -70,6 +72,7 @@ namespace TRWhisper.Core.Speech
                 Description = "En yüksek Türkçe doğruluğu ve optimize bellek kullanımı. (GPU önerilir)",
                 ApproximateSizeBytes = 574_041_195,
                 DownloadUrl = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q5_0.bin",
+                Sha256 = "394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2",
                 NeedsGpu = true
             },
             new()
@@ -80,6 +83,7 @@ namespace TRWhisper.Core.Speech
                 Description = "Hızlı ve dengeli. Ekran kartı olmayan sistemler için ideal.",
                 ApproximateSizeBytes = 487_601_967,
                 DownloadUrl = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin",
+                Sha256 = "1be3a9b2063867b937e64e2ec7483364a79917e157fa98c5d94b5c1fffea987b",
                 NeedsGpu = false
             },
             new()
@@ -90,6 +94,7 @@ namespace TRWhisper.Core.Speech
                 Description = "Çok hafif ve düşük kaynak kullanımı. Hızlı notlar için.",
                 ApproximateSizeBytes = 147_951_465,
                 DownloadUrl = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin",
+                Sha256 = "60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe",
                 NeedsGpu = false
             },
             new()
@@ -100,6 +105,7 @@ namespace TRWhisper.Core.Speech
                 Description = "En az bellek tüketen Whisper modeli (~75 MB). Minimum doğruluk.",
                 ApproximateSizeBytes = 77_691_741,
                 DownloadUrl = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin",
+                Sha256 = "be07e048e1e599ad46341c8d2a135645097a538221678b7acdd1b1919c6e1b21",
                 NeedsGpu = false
             },
             new()
@@ -110,6 +116,7 @@ namespace TRWhisper.Core.Speech
                 Description = "Yüksek doğruluklu standart model (~1.5 GB).",
                 ApproximateSizeBytes = 1_533_774_272,
                 DownloadUrl = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.bin",
+                Sha256 = "6c14d5adee5f86394037b4e4e8b59f1673b6cee10e3cf0b11bbdbee79c156208",
                 NeedsGpu = true
             },
             new()
@@ -120,6 +127,7 @@ namespace TRWhisper.Core.Speech
                 Description = "En kapsamlı model (~2.9 GB). Güçlü ekran kartı gerektirir.",
                 ApproximateSizeBytes = 3_095_033_408,
                 DownloadUrl = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3.bin",
+                Sha256 = "64d182b440b98d5203c4f9bd541544d84c605196c4f7b845dfa11fb23594d1e2",
                 NeedsGpu = true
             },
             new()
@@ -130,6 +138,7 @@ namespace TRWhisper.Core.Speech
                 Description = "Sessizlik anlarını filtreleyerek uydurma metin üretimini engeller.",
                 ApproximateSizeBytes = 885_098,
                 DownloadUrl = "https://huggingface.co/ggml-org/whisper-vad/resolve/main/ggml-silero-v6.2.0.bin",
+                Sha256 = "2aa269b785eeb53a82983a20501ddf7c1d9c48e33ab63a41391ac6c9f7fb6987",
                 NeedsGpu = false,
                 IsVad = true
             }
@@ -251,6 +260,25 @@ namespace TRWhisper.Core.Speech
                             lastDownloadedBytes = totalDownloaded;
                         }
                     }
+                }
+
+                if (!string.IsNullOrWhiteSpace(model.Sha256))
+                {
+                    FileLog.Write($"[WhisperModelManager] Model SHA-256 bütünlüğü doğrulanıyor: {model.DisplayName}");
+                    await using (var checkStream = File.OpenRead(tempPath))
+                    {
+                        var hashBytes = await SHA256.HashDataAsync(checkStream, cancellationToken).ConfigureAwait(false);
+                        var computedHash = Convert.ToHexString(hashBytes);
+
+                        if (!string.Equals(computedHash, model.Sha256, StringComparison.OrdinalIgnoreCase))
+                        {
+                            try { File.Delete(tempPath); } catch { }
+                            FileLog.Write($"[WhisperModelManager] Model SHA-256 doğrulaması BAŞARISIZ! Beklenen: {model.Sha256}, Hesaplanan: {computedHash}");
+                            return (false, "Model doğrulama hatası: İndirilen model dosyasının SHA-256 özeti eşleşmiyor. Dosya güvenlik gerekçesiyle silindi.");
+                        }
+                    }
+
+                    FileLog.Write($"[WhisperModelManager] Model SHA-256 doğrulaması başarılı: {model.DisplayName}");
                 }
 
                 if (File.Exists(finalPath))

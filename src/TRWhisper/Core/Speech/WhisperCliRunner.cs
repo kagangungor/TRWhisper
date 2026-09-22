@@ -63,28 +63,43 @@ namespace TRWhisper.Core.Speech
             // tek-dosya WPF host'unda redirect edilen pipe'ın yazma ucu whisper-cli çıktıktan
             // sonra kapanmıyordu ve Process.WaitForExitAsync _output.EOF/_error.EOF'u
             // (token'sız) sonsuza kadar bekleyip "Çözümleniyor..." takılmasına yol açıyordu.
-            var args = $"-m \"{modelPath}\" -f \"{wavFilePath}\" -l {language} -t {cfg.Threads} -nt -otxt";
-
-            // Silero VAD: konuşma yoksa whisper boş çıktı verir (uydurma metin üretmez).
-            // Model dosyası yoksa dikte bozulmasın diye VAD'siz devam edilir.
-            var vadModelPath = cfg.ResolvedVadModelPath;
-            if (File.Exists(vadModelPath))
-                args += $" --vad -vm \"{vadModelPath}\"";
-            else
-                FileLog.Write($"[WhisperCliRunner] VAD modeli bulunamadı, VAD'siz çalışılıyor: {vadModelPath}");
-            var sidecarTxt = wavFilePath + ".txt";
-            try { if (File.Exists(sidecarTxt)) File.Delete(sidecarTxt); } catch { }
-
             var startInfo = new ProcessStartInfo
             {
                 FileName = cliPath,
-                Arguments = args,
                 WorkingDirectory = Path.GetDirectoryName(cliPath) ?? string.Empty,
                 RedirectStandardOutput = false,
                 RedirectStandardError = false,
                 UseShellExecute = false,
                 CreateNoWindow = true
             };
+
+            startInfo.ArgumentList.Add("-m");
+            startInfo.ArgumentList.Add(modelPath);
+            startInfo.ArgumentList.Add("-f");
+            startInfo.ArgumentList.Add(wavFilePath);
+            startInfo.ArgumentList.Add("-l");
+            startInfo.ArgumentList.Add(language);
+            startInfo.ArgumentList.Add("-t");
+            startInfo.ArgumentList.Add(cfg.Threads.ToString());
+            if (cfg.NoTimestamps) startInfo.ArgumentList.Add("-nt");
+            startInfo.ArgumentList.Add("-otxt");
+
+            // Silero VAD: konuşma yoksa whisper boş çıktı verir (uydurma metin üretmez).
+            // Model dosyası yoksa dikte bozulmasın diye VAD'siz devam edilir.
+            var vadModelPath = cfg.ResolvedVadModelPath;
+            if (File.Exists(vadModelPath))
+            {
+                startInfo.ArgumentList.Add("--vad");
+                startInfo.ArgumentList.Add("-vm");
+                startInfo.ArgumentList.Add(vadModelPath);
+            }
+            else
+            {
+                FileLog.Write($"[WhisperCliRunner] VAD modeli bulunamadı, VAD'siz çalışılıyor: {vadModelPath}");
+            }
+
+            var sidecarTxt = wavFilePath + ".txt";
+            try { if (File.Exists(sidecarTxt)) File.Delete(sidecarTxt); } catch { }
 
             using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(timeoutSeconds));
             using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
@@ -96,7 +111,7 @@ namespace TRWhisper.Core.Speech
 
                 var sw = Stopwatch.StartNew();
                 process.Start();
-                FileLog.Write($"[WhisperCliRunner] başladı: {Path.GetFileName(cliPath)} {args}");
+                FileLog.Write($"[WhisperCliRunner] başladı: {Path.GetFileName(cliPath)} (model={Path.GetFileName(modelPath)}, threads={cfg.Threads})");
 
                 // Süreç bitişini HasExited yoklamasıyla bekle. HasExited (ve WaitForExit(int)),
                 // WaitForExitAsync'in aksine asenkron okuyucu EOF'unu BEKLEMEZ.

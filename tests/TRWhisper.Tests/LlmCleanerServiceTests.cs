@@ -181,7 +181,9 @@ namespace TRWhisper.Tests
 
             var mockHandler = new MockHttpMessageHandler(req =>
             {
-                Assert.Contains("key=test-gemini-key", req.RequestUri?.ToString());
+                Assert.DoesNotContain("key=", req.RequestUri?.ToString());
+                Assert.True(req.Headers.TryGetValues("x-goog-api-key", out var values));
+                Assert.Equal("test-gemini-key", values.FirstOrDefault());
                 return new HttpResponseMessage(HttpStatusCode.OK)
                 {
                     Content = new StringContent(geminiResponse, Encoding.UTF8, "application/json")
@@ -194,6 +196,54 @@ namespace TRWhisper.Tests
             string result = await service.CleanTranscriptAsync("gemini tarafindan temizlendi");
 
             Assert.Equal("Gemini tarafından temizlendi.", result);
+        }
+
+        [Fact]
+        public async Task CleanTranscriptAsync_OpenAi_InsecureHttpOnExternalHost_RejectsAndReturnsRaw()
+        {
+            _configManager.Current.LlmCleaning.Provider = "OpenAI";
+            _configManager.Current.LlmCleaning.ApiKey = "test-key";
+            _configManager.Current.LlmCleaning.Endpoint = "http://api.external-openai-proxy.com/v1/chat/completions";
+
+            using var httpClient = new HttpClient(new MockHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)));
+            var service = new LlmCleanerService(_configManager, httpClient);
+
+            string raw = "metin ornegi";
+            string result = await service.CleanTranscriptAsync(raw);
+
+            Assert.Equal(raw, result);
+            Assert.Contains("HTTPS zorunludur", service.LastError);
+        }
+
+        [Fact]
+        public async Task CleanTranscriptAsync_OpenAi_HttpOnLoopback_Allowed()
+        {
+            _configManager.Current.LlmCleaning.Provider = "OpenAI";
+            _configManager.Current.LlmCleaning.ApiKey = "test-key";
+            _configManager.Current.LlmCleaning.Endpoint = "http://127.0.0.1:8000/v1/chat/completions";
+
+            string response = """
+            {
+              "choices": [
+                {
+                  "message": { "role": "assistant", "content": "Yerel proxy yanıtı." }
+                }
+              ]
+            }
+            """;
+
+            using var httpClient = new HttpClient(new MockHttpMessageHandler(req =>
+            {
+                Assert.Equal("127.0.0.1", req.RequestUri?.Host);
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(response, Encoding.UTF8, "application/json")
+                };
+            }));
+            var service = new LlmCleanerService(_configManager, httpClient);
+
+            string result = await service.CleanTranscriptAsync("yerel proxy yaniti");
+            Assert.Equal("Yerel proxy yanıtı.", result);
         }
 
         [Fact]
