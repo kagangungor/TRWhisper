@@ -19,35 +19,40 @@
 ## 🚀 Temel Özellikler
 
 - **Modern Grafiksel Ayarlar Penceresi (WPF)**: Sistem tepsisinden tek tıkla açılan zengin ve modern ayarlar paneli; **Genel**, **Ses**, **Model**, **Kısayol**, **Sözlük**, **Yapay Zeka (LLM)** ve **Kapsül** sekmeleriyle tüm ayarları görsel olarak yönetme ve anında test etme.
-- **Özel Sözlük & Jargon Desteği (Custom Dictionary)**: Kullanıcı tanımlı fonetik ve mesleki jargon eşlemeleri (`dictionary.json`). Sektörel terimler, özel isimler veya Whisper'ın karıştırabileceği teknik kelimeler kelime sınırı kurallarıyla otomatik olarak düzeltilir.
+- **Özel Sözlük & Jargon Desteği (Custom Dictionary)**: Kullanıcı tanımlı fonetik ve mesleki jargon eşlemeleri (`dictionary.json`). Sektörel terimler, özel isimler veya Whisper'ın karıştırabileceği teknik kelimeler kelime sınırı kurallarıyla ve Türkçe çekim ekleri kesme işaretiyle korunarak otomatik düzeltilir (ör. `pitonda` -> `Python'da`).
 - **Gelişmiş Türkçe Metin Normalizasyonu**:
-  - Cümle başı büyük harf uyumu ve noktalama kontrolleri.
-  - de/da ve ki bağlaç düzeltmeleri.
-  - Konuşma sırasındaki kekeleme ve tekrarlı kelimeleri ayıklama (ör. `ve ve ve` -> `ve`).
+  - Konuşma dilindeki sayı, yüzde, para birimi, tarih, saat ve ölçü birimlerini kural tabanlı olarak iş yazışmasına uygun rakamsal biçime çevirir (ör. `yüzde yirmi` -> `%20`, `on beş eylül` -> `15 Eylül`, `üç buçuk kilo` -> `3,5 kg`, `iki buçukta` -> `02:30'da`, `yüz dolar` -> `100 USD`).
+  - Sayılara ve sembollere gelen Türkçe çekim eklerinde kalınlık-incelik ve sertleşme gibi ses uyumu kurallarını eksiksiz uygular.
 - **Bağlama Duyarlı (Context-Aware) LLM Modları & Uygulama Algılama**:
-  - Farklı transkript modları: **Ham Metin**, **Temizle** (dolgu kelimeleri at), **Özetle**, **Resmi Dil** ve **Madde İmleri**.
-  - Aktif ön plan uygulamasını otomatik algılama (`ForegroundAppDetector`): Kod editörleri (VS Code), e-posta , mesajlaşma (Discord, Slack) veya doküman editörlerine göre dil tonunu otomatik uyarlar.
-  - **Donanım Seviyesinde Güvenli API Anahtarı Saklama**: Windows DPAPI (`Data Protection API`) ile şifrelenmiş güvenli depolama; API anahtarlarınız düz metin olarak saklanmaz.
-- **Esnek Kısayol Tuşları & Eller Serbest (Hands-Free) Dikte**:
-  - Klasik **Bas-Konuş (Push-to-Talk)** modu (varsayılan: Sağ Ctrl).
-  - Tuşa basılı tutmadan konuşmanızı tamamlayınca sessizlik algılayıp otomatik bitiren **Eller Serbest (Hands-free toggle)** modu.
-  - Özelleştirilebilir tetikleme ve LLM değiştirici tuşları (Sağ/Sol Ctrl, Shift, Alt, F tuşları vb.).
+  - Yerleşik hazır modlar & kişilikler: **Temiz Metin** (✨ dolgu kelimeleri, kekelemeleri atar, yazım ve noktalama hatalarını düzeltir, anlama sadık kalır), **Kurumsal E-posta** (📧 taslağı saygılı ve akıcı bir iş e-postasına dönüştürür), **Maddeli Özet** (📝 ana fikirleri ve kararları `- ` maddeli listesine döker), **Kod & Teknik** (💻 teknik terimleri korur, komut ve kod parçalarını Markdown bloklarına alır) ve **İngilizce Çeviri** (🌐 Türkçe konuşmayı profesyonel İngilizceye çevirir).
+  - Kullanıcı tanımlı **Özel Modlar (Custom Modes)** ekleme ve ham metin çıktısı alma desteği.
+  - Aktif ön plan uygulamasını otomatik algılama (`ForegroundAppDetector`): VS Code, Visual Studio, Outlook, Thunderbird veya Terminal gibi pencereleri anında tespit edip uygun LLM moduna otomatik geçer ve kapsül üzerinde aktif uygulama rozetini gösterir.
+  - **Donanım Seviyesinde Güvenli API Anahtarı Saklama**: Windows DPAPI (`Data Protection API`) ve uygulamaya özel entropy (`TRWhisper_DPAPI_Entropy_v2`) ile şifrelenmiş depolama; API anahtarlarınız asla düz metin olarak saklanmaz veya güvenli olmayan HTTP üzerinden iletilmez.
+- **Esnek Kısayol Tuşları & 3 Farklı Dikte Modu**:
+  - Klasik **Bas-Konuş (Push-to-Talk)** modu (varsayılan: Sağ Ctrl — basılı tutun, bırakınca çözümler).
+  - **İki Basışla Aç/Kapa (Toggle)** modu (bir kez basıp konuşmaya başlayın, bitirmek için tekrar basın).
+  - **Eller Serbest (Hands-Free)** modu (bir kez basıp konuşun; konuşmanız bitip sessizlik algılandığında kendiliğinden tamamlansın).
+  - Özelleştirilebilir kısayollar (Sağ/Sol Ctrl, Shift, Alt, CapsLock, F8/F9, Mouse4/Mouse5 ve özel tuş kombinasyonları).
+- **Gerçek Zamanlı Canlı Akış Önizlemesi (Streaming Preview)**:
+  - Canlı akış (`EnableStreamingPreview`): Siz mikrofona konuşurken kelimeler eşzamanlı olarak ekrandaki kayan kapsülde akar; konuşma tamamlandığında nihai yüksek kaliteli metin işlenip yapıştırılır.
 - **Whisper.net Yerleşik C# Motoru & Dinamik Model Yönetimi**:
   - `whisper-cli` haricinde süreç içi yüksek performanslı Whisper.net yerel çalışma zamanı entegrasyonu.
-  - Ayarlar arayüzünden doğrudan model indirme ilerleme takibi.
+  - Ayarlar arayüzünden doğrudan model indirme, silme ve **SHA-256 doğrulama** güvenliği.
   - Sistem boşta kaldığında bellek ve VRAM tasarrufu sağlayan otomatik model boşaltma zamanlayıcısı (`IdleTimeoutMinutes`).
-- **Otomatik Yapıştırma & Akıllı Pano**:
-  - Transkript metnini panoya kopyalar ve `Ctrl + V` simülasyonu ile imlecin bulunduğu alana yapıştırır.
-  - İsteğe bağlı olarak yapıştırma sonrası panonun eski içeriğini otomatik geri yükleme seçeneği (`RestoreClipboard`).
-- **Tamamen Çevrimdışı ve Gizli (STT)**: Yerel Whisper motoruyla çalışır. Sesiniz hiçbir sunucuya gönderilmez.
-- **NVIDIA GPU Hızlandırma**: CUDA derlemesiyle **Large-v3 Turbo** modeli dikteyi işlemcideki ~23 saniye yerine ~2–3 saniyede çözer. GPU yoksa otomatik CPU moduna geçer.
+- **Otomatik Yapıştırma & Çift Pano Modu**:
+  - **Pano (Clipboard)** modu: Transkripti panoya kopyalar ve `Ctrl + V` simülasyonu ile yapıştırır; isteğe bağlı `RestoreClipboard` ile panonun eski içeriği korunur.
+  - **Doğrudan Yazma (DirectType)** modu: Panoya hiç dokunmadan metni `KEYEVENTF_UNICODE` ile karakter karakter yazar.
+- **%100 Çevrimdışı ve Gizli (STT) + Sıkı Gizlilik Denetimleri**:
+  - Yerel Whisper motoruyla çalışır. Ses veriniz bilgisayarınızın dışına çıkmaz.
+  - **Gizlilik Odaklı Günlükleme**: İsteğe bağlı `EnableHistoryLogging` seçeneği ile transkriptlerin diskte `.md` dosyası olarak kaydedilmesi tamamen kapatılabilir. Teşhis günlükleri (`trwhisper.log`) transkript içeriklerinden arındırılmıştır; geçici ses kayıtları oturum bazlı benzersiz GUID'lerle oluşturulur ve hemen silinir.
+- **NVIDIA GPU Hızlandırma (CUDA 13)**: Modern NVIDIA ekran kartları için **CUDA 13** mimarisi (sürücü >= 580.00 gerektirir). Large-v3 Turbo modeli dikteyi işlemcideki ~23 saniye yerine ~2–3 saniyede çözer. Uyumlu GPU yoksa otomatik CPU moduna geçer.
 - **Sessizlik Algılama ve Uydurma Metin Filtresi**:
   - Yerleşik **Silero VAD** özelliği konuşma olmayan kısımları atlar. Boş kayıtlarda uydurma metin yapıştırılmaz.
   - Whisper'ın bilinen hayalet altyazıları (`Altyazı M.K.`, `İzlediğiniz için teşekkür ederim.`) ve ses etiketleri (`[MÜZİK ÇALIYOR]`) filtrelenir.
-- **Kayan Durum Kapsülü (Pill Overlay)**: Kayıt sırasında ses seviyesini ve durumunu, işlem sırasında çözümlenmeyi gösterir; iptal (✕) ve bitir (✓) düğmeleri içerir.
-- **Windows Açılışında Başlatma (Autostart)**: Ayarlar menüsünden tek tıkla Windows başlangıcına eklenebilir.
+- **Kayan Durum Kapsülü (Pill Overlay)**: Canlı ses dalgası animasyonu, gerçek zamanlı metin akışı, çözümleme durumu, aktif uygulama/mod rozeti, düşük mikrofon sesi uyarısı, ham/temiz metin geçişi ve iptal (✕) / bitir (✓) / kopyala düğmeleriyle serbest konumlandırma.
+- **Windows Açılışında Başlatma (Autostart)**: Ayarlar menüsünden tek tıkla Windows başlangıcına eklenebilir (HKCU Run anahtarı, yönetici hakkı gerekmez).
 - **Kapsamlı Test Paketi**: 92 adet otomatik birim testi ve XAML şablon duman testi (`uismoke`) ile yüksek kod kalitesi.
-- **Yerel Günlük**: Her transkript zaman damgasıyla `%USERPROFILE%\Dictation\YYYY-MM.md` dosyasına kaydedilir. Günlük loglar `%USERPROFILE%\Dictation\trwhisper.log` dosyasına yazılır.
+- **Yerel Günlük**: Transkriptler zaman damgasıyla `%USERPROFILE%\Dictation\YYYY-MM.md` dosyasına kaydedilebilir. Operasyonel günlükler `%USERPROFILE%\Dictation\trwhisper.log` dosyasına yazılır.
 
 ---
 
@@ -56,7 +61,7 @@
 **Gereksinimler**
 - Windows 11 x64
 - [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0) (kaynak koddan derlemek için)
-- İsteğe bağlı: GPU hızlandırma için güncel sürücülü (CUDA 12.4 destekli) bir NVIDIA ekran kartı
+- İsteğe bağlı: GPU hızlandırma için uyumlu sürücülü (CUDA 13 desteği için NVIDIA sürücüsü >= 580.00) bir NVIDIA ekran kartı
 
 ### ⚡ Kolay Kurulum (Önerilen): Tek Dosyalık Kurulum Sihirbazı
 
@@ -71,7 +76,7 @@ Sihirbaz Türkçe ve İngilizce'dir ve kuruluma başlamadan önce ne kurulacağ�
 | TRWhisper uygulaması (.NET 9 gömülü, ayrıca .NET gerekmez) | Her zaman (kurulum dosyasının içinde) |
 | Silero VAD sessizlik modeli | Her zaman (kurulum dosyasının içinde) |
 | Whisper **CPU** motoru | Kurulum dosyasının içinde — her bilgisayarda çalışır |
-| Whisper **NVIDIA GPU (CUDA 12.4)** motoru | Seçime bağlı, ~640 MB indirilir (NVIDIA kartınız varsa otomatik önerilir) |
+| Whisper **NVIDIA GPU (CUDA 13)** motoru | Seçime bağlı, ~519 MB indirilir (açılmış hali ~680 MB; NVIDIA kartınız ve sürücü >= 580.00 varsa otomatik önerilir) |
 | **Large-v3 Turbo** modeli (~547 MB) | Seçime bağlı (Önerilen: en yüksek Türkçe doğruluğu, GPU'da çok hızlı) |
 | **Small** modeli (~465 MB) | Seçime bağlı (Dengeli ve hızlı: yalnızca CPU kullanan sistemler için ideal) |
 | **Base** modeli (~148 MB) | Seçime bağlı (Çok hızlı, hafif: pratik ve anlık notlar için) |
@@ -119,7 +124,7 @@ Proje kök dizinindeyken PowerShell ile kurulum betiğini çalıştırın:
 # İşlemci (CPU) derlemesi + Large-v3 Turbo modeli + VAD modeli
 powershell -ExecutionPolicy Bypass -File scripts\setup.ps1
 
-# Bunun yerine NVIDIA GPU (CUDA 12.4) derlemesi — NVIDIA ekran kartınız varsa önerilir
+# Bunun yerine NVIDIA GPU (CUDA 13) derlemesi — NVIDIA ekran kartınız varsa önerilir
 powershell -ExecutionPolicy Bypass -File scripts\setup.ps1 -Cuda
 
 # İsteğe bağlı olarak diğer modelleri (small, base, tiny, medium, large-v3) indirmek için:
@@ -129,7 +134,7 @@ powershell -ExecutionPolicy Bypass -File scripts\setup.ps1 -Model base
 
 Bu betik:
 - `tools\whisper\` ve `%USERPROFILE%\Dictation\` klasörlerini oluşturur.
-- Test edilmiş `whisper.cpp` **v1.9.3** (derleme `b4938`) Windows x64 dosyalarını indirir: işlemci derlemesi (~8 MB) ya da `-Cuda` ile CUDA 12.4 derlemesi (~640 MB indirme, açılmış hali ~1,2 GB). Mevcut bir işlemci kurulumunda `-Cuda` ile tekrar çalıştırmak onu GPU derlemesine yükseltir.
+- Test edilmiş `whisper.cpp` **v1.9.3** (derleme `b4938`) Windows x64 dosyalarını indirir: işlemci derlemesi (~8 MB) ya da `-Cuda` ile Whisper.net için gerekli CUDA 13 çalışma zamanı kitaplıklarını (`cudart64_13.dll`, `cublas64_13.dll`, `cublasLt64_13.dll`, ~385 MB). Mevcut bir işlemci kurulumunda `-Cuda` ile tekrar çalıştırmak onu GPU derlemesine yükseltir.
 - Seçilen modeli (varsayılan `large-v3-turbo-q5_0`) ve Silero VAD modelini indirir.
 - Zaten mevcut olan dosyaları atlar.
 
@@ -144,7 +149,7 @@ Bu betik:
 | `ggml-silero-v6.2.0.bin` | ~1 MB | Ses etkinliği algılama (sessizlik filtresi) |
 
 > **Manuel İndirmek İsterseniz:**
-> - Whisper dosyaları ([b4938 sürümü](https://github.com/ggml-org/whisper.cpp/releases/tag/b4938)): `whisper-bin-x64.zip` (işlemci) veya `whisper-cublas-12.4.0-bin-x64.zip` (NVIDIA GPU) paketini indirip içindeki `Release` klasörünün **tüm dosyalarını** `tools\whisper\` içine çıkarın.
+> - Whisper dosyaları ([b4938 sürümü](https://github.com/ggml-org/whisper.cpp/releases/tag/b4938)): Windows binary dosyalarını `tools\whisper\` içine çıkarın. CUDA GPU hızlandırması için CUDA 13 DLL'lerinin (`cudart64_13.dll`, `cublas64_13.dll`, `cublasLt64_13.dll`) `tools\cuda13\` (veya uygulamanın çalıştığı dizinde) bulunduğundan emin olun.
 > - Modeller: [ggml-large-v3-turbo-q5_0.bin](https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q5_0.bin), [ggml-small.bin](https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin), [ggml-base.bin](https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin), [ggml-tiny.bin](https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin), [ggml-medium.bin](https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.bin), [ggml-large-v3.bin](https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3.bin) ve [ggml-silero-v6.2.0.bin](https://huggingface.co/ggml-org/whisper-vad/resolve/main/ggml-silero-v6.2.0.bin) dosyalarını `tools\whisper\` içine kaydedin.
 
 ### 3. Windows SmartScreen ve Defender Uyarılarını Geçme
@@ -170,23 +175,27 @@ TRWhisper'ı tepsi simgesine sağ tıklayıp **"⚙️ Ayarlar"** diyerek açıl
     "LogDirectory": "%USERPROFILE%\\Dictation",
     "TempAudioPath": "%TEMP%\\trwhisper_temp.wav",
     "EnableCustomDictionary": true,
-    "EnableTextNormalization": true
+    "EnableTextNormalization": true,
+    "EnableStreamingPreview": true,
+    "EnableHistoryLogging": true
   },
   "Whisper": {
     "CliPath": "tools\\whisper\\whisper-cli.exe",
     "ModelPath": "tools\\whisper\\ggml-large-v3-turbo-q5_0.bin",
     "VadModelPath": "tools\\whisper\\ggml-silero-v6.2.0.bin",
-    "Threads": 8,
+    "Threads": 4,
     "NoTimestamps": true,
     "TimeoutSeconds": 120,
     "IdleTimeoutMinutes": 10
   },
   "LlmCleaning": {
     "EnabledByDefault": false,
-    "Provider": "Gemini",
+    "Provider": "Ollama",
     "ApiKey": "",
-    "Model": "gemini-2.0-flash",
-    "Endpoint": "https://generativelanguage.googleapis.com/v1beta/models",
+    "Model": "qwen2.5:3b",
+    "Endpoint": "http://localhost:11434/v1/chat/completions",
+    "ActiveModeId": "Clean",
+    "EnableAutoAppMode": true,
     "SystemPrompt": "Aşağıdaki metin Türkçe sesli dikte (speech-to-text) çıktısıdır. Lütfen bu metni konuşma dilinden temiz yazı diline dönüştür:\n1. 'ııı', 'eee', 'şey', 'yani', 'falan', 'hımm' gibi duraksama ve dolgu kelimelerini temizle.\n2. Noktalama işaretlerini (nokta, virgül, soru işareti vb.) ve büyük/küçük harf kullanımını eksiksiz düzelt.\n3. Anlatılmak istenen ana fikri ve kelime anlamlarını kesinlikle değiştirme.\n4. Çıktı olarak YALNIZCA düzeltilmiş metni ver. Başına ya da sonuna açıklama, tırnak işareti, selamlama veya markdown ekleme."
   },
   "Paste": {
@@ -212,12 +221,17 @@ TRWhisper'ı tepsi simgesine sağ tıklayıp **"⚙️ Ayarlar"** diyerek açıl
 ```
 
 - **`EnableCustomDictionary`**: `dictionary.json` dosyasındaki özel mesleki/teknik kelime eşlemelerini etkinleştirir.
-- **`EnableTextNormalization`**: Türkçe büyük harf, noktalama, bağlaç ve kekeleme temizliğini açar.
-- **`IdleTimeoutMinutes`**: Whisper modelinin boşta kaldığında RAM/VRAM'i serbest bırakması için dakika cinsinden süre (varsayılan: 10 dk).
-- **`RestoreClipboard`**: Dikte yapıştırıldıktan sonra panonuzda daha önceden kopyalanmış olan veriyi otomatik olarak geri yükler.
-- **`DictationMode`**: `PushToTalk` (bas-konuş) veya `HandsFree` (eller serbest).
+- **`EnableTextNormalization`**: Konuşma dilindeki sayı, tarih, saat, yüzde, para ve birimlerin kural tabanlı rakamsal dönüşümünü sağlar.
+- **`EnableStreamingPreview`**: Konuşma sırasında kelimelerin kayan durum kapsülünde eşzamanlı akmasını sağlar.
+- **`EnableHistoryLogging`**: Transkriptlerin `%USERPROFILE%\Dictation\YYYY-MM.md` dosyasına kaydedilmesini açar/kapatır (gizlilik için devre dışı bırakılabilir).
+- **`IdleTimeoutMinutes`**: Whisper modelinin boşta kaldığında RAM/VRAM'i serbest bırakması için dakika cinsinden süre (varsayılan: 10 dk; 0 modeli sürekli bellekte tutar).
+- **`PasteMode`**: `Clipboard` (panoya kopyalayıp `Ctrl + V` simüle eder) veya `DirectType` (panoya dokunmadan `KEYEVENTF_UNICODE` ile karakter karakter yazar).
+- **`RestoreClipboard`**: Dikte yapıştırıldıktan sonra panonuzda önceden bulunan içeriği otomatik geri yükler (yalnızca Clipboard modunda).
+- **`DictationMode`**: `PushToTalk` (bas-konuş), `Toggle` (iki basışla aç/kapa) veya `HandsFree` (otomatik sessizlik algılamalı eller serbest).
 - **`HandsFreeSilenceMs`**: Eller serbest modunda konuşmanın bittiğini algılayan sessizlik süresi (milisaniye).
-- **`Provider`**: `Gemini`, `OpenAI` veya `Ollama`. API anahtarları (bulut sağlayıcılar için) Windows DPAPI ile şifrelenerek güvenle korunur.
+- **`Provider`**: `Ollama`, `Gemini` veya `OpenAI`. Bulut API anahtarları Windows DPAPI (`TRWhisper_DPAPI_Entropy_v2`) ile şifrelenerek korunur. Gemini için `x-goog-api-key` başlığı kullanılır ve harici uç noktalarda HTTPS zorunludur.
+- **`ActiveModeId`**: Aktif LLM kişiliği (`Clean`, `Email`, `Summary`, `Technical`, `TranslateEn` veya özel mod kimlikleri).
+- **`EnableAutoAppMode`**: Ön plandaki uygulamaya (`ForegroundAppDetector`) göre LLM modunu otomatik uyarlar.
 
 > **İpucu (Bulut API):** Gemini API anahtarınızı Google AI Studio üzerinden ücretsiz alıp Ayarlar arayüzünden kaydedebilirsiniz. Anahtar boş bırakılırsa LLM temizleme atlanır ve yerel transkript doğrudan yapıştırılır.
 
@@ -253,8 +267,8 @@ Intel Core i5-12450H + NVIDIA GeForce RTX 3050 Laptop GPU (4 GB) üzerinde, Tür
 |---|---|---|---|
 | İşlemci (CPU) | Small | 6,5 sn | 9,3 sn |
 | İşlemci (CPU) | Large-v3 Turbo | 23,1 sn | 24,4 sn |
-| CUDA (RTX 3050) | Small | 2,2 sn | 2,8 sn |
-| CUDA (RTX 3050) | Large-v3 Turbo | 2,5 sn | 3,1 sn |
+| CUDA 13 (RTX 3050) | Small | 2,2 sn | 2,8 sn |
+| CUDA 13 (RTX 3050) | Large-v3 Turbo | 2,5 sn | 3,1 sn |
 
 - GPU'da Turbo, işlemcideki Small'dan hem daha hızlı hem daha doğrudur; ~1,2 GB VRAM kullanır.
 - GPU bir süre boşta kaldıktan sonraki ilk dikte birkaç saniye daha uzun sürebilir.
@@ -266,7 +280,7 @@ Intel Core i5-12450H + NVIDIA GeForce RTX 3050 Laptop GPU (4 GB) üzerinde, Tür
 
 - **Bir şey beklendiği gibi çalışmıyorsa:** `%USERPROFILE%\Dictation\trwhisper.log` dosyasına bakın.
 - **Yönetici olarak çalışan bir uygulamaya metin yapıştırılmıyor:** Windows, normal bir uygulamanın yönetici yetkili pencerelere tuş göndermesini engeller. Metin yine panodadır; `Ctrl + V` ile yapıştırabilirsiniz.
-- **Çözümleme 20 saniyeden uzun sürüyor:** büyük ihtimalle Large-v3 Turbo işlemcide çalışıyor. NVIDIA ekran kartınız varsa `setup.ps1 -Cuda` ile CUDA derlemesini kurun ya da tepsi menüsünden **Small** modelini seçin.
+- **Çözümleme 20 saniyeden uzun sürüyor:** büyük ihtimalle Large-v3 Turbo işlemcide çalışıyor. NVIDIA ekran kartınız varsa `setup.ps1 -Cuda` ile CUDA derlemesini kurun (sürücü sürümü >= 580.00 gereklidir) ya da tepsi menüsünden **Small** modelini seçin.
 
 ---
 
@@ -290,7 +304,7 @@ powershell -ExecutionPolicy Bypass -File scripts\build.ps1 -Publish
 TRWhisper'ın kararlılığı ve mimarisi otomatik test paketleriyle korunmaktadır:
 
 ```powershell
-# 87 adet birim testini (AppMode, Hotkey, LLM, ModelManager, DPAPI vb.) çalıştırır:
+# 92 adet birim testini (AppMode, Hotkey, LLM, ModelManager, DPAPI vb.) çalıştırır:
 dotnet test tests\TRWhisper.Tests\TRWhisper.Tests.csproj
 
 # WPF Ayarlar Penceresi XAML şablon ve duman testini çalıştırır:

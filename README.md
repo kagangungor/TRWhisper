@@ -19,35 +19,40 @@
 ## 🚀 Key Features
 
 - **Modern Graphical Settings Window (WPF)**: A clean and accessible multi-tab settings panel (**General**, **Audio**, **Model**, **Hotkey**, **Dictionary**, **AI / LLM**, and **Overlay Pill**) to configure and test everything in real time.
-- **Custom Dictionary & Jargon Support**: User-defined phonetic/jargon replacements (`dictionary.json`). Automatically corrects technical terms, acronyms, brand names, or words frequently misheard by Whisper with word-boundary awareness.
+- **Custom Dictionary & Jargon Support**: User-defined phonetic/jargon replacements (`dictionary.json`). Automatically corrects technical terms, acronyms, brand names, or words frequently misheard by Whisper with word-boundary awareness and preserves Turkish inflection suffixes (e.g. `pitonda` -> `Python'da`).
 - **Advanced Turkish Text Normalization**:
-  - Automatic sentence-start capitalization and punctuation validation.
-  - Turkish suffix and conjunction rules (de/da, ki).
-  - Speech stutter and repetitive word filter (e.g. `ve ve ve` -> `ve`).
+  - Comprehensive rule-based normalization for spoken Turkish numbers, percentages, currency, dates, times, and measurement units (e.g. `yüzde yirmi` -> `%20`, `on beş eylül` -> `15 Eylül`, `üç buçuk kilo` -> `3,5 kg`, `iki buçukta` -> `02:30'da`, `yüz dolar` -> `100 USD`).
+  - Strict Turkish vowel and consonant harmony rules when attaching suffixes to numbers and symbols.
 - **Context-Aware LLM Modes & Active Window Detection**:
-  - Multiple transcription modes: **Raw Text**, **Clean** (removes fillers like `ııı`, `eee`, `şey`), **Summarize**, **Formal Tone**, and **Bullet Points**.
-  - Active foreground window detection (`ForegroundAppDetector`): Intelligently adapts LLM prompt persona based on whether you are working in code editors (VS Code), email clients (Outlook), messaging (Discord, Slack), or document editors.
-  - **Hardware-Backed Secure API Key Storage**: Encrypted with Windows DPAPI (`Data Protection API`); keys are never stored in plain text.
-- **Flexible Hotkeys & Hands-Free Dictation**:
-  - Classic **Push-to-Talk** mode (default: Right Ctrl).
-  - **Hands-Free Toggle** mode with intelligent silence detection to automatically finish dictation when you stop speaking.
-  - Fully customizable hotkeys and modifier keys (Right/Left Ctrl, Shift, Alt, Function keys).
+  - Multiple built-in personas & modes: **Clean** (✨ removes fillers like `ııı`, `eee`, `şey`, fixes punctuation/grammar, faithful to original meaning), **Business Email** (📧 turns draft speech into professional correspondence), **Bulleted Summary** (📝 extracts key takeaways and action items into `- ` bullet points), **Code & Technical** (💻 preserves technical terms, formats Markdown code blocks and commands), and **English Translation** (🌐 translates Turkish speech into natural, professional English).
+  - Support for user-defined **Custom LLM Modes** and raw transcript fallback.
+  - Active foreground window auto-detection (`ForegroundAppDetector`): Intelligently detects active applications (e.g. VS Code, Visual Studio, Outlook, Thunderbird, Windows Terminal) and automatically activates the matching persona, displaying an active app badge on the overlay pill.
+  - **Hardware-Backed Secure API Key Storage**: Encrypted with Windows DPAPI (`Data Protection API`) using application-specific entropy (`TRWhisper_DPAPI_Entropy_v2`); keys are never stored in plain text or transmitted over unencrypted HTTP.
+- **Flexible Hotkeys & 3 Dictation Modes**:
+  - Classic **Push-to-Talk** mode (default: Right Ctrl — press & hold, release to transcribe).
+  - **Toggle** mode (press once to start recording, press again to stop).
+  - **Hands-Free** mode with intelligent silence detection to automatically finish dictation when you stop speaking (configurable silence threshold & duration).
+  - Fully customizable hotkeys and modifier keys (Right/Left Ctrl, Shift, Alt, CapsLock, Function keys F8/F9, Mouse4/Mouse5, and custom combinations).
+- **Real-Time Live Streaming Preview**:
+  - Real-time live preview (`EnableStreamingPreview`): Words stream dynamically into the floating pill overlay while you speak, followed by the final refined transcription when you finish.
 - **In-Process Whisper.net Engine & Model Management**:
   - High-performance in-process native Whisper.net C# engine alongside Whisper CLI.
-  - Download models directly inside the Settings UI with progress tracking.
+  - Download, switch, and delete models directly inside the Settings UI with real-time speed tracking and cryptographic **SHA-256 validation**.
   - Automatic idle memory unloading (`IdleTimeoutMinutes`) to free VRAM/RAM when not dictating.
-- **Auto-Paste & Smart Clipboard**:
-  - Copies transcript to clipboard and simulates `Ctrl + V` via Win32 `SendInput`.
-  - Optional clipboard restoration (`RestoreClipboard`) to preserve your previous clipboard contents after pasting.
-- **100% Offline & Private (STT)**: Powered by local Whisper. Your voice data never leaves your computer.
-- **NVIDIA GPU Acceleration**: CUDA build processes dictations in ~2–3 seconds with **Large-v3 Turbo** instead of ~23 seconds on CPU. Automatically falls back to CPU if no compatible GPU is detected.
+- **Auto-Paste & Dual Clipboard Modes**:
+  - **Clipboard** mode: Copies transcript to clipboard and simulates `Ctrl + V` via Win32 `SendInput`, with optional `RestoreClipboard` to automatically restore your previous clipboard content after pasting.
+  - **DirectType** mode: Types text character-by-character via `KEYEVENTF_UNICODE` without modifying the clipboard.
+- **100% Offline & Private (STT) + Strict Privacy Controls**:
+  - Powered by local Whisper. Your voice data never leaves your computer.
+  - **Privacy-First Logging**: Optional transcript logging (`EnableHistoryLogging`) allows disabling markdown logs completely. Diagnostic logs (`trwhisper.log`) sanitize transcript content (recording only character counts and performance metrics). Temporary audio recordings use session-scoped GUIDs (`trwhisper_{Guid}.wav`) and are purged immediately.
+- **NVIDIA GPU Acceleration (CUDA 13)**: Built with **CUDA 13** acceleration for modern NVIDIA GPUs (requires NVIDIA driver >= 580.00). Large-v3 Turbo processes dictations in ~2–3 seconds instead of ~23 seconds on CPU. Automatically falls back to CPU if no compatible GPU or driver is detected.
 - **Silence Detection & Hallucination Filter**:
   - Built-in **Silero VAD** skips non-speech segments to avoid phantom text on silent triggers.
   - Filters out known Whisper phantom subtitles (`Altyazı M.K.`, `İzlediğiniz için teşekkür ederim.`) and audio bracket tags (`[MÜZİK ÇALIYOR]`).
-- **Floating Pill Overlay**: Real-time status display indicating listening volume, processing status, with cancel (✕) and complete (✓) buttons.
-- **Windows Startup Integration**: Enable or disable autostart on Windows boot with a single switch in the Settings UI.
+- **Floating Pill Overlay**: Real-time animated audio waveform, live streaming text, processing indicator, active app/mode badge, low-microphone audio warning, raw/cleaned transcript switch, and cancel (✕) / complete (✓) / copy buttons with custom positioning.
+- **Windows Startup Integration**: Enable or disable autostart on Windows boot with a single switch in the Settings UI (HKCU Run key, no admin rights required).
 - **Automated Test Suite**: 92 automated unit tests and a UI smoke testing utility (`uismoke`) guaranteeing zero XAML template breakage.
-- **Local Markdown Logging**: Transcripts are automatically logged with timestamps to `%USERPROFILE%\Dictation\YYYY-MM.md`. Logs are written to `%USERPROFILE%\Dictation\trwhisper.log`.
+- **Local Markdown Logging**: Transcripts can be logged with timestamps to `%USERPROFILE%\Dictation\YYYY-MM.md`. Operational logs are written to `%USERPROFILE%\Dictation\trwhisper.log`.
 
 ---
 
@@ -56,7 +61,7 @@
 **Requirements**
 - Windows 11 x64
 - [.NET 9 SDK](https://dotnet.microsoft.com/download/dotnet/9.0) (to build from source)
-- Optional: an NVIDIA GPU with an up-to-date driver (CUDA 12.4 support) for GPU acceleration
+- Optional: an NVIDIA GPU with a compatible driver (NVIDIA driver >= 580.00 for CUDA 13 support) for GPU acceleration
 
 ### ⚡ Easy Installation (Recommended): Single-File Setup Wizard
 
@@ -72,7 +77,7 @@ before it starts:
 | TRWhisper application (.NET 9 embedded, no separate .NET needed) | Always (inside the setup file) |
 | Silero VAD silence model | Always (inside the setup file) |
 | Whisper **CPU** engine | Inside the setup file — works on every PC |
-| Whisper **NVIDIA GPU (CUDA 12.4)** engine | Optional, ~640 MB download (auto-recommended if an NVIDIA GPU is found) |
+| Whisper **NVIDIA GPU (CUDA 13)** engine | Optional, ~519 MB download (~680 MB uncompressed; auto-recommended if an NVIDIA GPU with driver >= 580.00 is found) |
 | **Large-v3 Turbo** model (~547 MB) | Optional (Recommended: highest Turkish accuracy, fast on GPU) |
 | **Small** model (~465 MB) | Optional (Balanced & fast: ideal for CPU-only systems) |
 | **Base** model (~148 MB) | Optional (Very fast, lightweight: for quick notes) |
@@ -120,7 +125,7 @@ Run the setup script with PowerShell from the project root directory:
 # CPU build + Large-v3 Turbo model + VAD model
 powershell -ExecutionPolicy Bypass -File scripts\setup.ps1
 
-# NVIDIA GPU (CUDA 12.4) build instead — recommended if you have an NVIDIA GPU
+# NVIDIA GPU (CUDA 13) build instead — recommended if you have an NVIDIA GPU
 powershell -ExecutionPolicy Bypass -File scripts\setup.ps1 -Cuda
 
 # Optionally download other models (small, base, tiny, medium, large-v3):
@@ -130,7 +135,7 @@ powershell -ExecutionPolicy Bypass -File scripts\setup.ps1 -Model base
 
 The script:
 - Creates the `tools\whisper\` and `%USERPROFILE%\Dictation\` folders.
-- Downloads the tested `whisper.cpp` **v1.9.3** (build `b4938`) Windows x64 binaries — the CPU build (~8 MB) or, with `-Cuda`, the CUDA 12.4 build (~640 MB download, ~1.2 GB extracted). Running it again with `-Cuda` upgrades an existing CPU installation.
+- Downloads the tested `whisper.cpp` **v1.9.3** (build `b4938`) Windows x64 binaries (CPU build ~8 MB or CUDA build) and, with `-Cuda`, downloads the CUDA 13 runtime DLLs (`cudart64_13.dll`, `cublas64_13.dll`, `cublasLt64_13.dll`, ~385 MB) required by the in-process Whisper.net engine. Running it again with `-Cuda` upgrades an existing CPU installation.
 - Downloads the selected model (default `large-v3-turbo-q5_0`) and the Silero VAD model.
 - Skips anything that already exists.
 
@@ -145,7 +150,7 @@ The script:
 | `ggml-silero-v6.2.0.bin` | ~1 MB | Voice activity detection (silence filter) |
 
 > **Manual Download Alternative:**
-> - Whisper binaries ([release b4938](https://github.com/ggml-org/whisper.cpp/releases/tag/b4938)): download `whisper-bin-x64.zip` (CPU) or `whisper-cublas-12.4.0-bin-x64.zip` (NVIDIA GPU) and extract **all files** from its `Release` folder into `tools\whisper\`.
+> - Whisper binaries ([release b4938](https://github.com/ggml-org/whisper.cpp/releases/tag/b4938)): extract Windows binaries into `tools\whisper\`. For CUDA GPU acceleration, ensure CUDA 13 runtime DLLs (`cudart64_13.dll`, `cublas64_13.dll`, `cublasLt64_13.dll`) are placed in `tools\cuda13\` (or alongside the application executable).
 > - Models: [ggml-large-v3-turbo-q5_0.bin](https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q5_0.bin), [ggml-small.bin](https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin), [ggml-base.bin](https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin), [ggml-tiny.bin](https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin), [ggml-medium.bin](https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.bin), [ggml-large-v3.bin](https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3.bin) and [ggml-silero-v6.2.0.bin](https://huggingface.co/ggml-org/whisper-vad/resolve/main/ggml-silero-v6.2.0.bin) → save them into `tools\whisper\`.
 
 ### 3. Bypassing Windows SmartScreen and Defender Warnings
@@ -171,23 +176,27 @@ You can configure every setting easily through the graphical interface by right-
     "LogDirectory": "%USERPROFILE%\\Dictation",
     "TempAudioPath": "%TEMP%\\trwhisper_temp.wav",
     "EnableCustomDictionary": true,
-    "EnableTextNormalization": true
+    "EnableTextNormalization": true,
+    "EnableStreamingPreview": true,
+    "EnableHistoryLogging": true
   },
   "Whisper": {
     "CliPath": "tools\\whisper\\whisper-cli.exe",
     "ModelPath": "tools\\whisper\\ggml-large-v3-turbo-q5_0.bin",
     "VadModelPath": "tools\\whisper\\ggml-silero-v6.2.0.bin",
-    "Threads": 8,
+    "Threads": 4,
     "NoTimestamps": true,
     "TimeoutSeconds": 120,
     "IdleTimeoutMinutes": 10
   },
   "LlmCleaning": {
     "EnabledByDefault": false,
-    "Provider": "Gemini",
+    "Provider": "Ollama",
     "ApiKey": "",
-    "Model": "gemini-2.0-flash",
-    "Endpoint": "https://generativelanguage.googleapis.com/v1beta/models",
+    "Model": "qwen2.5:3b",
+    "Endpoint": "http://localhost:11434/v1/chat/completions",
+    "ActiveModeId": "Clean",
+    "EnableAutoAppMode": true,
     "SystemPrompt": "Aşağıdaki metin Türkçe sesli dikte (speech-to-text) çıktısıdır. Lütfen bu metni konuşma dilinden temiz yazı diline dönüştür:\n1. 'ııı', 'eee', 'şey', 'yani', 'falan', 'hımm' gibi duraksama ve dolgu kelimelerini temizle.\n2. Noktalama işaretlerini (nokta, virgül, soru işareti vb.) ve büyük/küçük harf kullanımını eksiksiz düzelt.\n3. Anlatılmak istenen ana fikri ve kelime anlamlarını kesinlikle değiştirme.\n4. Çıktı olarak YALNIZCA düzeltilmiş metni ver. Başına ya da sonuna açıklama, tırnak işareti, selamlama veya markdown ekleme."
   },
   "Paste": {
@@ -213,12 +222,17 @@ You can configure every setting easily through the graphical interface by right-
 ```
 
 - **`EnableCustomDictionary`**: Enables user-defined phonetic/jargon mappings in `dictionary.json`.
-- **`EnableTextNormalization`**: Enables Turkish capitalization, punctuation validation, and speech stutter cleaning.
-- **`IdleTimeoutMinutes`**: Automatically unloads the model from RAM/VRAM after inactivity (default: 10 minutes).
-- **`RestoreClipboard`**: Automatically restores previous clipboard contents after dictation has been pasted.
-- **`DictationMode`**: `PushToTalk` (press & hold) or `HandsFree` (voice toggle with silence cutoff).
+- **`EnableTextNormalization`**: Enables rule-based spoken numbers, dates, times, currencies, and units normalization.
+- **`EnableStreamingPreview`**: Displays words live in the floating overlay pill in real time while speaking.
+- **`EnableHistoryLogging`**: Toggles saving transcript records to `%USERPROFILE%\Dictation\YYYY-MM.md` (can be disabled for privacy).
+- **`IdleTimeoutMinutes`**: Automatically unloads the model from RAM/VRAM after inactivity (default: 10 minutes; 0 keeps model warm indefinitely).
+- **`PasteMode`**: `Clipboard` (copies to clipboard and simulates `Ctrl + V`) or `DirectType` (types character-by-character via `KEYEVENTF_UNICODE` without modifying the clipboard).
+- **`RestoreClipboard`**: Automatically restores previous clipboard contents after dictation has been pasted (Clipboard mode only).
+- **`DictationMode`**: `PushToTalk` (press & hold), `Toggle` (press once to start, press again to stop), or `HandsFree` (voice toggle with automatic silence cutoff).
 - **`HandsFreeSilenceMs`**: Silence duration (ms) before hands-free dictation automatically finishes.
-- **`Provider`**: `Gemini`, `OpenAI`, or `Ollama`. API keys (for cloud providers) are securely encrypted with Windows DPAPI.
+- **`Provider`**: `Ollama`, `Gemini`, or `OpenAI`. Cloud API keys are securely encrypted with Windows DPAPI (`TRWhisper_DPAPI_Entropy_v2`). Gemini transmits keys via the `x-goog-api-key` header, and external endpoints enforce HTTPS.
+- **`ActiveModeId`**: Active LLM persona (`Clean`, `Email`, `Summary`, `Technical`, `TranslateEn`, or custom IDs).
+- **`EnableAutoAppMode`**: Automatically adapts LLM mode based on the foreground application detected by `ForegroundAppDetector`.
 
 > **Tip (Cloud API):** You can obtain a free Gemini API key from Google AI Studio and enter it via the Settings UI. If left empty, LLM cleanup is skipped and raw local transcripts are pasted directly.
 
@@ -254,8 +268,8 @@ Measured on an Intel Core i5-12450H + NVIDIA GeForce RTX 3050 Laptop GPU (4 GB) 
 |---|---|---|---|
 | CPU | Small | 6.5 s | 9.3 s |
 | CPU | Large-v3 Turbo | 23.1 s | 24.4 s |
-| CUDA (RTX 3050) | Small | 2.2 s | 2.8 s |
-| CUDA (RTX 3050) | Large-v3 Turbo | 2.5 s | 3.1 s |
+| CUDA 13 (RTX 3050) | Small | 2.2 s | 2.8 s |
+| CUDA 13 (RTX 3050) | Large-v3 Turbo | 2.5 s | 3.1 s |
 
 - On the GPU, Turbo is both faster and more accurate than Small on the CPU; it uses ~1.2 GB of VRAM.
 - The first dictation after the GPU has been idle can take a few seconds longer.
@@ -267,7 +281,7 @@ Measured on an Intel Core i5-12450H + NVIDIA GeForce RTX 3050 Laptop GPU (4 GB) 
 
 - **Something doesn't work as expected:** check `%USERPROFILE%\Dictation\trwhisper.log`.
 - **Text is not pasted into an app running as Administrator:** Windows blocks simulated keystrokes from a normal app into elevated windows. The text is still on the clipboard — paste it with `Ctrl + V`.
-- **Transcription takes 20+ seconds:** you are probably running Large-v3 Turbo on the CPU. Install the CUDA build with `setup.ps1 -Cuda` (NVIDIA GPU) or select **Small** from the tray menu.
+- **Transcription takes 20+ seconds:** you are probably running Large-v3 Turbo on the CPU. Install the CUDA build with `setup.ps1 -Cuda` (NVIDIA GPU with driver >= 580.00 required) or select **Small** from the tray menu.
 
 ---
 
@@ -291,7 +305,7 @@ powershell -ExecutionPolicy Bypass -File scripts\build.ps1 -Publish
 TRWhisper maintains high reliability with automated test suites:
 
 ```powershell
-# Run the 87 automated unit tests (AppMode, Hotkeys, LLM, ModelManager, DPAPI, etc.):
+# Run the 92 automated unit tests (AppMode, Hotkeys, LLM, ModelManager, DPAPI, etc.):
 dotnet test tests\TRWhisper.Tests\TRWhisper.Tests.csproj
 
 # Run the WPF Settings Window XAML template & UI smoke test suite:
