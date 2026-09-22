@@ -72,13 +72,16 @@ Sihirbaz Türkçe ve İngilizce'dir ve kuruluma başlamadan önce ne kurulacağ�
 | Silero VAD sessizlik modeli | Her zaman (kurulum dosyasının içinde) |
 | Whisper **CPU** motoru | Kurulum dosyasının içinde — her bilgisayarda çalışır |
 | Whisper **NVIDIA GPU (CUDA 12.4)** motoru | Seçime bağlı, ~640 MB indirilir (NVIDIA kartınız varsa otomatik önerilir) |
-| **Large-v3 Turbo** modeli (~547 MB) | Seçime bağlı |
-| **Small** modeli (~465 MB) | Seçime bağlı |
+| **Large-v3 Turbo** modeli (~547 MB) | Seçime bağlı (Önerilen: en yüksek Türkçe doğruluğu, GPU'da çok hızlı) |
+| **Small** modeli (~465 MB) | Seçime bağlı (Dengeli ve hızlı: yalnızca CPU kullanan sistemler için ideal) |
+| **Base** modeli (~148 MB) | Seçime bağlı (Çok hızlı, hafif: pratik ve anlık notlar için) |
+| **Tiny** modeli (~75 MB) | Seçime bağlı (Ultra hafif: en düşük bellek ve kaynak kullanımı) |
+| **Medium** modeli (~1.5 GB) | Seçime bağlı (Yüksek doğruluk: standart tam model) |
+| **Large-v3** modeli (~3.1 GB) | Seçime bağlı (En kapsamlı tam model: güçlü bir GPU gerektirir) |
 | Microsoft Visual C++ 2015-2022 Runtime | Yalnızca bilgisayarınızda yoksa indirilip kurulur (tek seferlik UAC) |
 | Masaüstü / Başlat menüsü kısayolu, Windows açılışında başlatma | Seçime bağlı |
 
-- En az bir model seçmelisiniz; ikisini birden kurup sistem tepsisindeki menüden istediğiniz an
-  geçiş yapabilirsiniz.
+- Uygulama içerisindeki **⚙️ Ayarlar > Model** sekmesinden bu modellerin tamamını dilediğiniz an tek tıkla indirebilir, silebilir ve sistem tepsisinden aralarında yeniden başlatma gerekmeksizin geçiş yapabilirsiniz.
 - İndirilen her dosya **SHA-256** ile doğrulanır; zaten kurulu olan dosyalar yeniden indirilmez
   (kurulumu tekrar çalıştırıp motor/model seçiminizi değiştirebilirsiniz).
 - Kaldırma: **Ayarlar > Uygulamalar > TRWhisper**. Dikte kayıtlarınızın (`%USERPROFILE%\Dictation`)
@@ -113,8 +116,9 @@ powershell -ExecutionPolicy Bypass -File scripts\setup.ps1
 # Bunun yerine NVIDIA GPU (CUDA 12.4) derlemesi — NVIDIA ekran kartınız varsa önerilir
 powershell -ExecutionPolicy Bypass -File scripts\setup.ps1 -Cuda
 
-# Ek olarak Small modelini indirmek için (tepsiden modeller arasında geçiş yapabilmek için)
+# İsteğe bağlı olarak diğer modelleri (small, base, tiny, medium, large-v3) indirmek için:
 powershell -ExecutionPolicy Bypass -File scripts\setup.ps1 -Model small
+powershell -ExecutionPolicy Bypass -File scripts\setup.ps1 -Model base
 ```
 
 Bu betik:
@@ -125,13 +129,17 @@ Bu betik:
 
 | Dosya | Boyut | Amaç |
 |---|---|---|
-| `ggml-large-v3-turbo-q5_0.bin` | ~547 MB | Varsayılan model, en doğru |
-| `ggml-small.bin` | ~465 MB | İşlemcide daha hızlı, daha az doğru |
+| `ggml-large-v3-turbo-q5_0.bin` | ~547 MB | Varsayılan model, en yüksek Türkçe doğruluğu (GPU önerilir) |
+| `ggml-small.bin` | ~465 MB | İşlemcide (CPU) hızlı ve dengeli |
+| `ggml-base.bin` | ~148 MB | Çok hızlı, hafif, düşük bellek kullanımı |
+| `ggml-tiny.bin` | ~75 MB | Ultra hafif, minimum sistem kaynağı kullanımı |
+| `ggml-medium.bin` | ~1.5 GB | Yüksek doğruluklu standart model |
+| `ggml-large-v3.bin` | ~3.1 GB | En kapsamlı tam model (güçlü GPU gerektirir) |
 | `ggml-silero-v6.2.0.bin` | ~1 MB | Ses etkinliği algılama (sessizlik filtresi) |
 
 > **Manuel İndirmek İsterseniz:**
 > - Whisper dosyaları ([b4938 sürümü](https://github.com/ggml-org/whisper.cpp/releases/tag/b4938)): `whisper-bin-x64.zip` (işlemci) veya `whisper-cublas-12.4.0-bin-x64.zip` (NVIDIA GPU) paketini indirip içindeki `Release` klasörünün **tüm dosyalarını** `tools\whisper\` içine çıkarın.
-> - Modeller: [ggml-large-v3-turbo-q5_0.bin](https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q5_0.bin), [ggml-small.bin](https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin) ve [ggml-silero-v6.2.0.bin](https://huggingface.co/ggml-org/whisper-vad/resolve/main/ggml-silero-v6.2.0.bin) dosyalarını `tools\whisper\` içine kaydedin.
+> - Modeller: [ggml-large-v3-turbo-q5_0.bin](https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q5_0.bin), [ggml-small.bin](https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin), [ggml-base.bin](https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin), [ggml-tiny.bin](https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin), [ggml-medium.bin](https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.bin), [ggml-large-v3.bin](https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3.bin) ve [ggml-silero-v6.2.0.bin](https://huggingface.co/ggml-org/whisper-vad/resolve/main/ggml-silero-v6.2.0.bin) dosyalarını `tools\whisper\` içine kaydedin.
 
 ### 3. Windows SmartScreen ve Defender Uyarılarını Geçme
 TRWhisper düşük seviyeli bir klavye kancası (`WH_KEYBOARD_LL`) ve `SendInput` API'si kullandığı için Windows Defender veya SmartScreen ilk çalıştırmada uyarı verebilir:

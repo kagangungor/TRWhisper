@@ -73,13 +73,16 @@ before it starts:
 | Silero VAD silence model | Always (inside the setup file) |
 | Whisper **CPU** engine | Inside the setup file — works on every PC |
 | Whisper **NVIDIA GPU (CUDA 12.4)** engine | Optional, ~640 MB download (auto-recommended if an NVIDIA GPU is found) |
-| **Large-v3 Turbo** model (~547 MB) | Optional |
-| **Small** model (~465 MB) | Optional |
+| **Large-v3 Turbo** model (~547 MB) | Optional (Recommended: highest Turkish accuracy, fast on GPU) |
+| **Small** model (~465 MB) | Optional (Balanced & fast: ideal for CPU-only systems) |
+| **Base** model (~148 MB) | Optional (Very fast, lightweight: for quick notes) |
+| **Tiny** model (~75 MB) | Optional (Ultra-lightweight: lowest resource usage) |
+| **Medium** model (~1.5 GB) | Optional (High accuracy: standard full model) |
+| **Large-v3** model (~3.1 GB) | Optional (Maximum accuracy: requires powerful GPU) |
 | Microsoft Visual C++ 2015-2022 Runtime | Only downloaded and installed if missing (one UAC prompt) |
 | Desktop / Start menu shortcut, start with Windows | Optional |
 
-- At least one model must be selected; you can install both and switch between them any time
-  from the system tray menu.
+- You can download, delete, and manage any of these models directly within the **⚙️ Settings > Model** tab with real-time progress, switching between installed models from the tray at any time with zero downtime.
 - Every download is verified with **SHA-256**, and files that are already installed are not
   downloaded again (re-run the setup to change your engine/model choice).
 - Uninstall: **Settings > Apps > TRWhisper**. You are asked whether your dictation records
@@ -114,8 +117,9 @@ powershell -ExecutionPolicy Bypass -File scripts\setup.ps1
 # NVIDIA GPU (CUDA 12.4) build instead — recommended if you have an NVIDIA GPU
 powershell -ExecutionPolicy Bypass -File scripts\setup.ps1 -Cuda
 
-# Additionally download the Small model (to switch between models from the tray)
+# Optionally download other models (small, base, tiny, medium, large-v3):
 powershell -ExecutionPolicy Bypass -File scripts\setup.ps1 -Model small
+powershell -ExecutionPolicy Bypass -File scripts\setup.ps1 -Model base
 ```
 
 The script:
@@ -126,13 +130,17 @@ The script:
 
 | File | Size | Purpose |
 |---|---|---|
-| `ggml-large-v3-turbo-q5_0.bin` | ~547 MB | Default model, most accurate |
-| `ggml-small.bin` | ~465 MB | Faster on CPU, less accurate |
+| `ggml-large-v3-turbo-q5_0.bin` | ~547 MB | Default model, highest Turkish accuracy (GPU recommended) |
+| `ggml-small.bin` | ~465 MB | Fast and balanced on CPU |
+| `ggml-base.bin` | ~148 MB | Very fast, lightweight, low resource consumption |
+| `ggml-tiny.bin` | ~75 MB | Ultra-lightweight, minimal memory footprint |
+| `ggml-medium.bin` | ~1.5 GB | High-accuracy standard model |
+| `ggml-large-v3.bin` | ~3.1 GB | Full-sized maximum accuracy model (requires powerful GPU) |
 | `ggml-silero-v6.2.0.bin` | ~1 MB | Voice activity detection (silence filter) |
 
 > **Manual Download Alternative:**
 > - Whisper binaries ([release b4938](https://github.com/ggml-org/whisper.cpp/releases/tag/b4938)): download `whisper-bin-x64.zip` (CPU) or `whisper-cublas-12.4.0-bin-x64.zip` (NVIDIA GPU) and extract **all files** from its `Release` folder into `tools\whisper\`.
-> - Models: [ggml-large-v3-turbo-q5_0.bin](https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q5_0.bin), [ggml-small.bin](https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin) and [ggml-silero-v6.2.0.bin](https://huggingface.co/ggml-org/whisper-vad/resolve/main/ggml-silero-v6.2.0.bin) → save them into `tools\whisper\`.
+> - Models: [ggml-large-v3-turbo-q5_0.bin](https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q5_0.bin), [ggml-small.bin](https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin), [ggml-base.bin](https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin), [ggml-tiny.bin](https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin), [ggml-medium.bin](https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-medium.bin), [ggml-large-v3.bin](https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3.bin) and [ggml-silero-v6.2.0.bin](https://huggingface.co/ggml-org/whisper-vad/resolve/main/ggml-silero-v6.2.0.bin) → save them into `tools\whisper\`.
 
 ### 3. Bypassing Windows SmartScreen and Defender Warnings
 Because TRWhisper uses a low-level keyboard hook (`WH_KEYBOARD_LL`) and the `SendInput` API, Windows Defender or SmartScreen may display a warning on first launch:
