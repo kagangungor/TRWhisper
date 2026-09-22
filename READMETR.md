@@ -11,7 +11,7 @@
 **TRWhisper**, Windows 11 için geliştirilmiş, Superwhisper alternatifi, tamamen yerel çalışan, sıfır telemetrili bir "bas-konuş" (push-to-talk) dikte uygulamasıdır. Türkçe dikte için ayarlanmıştır.
 
 <p align="center">
-  <img src="assets/Demo.gif" alt="TRWhisper Demo" width="750">
+  <img src="assets/Demo2.gif" alt="TRWhisper Demo" width="750">
 </p>
 
 ---

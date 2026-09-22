@@ -11,7 +11,7 @@
 **TRWhisper** is a completely local, zero-telemetry "push-to-talk" dictation application built for Windows 11 as an alternative to Superwhisper. It is tuned for Turkish dictation.
 
 <p align="center">
-  <img src="assets/Demo.gif" alt="TRWhisper Demo" width="750">
+  <img src="assets/Demo2.gif" alt="TRWhisper Demo" width="750">
 </p>
 
 ---
