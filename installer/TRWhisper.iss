@@ -1,8 +1,8 @@
-﻿; TRWhisper kurulum betiği (Inno Setup 6.4+)
+; TRWhisper kurulum betiği (Inno Setup 6.4+)
 ; Derleme: scripts\build-installer.ps1  (elle ISCC çağırmayın; önbellek dosyaları gerekir)
 
 #ifndef AppVersion
-  #define AppVersion "1.0.0"
+  #define AppVersion "2.0.0"
 #endif
 
 #define AppName "TRWhisper"

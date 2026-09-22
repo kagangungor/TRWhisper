@@ -88,7 +88,7 @@ Sihirbaz Türkçe ve İngilizce'dir ve kuruluma başlamadan önce ne kurulacağ�
   silinip silinmeyeceği size sorulur.
 - Sessiz kurulum (kurumsal dağıtım):
   ```powershell
-  TRWhisper-Setup-1.0.0.exe /SILENT /ENGINE=cuda /MODELS=turbo,small /TASKS=desktopicon
+  TRWhisper-Setup-2.0.0.exe /SILENT /ENGINE=cuda /MODELS=turbo,small /TASKS=desktopicon
   ```
 
 > Kurulum dosyası imzasız olduğu için Windows SmartScreen "bilinmeyen yayımcı" uyarısı gösterebilir:
@@ -211,9 +211,31 @@ TRWhisper'ı tepsi simgesine sağ tıklayıp **"⚙️ Ayarlar"** diyerek açıl
 - **`RestoreClipboard`**: Dikte yapıştırıldıktan sonra panonuzda daha önceden kopyalanmış olan veriyi otomatik olarak geri yükler.
 - **`DictationMode`**: `PushToTalk` (bas-konuş) veya `HandsFree` (eller serbest).
 - **`HandsFreeSilenceMs`**: Eller serbest modunda konuşmanın bittiğini algılayan sessizlik süresi (milisaniye).
-- **`Provider`**: `Gemini` veya `OpenAI`. API anahtarları Windows DPAPI ile şifrelenerek güvenle korunur.
+- **`Provider`**: `Gemini`, `OpenAI` veya `Ollama`. API anahtarları (bulut sağlayıcılar için) Windows DPAPI ile şifrelenerek güvenle korunur.
 
-> **İpucu:** Gemini API anahtarınızı Google AI Studio üzerinden ücretsiz alıp Ayarlar arayüzünden kaydedebilirsiniz. Anahtar boş bırakılırsa LLM temizleme atlanır ve yerel transkript doğrudan yapıştırılır.
+> **İpucu (Bulut API):** Gemini API anahtarınızı Google AI Studio üzerinden ücretsiz alıp Ayarlar arayüzünden kaydedebilirsiniz. Anahtar boş bırakılırsa LLM temizleme atlanır ve yerel transkript doğrudan yapıştırılır.
+
+### 🦙 %100 Yerel ve Gizli LLM Temizleme (Ollama)
+
+Transkript temizleme işlemini de tıpkı ses tanıma gibi **tamamen çevrimdışı, sıfır veri transferiyle ve ücretsiz** çalıştırmak isterseniz **Ollama** entegrasyonunu kullanabilirsiniz:
+
+1. [ollama.com](https://ollama.com) adresinden Ollama'yı indirin veya PowerShell'den kurun:
+   ```powershell
+   winget install Ollama.Ollama
+   ```
+2. Türkçe dil kabiliyeti ve metin düzeltme performansı yüksek hafif bir model indirin:
+   ```powershell
+   ollama run qwen2.5:3b
+   # veya
+   ollama run llama3.2:3b
+   ```
+3. TRWhisper tepsi simgesine sağ tıklayıp **⚙️ Ayarlar > Yapay Zeka (AI)** sekmesini açın:
+   - **Sağlayıcı:** `Ollama`
+   - **Uç Nokta:** `http://localhost:11434`
+   - **Model:** `qwen2.5:3b` (veya indirdiğiniz model adı)
+   - **API Anahtarı:** Boş bırakabilirsiniz (yerel çalıştığı için anahtar gerekmez).
+
+Böylece hem ses tanıma (Whisper) hem de yapay zeka ile metin düzenleme (Ollama) bilgisayarınızın dışına tek bir bayt dahi göndermeden tamamen yerel ve gizli çalışır.
 
 ---
 

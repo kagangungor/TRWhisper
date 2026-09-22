@@ -89,7 +89,7 @@ before it starts:
   (`%USERPROFILE%\Dictation`) should be deleted as well.
 - Silent installation (for deployment):
   ```powershell
-  TRWhisper-Setup-1.0.0.exe /SILENT /ENGINE=cuda /MODELS=turbo,small /TASKS=desktopicon
+  TRWhisper-Setup-2.0.0.exe /SILENT /ENGINE=cuda /MODELS=turbo,small /TASKS=desktopicon
   ```
 
 > The setup file is not code-signed, so Windows SmartScreen may warn about an "unknown
@@ -212,9 +212,31 @@ You can configure every setting easily through the graphical interface by right-
 - **`RestoreClipboard`**: Automatically restores previous clipboard contents after dictation has been pasted.
 - **`DictationMode`**: `PushToTalk` (press & hold) or `HandsFree` (voice toggle with silence cutoff).
 - **`HandsFreeSilenceMs`**: Silence duration (ms) before hands-free dictation automatically finishes.
-- **`Provider`**: `Gemini` or `OpenAI`. Keys are securely encrypted with Windows DPAPI.
+- **`Provider`**: `Gemini`, `OpenAI`, or `Ollama`. API keys (for cloud providers) are securely encrypted with Windows DPAPI.
 
-> **Tip:** You can obtain a free Gemini API key from Google AI Studio and enter it via the Settings UI. If left empty, LLM cleanup is skipped and raw local transcripts are pasted directly.
+> **Tip (Cloud API):** You can obtain a free Gemini API key from Google AI Studio and enter it via the Settings UI. If left empty, LLM cleanup is skipped and raw local transcripts are pasted directly.
+
+### 🦙 100% Local & Private LLM Cleanup (Ollama)
+
+If you prefer to perform LLM cleanup completely offline and private without cloud APIs (Gemini/OpenAI), you can use **Ollama**:
+
+1. Download Ollama from [ollama.com](https://ollama.com) or install via terminal:
+   ```powershell
+   winget install Ollama.Ollama
+   ```
+2. Pull a lightweight model with strong Turkish/multilingual text correction capabilities:
+   ```powershell
+   ollama run qwen2.5:3b
+   # or
+   ollama run llama3.2:3b
+   ```
+3. Right-click the TRWhisper tray icon and open **⚙️ Settings > AI (LLM)**:
+   - **Provider:** `Ollama`
+   - **Endpoint:** `http://localhost:11434`
+   - **Model:** `qwen2.5:3b` (or your pulled model name)
+   - **API Key:** Leave empty (none required for local inference).
+
+This provides an air-gapped pipeline: STT (Whisper) and text enhancement (Ollama) both run 100% on your local machine with zero data leaving your PC.
 
 ---
 
