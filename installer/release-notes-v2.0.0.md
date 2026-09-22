@@ -60,6 +60,7 @@ Windows 11 için tamamen yerel çalışan Türkçe bas-konuş dikte uygulamasın
 - **Dosya:** `TRWhisper-Setup-2.0.0.exe`
 - **Boyut:** ~51.3 MB (53,816,507 bayt)
 - **SHA-256:** `3CAAB66A8A72207E35374F07294B887AFF7EB725D9134CD124C2B451BDB7784E`
+- **VirusTotal Raporu:** [VirusTotal v2.0.0 (67/69 Temiz)](https://www.virustotal.com/gui/file/3caab66a8a72207e35374f07294b887aff7eb725d9134cd124c2b451bdb7784e?nocache=1) (Microsoft Defender, Kaspersky, Bitdefender vb. dahil 67 motor tamamen temizdir. Çıkan 2 ML uyarısı, imzasız binary ve Windows klavye kancası/SendInput API'lerinden kaynaklanan zararsız yanlış pozitiflerdir.)
 
 ---
 
@@ -118,3 +119,4 @@ Windows 11 için tamamen yerel çalışan Türkçe bas-konuş dikte uygulamasın
 - **File:** `TRWhisper-Setup-2.0.0.exe`
 - **Size:** ~51.3 MB (53,816,507 bytes)
 - **SHA-256:** `3CAAB66A8A72207E35374F07294B887AFF7EB725D9134CD124C2B451BDB7784E`
+- **VirusTotal Report:** [VirusTotal v2.0.0 (67/69 Clean)](https://www.virustotal.com/gui/file/3caab66a8a72207e35374f07294b887aff7eb725d9134cd124c2b451bdb7784e?nocache=1) (100% clean on Microsoft Defender, Kaspersky, Bitdefender, etc. The 2 ML flags are benign false positives due to unsigned binary status and low-level keyboard hook / SendInput APIs.)

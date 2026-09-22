@@ -92,8 +92,14 @@ before it starts:
   TRWhisper-Setup-2.0.0.exe /SILENT /ENGINE=cuda /MODELS=turbo,small /TASKS=desktopicon
   ```
 
-> The setup file is not code-signed, so Windows SmartScreen may warn about an "unknown
-> publisher": **More info > Run anyway**. You can inspect the [VirusTotal Report](https://www.virustotal.com/gui/file/c97e23fe0cd720c570e44370f74d49fc74c961f106eecf11e48080d217d979c2/detection) (100% clean on Microsoft Defender, Kaspersky, Bitdefender, etc.).
+> [!NOTE]
+> **Security & VirusTotal Results (67/69 Clean):**  
+> Because this is a free, independent open-source project without an expensive commercial EV code signing certificate, Windows SmartScreen may show an "unknown publisher" warning on first launch: **More info > Run anyway**.  
+>  
+> You can review the updated [VirusTotal Scan Report (v2.0.0)](https://www.virustotal.com/gui/file/3caab66a8a72207e35374f07294b887aff7eb725d9134cd124c2b451bdb7784e?nocache=1). Top-tier security vendors including Microsoft Defender, Kaspersky, Bitdefender, ESET, Sophos, and Malwarebytes (**67 vendors in total**) confirm the binary is **100% clean**.  
+>  
+> **Regarding the 2 Heuristic/ML Detections (Trapmine & Arctic Wolf):**  
+> These two automated machine-learning endpoint engines assign generic low-confidence suspicion scores to newly observed unsigned binaries. TRWhisper's implementation of low-level Windows APIs — global low-level keyboard hooks (`SetWindowsHookEx` / `WH_KEYBOARD_LL`) for push-to-talk hotkeys, keyboard event synthesis (`SendInput`) to paste recognized text directly into active fields, and Windows DPAPI for encrypting local user credentials — naturally triggers aggressive heuristic engines. The entire codebase is open source, transparent, and completely safe.
 
 ---
 
