@@ -26,7 +26,7 @@
   - Konuşma sırasındaki kekeleme ve tekrarlı kelimeleri ayıklama (ör. `ve ve ve` -> `ve`).
 - **Bağlama Duyarlı (Context-Aware) LLM Modları & Uygulama Algılama**:
   - Farklı transkript modları: **Ham Metin**, **Temizle** (dolgu kelimeleri at), **Özetle**, **Resmi Dil** ve **Madde İmleri**.
-  - Aktif ön plan uygulamasını otomatik algılama (`ForegroundAppDetector`): Kod editörleri (VS Code), e-posta (Outlook), mesajlaşma (Discord, Slack) veya doküman editörlerine göre dil tonunu otomatik uyarlar.
+  - Aktif ön plan uygulamasını otomatik algılama (`ForegroundAppDetector`): Kod editörleri (VS Code), e-posta , mesajlaşma (Discord, Slack) veya doküman editörlerine göre dil tonunu otomatik uyarlar.
   - **Donanım Seviyesinde Güvenli API Anahtarı Saklama**: Windows DPAPI (`Data Protection API`) ile şifrelenmiş güvenli depolama; API anahtarlarınız düz metin olarak saklanmaz.
 - **Esnek Kısayol Tuşları & Eller Serbest (Hands-Free) Dikte**:
   - Klasik **Bas-Konuş (Push-to-Talk)** modu (varsayılan: Sağ Ctrl).
