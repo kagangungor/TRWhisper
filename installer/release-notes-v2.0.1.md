@@ -34,6 +34,12 @@ TRWhisper 2.0.1, açık kaynaklı ve yerel öncelikli mimarimizi daha da güçle
    - DLL hijacking / binary planting saldırılarına karşı `SetDefaultDllDirectories` ile arama yolları güvenli kılındı.
    - Inno Setup kurulum paketinde CUDA 13 paketi indirmeleri için resmi SHA-256 kontrolü ve çalışma zamanı güvenlik kilidi sabitlendi.
 
+### 📦 Kurulum & Doğrulama (Checksums)
+- **Dosya:** `TRWhisper-Setup-2.0.1.exe`
+- **Boyut:** ~51.8 MB (54,272,383 bayt)
+- **SHA-256:** `E84BB41E5B9DA8CFEF6525E11CDA9DA808AD986924B044E0421C74BFC69BD395`
+- **İsteğe Bağlı CUDA 13 Hızlandırma Paketi:** `trwhisper-cuda13-win-x64.zip` (~519.2 MB, SHA-256: `2D397A7077760C74EFA2838F42D4E8B502D8D3CCAB9259844BBCFE06F5EB922F`)
+
 ---
 
 ## 🇬🇧 English Release Notes
@@ -64,3 +70,9 @@ TRWhisper 2.0.1, açık kaynaklı ve yerel öncelikli mimarimizi daha da güçle
    - Fixed an unmanaged `HICON` GDI handle leak in tray icon status updates via `DestroyIcon` P/Invoke.
    - Hardened DLL search orders against binary planting via `SetDefaultDllDirectories`.
    - Guaranteed SHA-256 verification and safety gates for optional CUDA 13 package downloads in Inno Setup installer.
+
+### 📦 Installation & Verification (Checksums)
+- **File:** `TRWhisper-Setup-2.0.1.exe`
+- **Size:** ~51.8 MB (54,272,383 bytes)
+- **SHA-256:** `E84BB41E5B9DA8CFEF6525E11CDA9DA808AD986924B044E0421C74BFC69BD395`
+- **Optional CUDA 13 Acceleration Package:** `trwhisper-cuda13-win-x64.zip` (~519.2 MB, SHA-256: `2D397A7077760C74EFA2838F42D4E8B502D8D3CCAB9259844BBCFE06F5EB922F`)
