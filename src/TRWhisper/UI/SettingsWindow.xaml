@@ -1,0 +1,1744 @@
+<Window x:Class="TRWhisper.UI.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="TRWhisper Ayarları"
+        Width="880" Height="620"
+        MinWidth="760" MinHeight="520"
+        WindowStartupLocation="CenterScreen"
+        WindowStyle="SingleBorderWindow"
+        Background="#0F0F11"
+        Foreground="#F4F4F5"
+        UseLayoutRounding="True"
+        TextOptions.TextFormattingMode="Display"
+        StateChanged="SettingsWindow_StateChanged">
+
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="34"
+                      ResizeBorderThickness="6"
+                      CornerRadius="0"
+                      GlassFrameThickness="0"
+                      UseAeroCaptionButtons="False" />
+    </WindowChrome.WindowChrome>
+
+    <Window.Resources>
+
+        <!-- ================= Renk paleti (PillOverlayWindow ile uyumlu) ================= -->
+        <SolidColorBrush x:Key="Surface"        Color="#161618" />
+        <SolidColorBrush x:Key="SurfaceRaised"  Color="#1D1D20" />
+        <SolidColorBrush x:Key="Stroke"         Color="#2D2D32" />
+        <SolidColorBrush x:Key="StrokeStrong"   Color="#3F3F46" />
+        <SolidColorBrush x:Key="TextPrimary"    Color="#F4F4F5" />
+        <SolidColorBrush x:Key="TextMuted"      Color="#8B8B93" />
+        <SolidColorBrush x:Key="Accent"         Color="#2563EB" />
+        <SolidColorBrush x:Key="Success"        Color="#22C55E" />
+        <SolidColorBrush x:Key="Danger"         Color="#EF4444" />
+
+        <!-- Klavye odağı halkaları: koyu yüzeylerde açık mavi, dolu accent üzerinde beyaz. -->
+        <SolidColorBrush x:Key="FocusRing"          Color="#60A5FA" />
+        <SolidColorBrush x:Key="FocusRingOnAccent"  Color="#FFFFFF" />
+
+        <!-- ================= Vektör ikon geometrileri (24x24 tabanlı) ================= -->
+        <PathGeometry x:Key="IconMinimize" Figures="M0 5h10" />
+        <PathGeometry x:Key="IconMaximize" Figures="M1 1h8v8h-8z" />
+        <PathGeometry x:Key="IconRestore"  Figures="M3 1h6v6h-2M1 3h6v6h-6z" />
+        <PathGeometry x:Key="IconClose"    Figures="M0.5 0.5L9.5 9.5M9.5 0.5L0.5 9.5" />
+        <PathGeometry x:Key="IconLock"     Figures="M7 11V7a5 5 0 0 1 10 0v4M5 11h14a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2z" />
+        <PathGeometry x:Key="IconWarning"  Figures="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01" />
+        <PathGeometry x:Key="IconKeyboard" Figures="M4 6h16a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2zM6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8" />
+        <PathGeometry x:Key="IconSparkle"  Figures="M12 2.5l2.06 5.44L19.5 10l-5.44 2.06L12 17.5l-2.06-5.44L4.5 10l5.44-2.06z" />
+        <PathGeometry x:Key="IconPlus"     Figures="M12 5v14M5 12h14" />
+        <PathGeometry x:Key="IconReset"    Figures="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8M3 3v5h5" />
+        <PathGeometry x:Key="IconBolt"     Figures="M13 2 3 14h9l-1 8 10-12h-9l1-8z" />
+        <PathGeometry x:Key="IconEye"      Figures="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />
+        <PathGeometry x:Key="IconEyeOff"   Figures="M9.88 9.88a3 3 0 1 0 4.24 4.24M10.73 5.08A10.43 10.43 0 0 1 12 5c6.4 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68M6.61 6.61A13.5 13.5 0 0 0 2 12s3.6 7 10 7a9.74 9.74 0 0 0 5.39-1.61M2 2l20 20" />
+
+        <!-- Çizgi ikon: ince konturlu, yuvarlak uçlu. -->
+        <Style x:Key="LineIcon" TargetType="Path">
+            <Setter Property="Stretch" Value="Uniform" />
+            <Setter Property="Width" Value="15" />
+            <Setter Property="Height" Value="15" />
+            <Setter Property="Fill" Value="{x:Null}" />
+            <Setter Property="StrokeThickness" Value="1.7" />
+            <Setter Property="StrokeStartLineCap" Value="Round" />
+            <Setter Property="StrokeEndLineCap" Value="Round" />
+            <Setter Property="StrokeLineJoin" Value="Round" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <!-- Dolu ikon: kütle olarak okunan küçük simgeler (kıvılcım, şimşek). -->
+        <Style x:Key="SolidIcon" TargetType="Path">
+            <Setter Property="Stretch" Value="Uniform" />
+            <Setter Property="Width" Value="14" />
+            <Setter Property="Height" Value="14" />
+            <Setter Property="Stroke" Value="{x:Null}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <!-- ================= Metin stilleri ================= -->
+        <Style x:Key="SectionTitle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+            <Setter Property="FontSize" Value="19" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Margin" Value="0,0,0,4" />
+        </Style>
+
+        <Style x:Key="SectionHint" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource TextMuted}" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Margin" Value="0,0,0,14" />
+        </Style>
+
+        <Style x:Key="FieldLabel" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Margin" Value="0,0,0,6" />
+        </Style>
+
+        <Style x:Key="FieldHint" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource TextMuted}" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Margin" Value="0,5,0,0" />
+        </Style>
+
+        <!-- ================= Kart ================= -->
+        <Style x:Key="Card" TargetType="Border">
+            <Setter Property="Background" Value="{StaticResource Surface}" />
+            <Setter Property="BorderBrush" Value="{StaticResource Stroke}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="12" />
+            <Setter Property="Padding" Value="18,16" />
+            <Setter Property="Margin" Value="0,0,0,12" />
+        </Style>
+
+        <!-- ================= Araç ipucu (koyu tema) ================= -->
+        <Style TargetType="ToolTip">
+            <Setter Property="OverridesDefaultStyle" Value="True" />
+            <Setter Property="HasDropShadow" Value="True" />
+            <Setter Property="Placement" Value="Bottom" />
+            <Setter Property="VerticalOffset" Value="6" />
+            <Setter Property="Foreground" Value="#E4E4E7" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="MaxWidth" Value="330" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToolTip">
+                        <Border Background="#232329" BorderBrush="{StaticResource StrokeStrong}"
+                                BorderThickness="1" CornerRadius="7" Padding="10,7">
+                            <ContentPresenter />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="ContentTemplate">
+                <Setter.Value>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding}" TextWrapping="Wrap" MaxWidth="310" />
+                    </DataTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ================= Sol menü düğmesi ================= -->
+        <Style x:Key="NavButton" TargetType="RadioButton">
+            <Setter Property="Foreground" Value="{StaticResource TextMuted}" />
+            <Setter Property="FontSize" Value="13.5" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Margin" Value="8,2,8,2" />
+            <Setter Property="MinHeight" Value="44" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Grid>
+                            <Border x:Name="bd" Background="Transparent" CornerRadius="9" Padding="12,0">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Border x:Name="bar" Grid.Column="0" Width="3" Height="18"
+                                            CornerRadius="2" Background="Transparent"
+                                            VerticalAlignment="Center" Margin="0,0,10,0" />
+                                    <ContentPresenter Grid.Column="1" VerticalAlignment="Center" />
+                                </Grid>
+                            </Border>
+                            <Border x:Name="focus" CornerRadius="9" BorderThickness="2"
+                                    BorderBrush="Transparent" IsHitTestVisible="False" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#1A1A1D" />
+                                <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#202024" />
+                                <Setter TargetName="bar" Property="Background" Value="{StaticResource Accent}" />
+                                <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+                                <Setter Property="FontWeight" Value="SemiBold" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="focus" Property="BorderBrush" Value="{StaticResource FocusRing}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ================= Anahtar (toggle) ================= -->
+        <Style x:Key="Toggle" TargetType="CheckBox">
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="MinHeight" Value="24" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="CheckBox">
+                        <Grid Background="Transparent">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <ContentPresenter Grid.Column="0" VerticalAlignment="Center" Margin="0,0,16,0" />
+                            <Grid Grid.Column="1" VerticalAlignment="Center">
+                                <Border x:Name="track"
+                                        Width="42" Height="24" CornerRadius="12"
+                                        Background="#2A2A2F" BorderBrush="{StaticResource StrokeStrong}"
+                                        BorderThickness="1">
+                                    <Ellipse x:Name="knob" Width="16" Height="16" Fill="#9A9AA2"
+                                             HorizontalAlignment="Left" Margin="4,0,0,0">
+                                        <Ellipse.RenderTransform>
+                                            <TranslateTransform X="0" />
+                                        </Ellipse.RenderTransform>
+                                    </Ellipse>
+                                </Border>
+                                <Border x:Name="focus" CornerRadius="12" BorderThickness="2"
+                                        BorderBrush="Transparent" IsHitTestVisible="False" Margin="-3" />
+                            </Grid>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="knob"
+                                                             Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
+                                                             To="16" Duration="0:0:0.16">
+                                                <DoubleAnimation.EasingFunction>
+                                                    <CubicEase EasingMode="EaseOut" />
+                                                </DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.EnterActions>
+                                <Trigger.ExitActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="knob"
+                                                             Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
+                                                             To="0" Duration="0:0:0.16">
+                                                <DoubleAnimation.EasingFunction>
+                                                    <CubicEase EasingMode="EaseOut" />
+                                                </DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.ExitActions>
+                                <Setter TargetName="track" Property="Background" Value="{StaticResource Accent}" />
+                                <Setter TargetName="track" Property="BorderBrush" Value="{StaticResource Accent}" />
+                                <Setter TargetName="knob" Property="Fill" Value="White" />
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="track" Property="BorderBrush" Value="#5A5A64" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="focus" Property="BorderBrush" Value="{StaticResource FocusRing}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.45" />
+                                <Setter Property="Cursor" Value="Arrow" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ================= Giriş alanları ================= -->
+        <Style TargetType="TextBox">
+            <Setter Property="Background" Value="{StaticResource SurfaceRaised}" />
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+            <Setter Property="CaretBrush" Value="{StaticResource TextPrimary}" />
+            <Setter Property="SelectionBrush" Value="{StaticResource Accent}" />
+            <Setter Property="SelectionOpacity" Value="0.4" />
+            <Setter Property="BorderBrush" Value="{StaticResource StrokeStrong}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="10,0,10,0" />
+            <Setter Property="MinHeight" Value="38" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8">
+                            <ScrollViewer x:Name="PART_ContentHost"
+                                          Margin="{TemplateBinding Padding}"
+                                          VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="BorderBrush" Value="#5A5A64" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource Accent}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.45" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- PasswordBox implicit TextBox stilini ALMAZ; ayni gorunum acikca tekrarlanir. -->
+        <Style TargetType="PasswordBox">
+            <Setter Property="Background" Value="{StaticResource SurfaceRaised}" />
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+            <Setter Property="CaretBrush" Value="{StaticResource TextPrimary}" />
+            <Setter Property="SelectionBrush" Value="{StaticResource Accent}" />
+            <Setter Property="SelectionOpacity" Value="0.4" />
+            <Setter Property="BorderBrush" Value="{StaticResource StrokeStrong}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="10,0,10,0" />
+            <Setter Property="MinHeight" Value="38" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="PasswordBox">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="8">
+                            <ScrollViewer x:Name="PART_ContentHost"
+                                          Margin="{TemplateBinding Padding}"
+                                          VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="BorderBrush" Value="#5A5A64" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource Accent}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.45" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="ComboBoxItem">
+            <Setter Property="Background" Value="{StaticResource SurfaceRaised}" />
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+            <Setter Property="Padding" Value="10,7" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBoxItem">
+                        <Border x:Name="bd" Background="Transparent" Padding="{TemplateBinding Padding}" CornerRadius="6">
+                            <ContentPresenter />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#1E293B" />
+                                <Setter Property="Foreground" Value="#93C5FD" />
+                            </Trigger>
+                            <Trigger Property="IsHighlighted" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#2C2C33" />
+                                <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="ComboBox">
+            <Setter Property="Background" Value="{StaticResource SurfaceRaised}" />
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+            <Setter Property="BorderBrush" Value="{StaticResource StrokeStrong}" />
+            <Setter Property="MinHeight" Value="38" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="MaxDropDownHeight" Value="300" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <ToggleButton x:Name="tb" Focusable="False" ClickMode="Press"
+                                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="ToggleButton">
+                                        <Border x:Name="bd" Background="{StaticResource SurfaceRaised}"
+                                                BorderBrush="{StaticResource StrokeStrong}" BorderThickness="1"
+                                                CornerRadius="8" />
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="bd" Property="BorderBrush" Value="#5A5A64" />
+                                            </Trigger>
+                                            <Trigger Property="IsChecked" Value="True">
+                                                <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource Accent}" />
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                            </ToggleButton>
+
+                            <ContentPresenter x:Name="cp" IsHitTestVisible="False"
+                                              Content="{TemplateBinding SelectionBoxItem}"
+                                              ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                              Margin="11,0,32,0" VerticalAlignment="Center" />
+
+                            <Path x:Name="arrow" Data="M 0 0 L 4 4 L 8 0" Stroke="#9A9AA2" StrokeThickness="1.6"
+                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                                  HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,12,0"
+                                  IsHitTestVisible="False" RenderTransformOrigin="0.5,0.5"
+                                  SnapsToDevicePixels="True">
+                                <Path.RenderTransform>
+                                    <RotateTransform Angle="0" />
+                                </Path.RenderTransform>
+                            </Path>
+
+                            <Border x:Name="focus" CornerRadius="8" BorderThickness="2"
+                                    BorderBrush="Transparent" IsHitTestVisible="False" />
+
+                            <Popup x:Name="PART_Popup" AllowsTransparency="True" Placement="Bottom" VerticalOffset="4"
+                                   IsOpen="{TemplateBinding IsDropDownOpen}" Focusable="False" PopupAnimation="Fade">
+                                <Border Background="#1A1A1D" BorderBrush="{StaticResource StrokeStrong}"
+                                        BorderThickness="1" CornerRadius="8" Padding="4"
+                                        MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"
+                                        MaxHeight="{TemplateBinding MaxDropDownHeight}">
+                                    <ScrollViewer>
+                                        <ItemsPresenter />
+                                    </ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsDropDownOpen" Value="True">
+                                <Setter TargetName="arrow" Property="RenderTransform">
+                                    <Setter.Value>
+                                        <RotateTransform Angle="180" />
+                                    </Setter.Value>
+                                </Setter>
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                <Setter TargetName="focus" Property="BorderBrush" Value="{StaticResource FocusRing}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.45" />
+                                <Setter Property="Cursor" Value="Arrow" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ================= Düğmeler ================= -->
+        <Style x:Key="PrimaryButton" TargetType="Button">
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Height" Value="36" />
+            <Setter Property="Padding" Value="16,0" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid>
+                            <Border x:Name="bd" Background="{StaticResource Accent}" CornerRadius="8" Padding="{TemplateBinding Padding}">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <Border x:Name="focus" CornerRadius="8" BorderThickness="2"
+                                    BorderBrush="Transparent" IsHitTestVisible="False" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#1D4ED8" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#1E40AF" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="focus" Property="BorderBrush" Value="{StaticResource FocusRingOnAccent}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="bd" Property="Background" Value="#33333A" />
+                                <Setter Property="Foreground" Value="#7A7A83" />
+                                <Setter Property="Cursor" Value="Arrow" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="GhostButton" TargetType="Button">
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Height" Value="36" />
+            <Setter Property="Padding" Value="16,0" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid>
+                            <Border x:Name="bd" Background="#1D1D20" BorderBrush="{StaticResource StrokeStrong}"
+                                    BorderThickness="1" CornerRadius="8" Padding="{TemplateBinding Padding}">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <Border x:Name="focus" CornerRadius="8" BorderThickness="2"
+                                    BorderBrush="Transparent" IsHitTestVisible="False" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#2A2A30" />
+                                <Setter TargetName="bd" Property="BorderBrush" Value="#5A5A64" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#141417" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="focus" Property="BorderBrush" Value="{StaticResource FocusRing}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.45" />
+                                <Setter Property="Cursor" Value="Arrow" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Hızlı Seçim Tuş Çipleri (Kompakt, estetik klavye tuşu çipleri) -->
+        <Style x:Key="PresetChipButton" TargetType="Button">
+            <Setter Property="Foreground" Value="#D4D4D8" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontWeight" Value="Medium" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Height" Value="28" />
+            <Setter Property="Padding" Value="10,0" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid>
+                            <Border x:Name="bd" Background="#1E1E22" BorderBrush="#35353C"
+                                    BorderThickness="1" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <Border x:Name="focus" CornerRadius="6" BorderThickness="2"
+                                    BorderBrush="Transparent" IsHitTestVisible="False" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#2A2A32" />
+                                <Setter TargetName="bd" Property="BorderBrush" Value="#4E4E58" />
+                                <Setter Property="Foreground" Value="#FFFFFF" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#151518" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="focus" Property="BorderBrush" Value="{StaticResource FocusRing}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.45" />
+                                <Setter Property="Cursor" Value="Arrow" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="DangerIconButton" TargetType="Button">
+            <Setter Property="Foreground" Value="#F87171" />
+            <Setter Property="FontSize" Value="11.5" />
+            <Setter Property="FontWeight" Value="Medium" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Height" Value="30" />
+            <Setter Property="Padding" Value="8,0" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid>
+                            <Border x:Name="bd" Background="#26181A" BorderBrush="#5A2B30"
+                                    BorderThickness="1" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <Border x:Name="focus" CornerRadius="6" BorderThickness="2"
+                                    BorderBrush="Transparent" IsHitTestVisible="False" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="{StaticResource Danger}" />
+                                <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource Danger}" />
+                                <Setter Property="Foreground" Value="White" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#B91C1C" />
+                                <Setter TargetName="bd" Property="BorderBrush" Value="#B91C1C" />
+                                <Setter Property="Foreground" Value="White" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="focus" Property="BorderBrush" Value="#FCA5A5" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.45" />
+                                <Setter Property="Cursor" Value="Arrow" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="CompactGhostButton" TargetType="Button">
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+            <Setter Property="FontSize" Value="11.5" />
+            <Setter Property="FontWeight" Value="Medium" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Height" Value="30" />
+            <Setter Property="Padding" Value="8,0" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid>
+                            <Border x:Name="bd" Background="#1D1D20" BorderBrush="{StaticResource StrokeStrong}"
+                                    BorderThickness="1" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <Border x:Name="focus" CornerRadius="6" BorderThickness="2"
+                                    BorderBrush="Transparent" IsHitTestVisible="False" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#2A2A30" />
+                                <Setter TargetName="bd" Property="BorderBrush" Value="#5A5A64" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#141417" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="focus" Property="BorderBrush" Value="{StaticResource FocusRing}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.45" />
+                                <Setter Property="Cursor" Value="Arrow" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="CompactPrimaryButton" TargetType="Button">
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="FontSize" Value="11.5" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Height" Value="30" />
+            <Setter Property="Padding" Value="8,0" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid>
+                            <Border x:Name="bd" Background="{StaticResource Accent}" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <Border x:Name="focus" CornerRadius="6" BorderThickness="2"
+                                    BorderBrush="Transparent" IsHitTestVisible="False" />
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#1D4ED8" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#1E40AF" />
+                            </Trigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="focus" Property="BorderBrush" Value="{StaticResource FocusRingOnAccent}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="bd" Property="Background" Value="#33333A" />
+                                <Setter Property="Foreground" Value="#7A7A83" />
+                                <Setter Property="Cursor" Value="Arrow" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ================= Pencere Kontrol Butonları (Discord Stili) ================= -->
+        <Style x:Key="CaptionButton" TargetType="Button">
+            <Setter Property="WindowChrome.IsHitTestVisibleInChrome" Value="True" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="IsTabStop" Value="False" />
+            <Setter Property="Width" Value="46" />
+            <Setter Property="Height" Value="32" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{StaticResource TextMuted}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Cursor" Value="Arrow" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}" SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#2A2A30" />
+                                <Setter Property="Foreground" Value="#FFFFFF" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#1E1E22" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="CaptionCloseButton" TargetType="Button">
+            <Setter Property="WindowChrome.IsHitTestVisibleInChrome" Value="True" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="IsTabStop" Value="False" />
+            <Setter Property="Width" Value="46" />
+            <Setter Property="Height" Value="32" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{StaticResource TextMuted}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Cursor" Value="Arrow" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="bd" Background="{TemplateBinding Background}" SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#E81123" />
+                                <Setter Property="Foreground" Value="#FFFFFF" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="bd" Property="Background" Value="#B80F1D" />
+                                <Setter Property="Foreground" Value="#FFFFFF" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ================= İlerleme çubuğu (düz, koyu tema) ================= -->
+        <Style TargetType="ProgressBar">
+            <Setter Property="Background" Value="#2A2A35" />
+            <Setter Property="Foreground" Value="{StaticResource Accent}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Height" Value="8" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ProgressBar">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="4"
+                                ClipToBounds="True" SnapsToDevicePixels="True">
+                            <Grid>
+                                <Rectangle x:Name="PART_Track" />
+                                <Decorator x:Name="PART_Indicator" HorizontalAlignment="Left">
+                                    <Rectangle Fill="{TemplateBinding Foreground}" RadiusX="4" RadiusY="4" />
+                                </Decorator>
+                            </Grid>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ================= Kaydırma çubuğu ================= -->
+        <!-- Oluk düğmeleri görünmez ama tıklanabilir: oluğa tıklayınca sayfa sayfa kayar. -->
+        <Style x:Key="ScrollTroughButton" TargetType="RepeatButton">
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="IsTabStop" Value="False" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RepeatButton">
+                        <Border Background="Transparent" />
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="ScrollBar">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Width" Value="10" />
+            <Setter Property="MinWidth" Value="10" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ScrollBar">
+                        <Border Background="{TemplateBinding Background}">
+                            <Track x:Name="PART_Track" IsDirectionReversed="True">
+                                <Track.DecreaseRepeatButton>
+                                    <RepeatButton Style="{StaticResource ScrollTroughButton}"
+                                                  Command="ScrollBar.PageUpCommand" />
+                                </Track.DecreaseRepeatButton>
+                                <Track.IncreaseRepeatButton>
+                                    <RepeatButton Style="{StaticResource ScrollTroughButton}"
+                                                  Command="ScrollBar.PageDownCommand" />
+                                </Track.IncreaseRepeatButton>
+                                <Track.Thumb>
+                                    <Thumb>
+                                        <Thumb.Template>
+                                            <ControlTemplate TargetType="Thumb">
+                                                <Border x:Name="tb" Background="#3A3A42" CornerRadius="3" Margin="2" />
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="tb" Property="Background" Value="#4E4E58" />
+                                                    </Trigger>
+                                                    <Trigger Property="IsDragging" Value="True">
+                                                        <Setter TargetName="tb" Property="Background" Value="#62626E" />
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Thumb.Template>
+                                    </Thumb>
+                                </Track.Thumb>
+                            </Track>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="Orientation" Value="Horizontal">
+                                <Setter TargetName="PART_Track" Property="IsDirectionReversed" Value="False" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="Orientation" Value="Horizontal">
+                    <Setter Property="Width" Value="Auto" />
+                    <Setter Property="MinWidth" Value="0" />
+                    <Setter Property="Height" Value="10" />
+                    <Setter Property="MinHeight" Value="10" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+    </Window.Resources>
+
+    <!-- ================================ YERLEŞİM ================================ -->
+    <Border x:Name="WindowBorder"
+            Background="#0F0F11"
+            BorderBrush="{StaticResource Stroke}"
+            BorderThickness="1">
+        <Grid x:Name="RootGrid">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="212" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Sol gezinme -->
+            <Border Grid.Row="0" Grid.Column="0" Background="{StaticResource Surface}"
+                    BorderBrush="{StaticResource Stroke}" BorderThickness="0,0,1,0">
+                <DockPanel>
+                    <StackPanel DockPanel.Dock="Top" Margin="20,16,20,16" Background="Transparent">
+                        <TextBlock Text="TRWhisper" Foreground="{StaticResource TextPrimary}"
+                                   FontSize="17" FontWeight="SemiBold" />
+                        <TextBlock Text="Ayarlar" Foreground="{StaticResource TextMuted}" FontSize="12" Margin="0,2,0,0" />
+                    </StackPanel>
+
+                    <StackPanel DockPanel.Dock="Top">
+                        <RadioButton x:Name="NavGeneral"    Style="{StaticResource NavButton}" Content="Genel"       IsChecked="True" Checked="Nav_Checked" Tag="0" />
+                        <RadioButton x:Name="NavAudio"      Style="{StaticResource NavButton}" Content="Ses"         Checked="Nav_Checked" Tag="1" />
+                        <RadioButton x:Name="NavModel"      Style="{StaticResource NavButton}" Content="Model"       Checked="Nav_Checked" Tag="2" />
+                        <RadioButton x:Name="NavHotkey"     Style="{StaticResource NavButton}" Content="Kısayol"     Checked="Nav_Checked" Tag="3" />
+                        <RadioButton x:Name="NavDictionary" Style="{StaticResource NavButton}" Content="Sözlük"      Checked="Nav_Checked" Tag="4" />
+                        <RadioButton x:Name="NavAi"         Style="{StaticResource NavButton}" Content="Yapay Zeka"  Checked="Nav_Checked" Tag="5" />
+                        <RadioButton x:Name="NavOverlay"    Style="{StaticResource NavButton}" Content="Kapsül"      Checked="Nav_Checked" Tag="6" />
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+
+            <!-- Sağ panel (Üstte pencere butonları + altta ayar sayfaları) -->
+            <Grid Grid.Row="0" Grid.Column="1">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="32" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <!-- Şeffaf başlık & pencere kontrol butonları -->
+                <Grid Grid.Row="0" Background="Transparent">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
+                        <Button x:Name="MinimizeButton" Style="{StaticResource CaptionButton}"
+                                Click="MinimizeButton_Click" ToolTip="Simge durumuna küçült">
+                            <Path Data="{StaticResource IconMinimize}"
+                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                  StrokeThickness="1.2" Width="10" Height="10" SnapsToDevicePixels="True" />
+                        </Button>
+                        <Button x:Name="MaximizeButton" Style="{StaticResource CaptionButton}"
+                                Click="MaximizeButton_Click" ToolTip="Ekranı kapla">
+                            <Path x:Name="MaximizeIcon" Data="{StaticResource IconMaximize}"
+                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                  StrokeThickness="1.1" Width="10" Height="10" SnapsToDevicePixels="True" />
+                        </Button>
+                        <Button x:Name="CloseButton" Style="{StaticResource CaptionCloseButton}"
+                                Click="CloseButton_Click" ToolTip="Kapat">
+                            <Path Data="{StaticResource IconClose}"
+                                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                                  StrokeThickness="1.2" Width="10" Height="10" SnapsToDevicePixels="True" />
+                        </Button>
+                    </StackPanel>
+                </Grid>
+
+                <!-- Sağ içerik -->
+                <ScrollViewer x:Name="ContentScroll" Grid.Row="1"
+                              VerticalScrollBarVisibility="Auto" Padding="28,10,28,16">
+                    <Grid x:Name="PanelHost">
+
+                <!-- ================ 0: GENEL ================ -->
+                <StackPanel x:Name="PageGeneral">
+                    <TextBlock Style="{StaticResource SectionTitle}" Text="Genel" />
+                    <TextBlock Style="{StaticResource SectionHint}"
+                               Text="Uygulamanın temel davranışı ve metin işleme katmanları." />
+
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <CheckBox x:Name="AutostartToggle" Style="{StaticResource Toggle}"
+                                      Content="Windows açılışında otomatik başlat" />
+                            <TextBlock Style="{StaticResource FieldHint}"
+                                       Text="Kayıt defterindeki HKCU\Software\Microsoft\Windows\CurrentVersion\Run anahtarını kullanır; yönetici hakkı gerektirmez." />
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="Dikte dili" />
+                            <ComboBox x:Name="LanguageCombo" Width="240" AutomationProperties.Name="Dikte dili" HorizontalAlignment="Left" />
+                            <TextBlock Style="{StaticResource FieldHint}"
+                                       Text="Whisper'a verilen dil kodu. Yanlış dil doğruluğu belirgin biçimde düşürür." />
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <CheckBox x:Name="NormalizationToggle" Style="{StaticResource Toggle}"
+                                      Content="Sayı, tarih ve birim normalizasyonu" />
+                            <TextBlock Style="{StaticResource FieldHint}"
+                                       Text="&quot;yüzde yirmi&quot; → &quot;%20&quot;, &quot;on beş eylül&quot; → &quot;15 Eylül&quot;, &quot;üç buçuk kilo&quot; → &quot;3,5 kg&quot;" />
+
+                            <Border Height="1" Background="{StaticResource Stroke}" Margin="0,14,0,11" />
+
+                            <CheckBox x:Name="DictionaryToggle" Style="{StaticResource Toggle}"
+                                      Content="Özel sözlük (teknik terim düzeltme)" />
+                            <TextBlock Style="{StaticResource FieldHint}"
+                                       Text="&quot;pitonda&quot; → &quot;Python'da&quot;. Kuralları Sözlük sekmesinden düzenleyebilirsiniz." />
+
+                            <Border Height="1" Background="{StaticResource Stroke}" Margin="0,14,0,11" />
+
+                            <CheckBox x:Name="StreamingPreviewToggle" Style="{StaticResource Toggle}"
+                                      Content="Canlı akış (real-time live preview) transkripsiyonu" />
+                            <TextBlock Style="{StaticResource FieldHint}"
+                                       Text="Kayıt devam ederken ekrandaki kapsülde kelimelerin canlı olarak akmasını sağlar. Kayıt bitince nihai metin hedefe yapıştırılır." />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- ================ 1: SES ================ -->
+                <StackPanel x:Name="PageAudio" Visibility="Collapsed">
+                    <TextBlock Style="{StaticResource SectionTitle}" Text="Ses" />
+                    <TextBlock Style="{StaticResource SectionHint}"
+                               Text="Dikte için kullanılacak mikrofonu seçin." />
+
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="Mikrofon" />
+                            <ComboBox x:Name="MicrophoneCombo" Width="360" AutomationProperties.Name="Mikrofon" HorizontalAlignment="Left" />
+                            <TextBlock Style="{StaticResource FieldHint}"
+                                       Text="Seçilen cihaz bilgisayardan çıkarılırsa TRWhisper sessizce sistem varsayılanına döner." />
+
+                            <Button x:Name="RefreshMicsButton" Style="{StaticResource GhostButton}"
+                                    Content="Cihazları yenile" HorizontalAlignment="Left"
+                                    Width="140" Height="36" Margin="0,14,0,0" Click="RefreshMics_Click" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- ================ 2: MODEL ================ -->
+                <StackPanel x:Name="PageModel" Visibility="Collapsed">
+                    <TextBlock Style="{StaticResource SectionTitle}" Text="Model" />
+                    <TextBlock Style="{StaticResource SectionHint}"
+                               Text="Whisper modeli ve bellek davranışı." />
+
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="Whisper modeli" />
+                            <ComboBox x:Name="ModelCombo" Width="340" AutomationProperties.Name="Whisper modeli" HorizontalAlignment="Left" />
+                            <TextBlock Style="{StaticResource FieldHint}"
+                                       Text="Large-v3 Turbo belirgin biçimde daha doğrudur; GPU olmadan yavaş kalır." />
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="Donanım hızlandırma" />
+                            <StackPanel Orientation="Horizontal" Margin="0,2,0,0">
+                                <Border x:Name="GpuBadge" CornerRadius="11" Height="26" Padding="12,0"
+                                        Background="#16301F" BorderBrush="{StaticResource Success}" BorderThickness="1">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Ellipse x:Name="GpuDot" Width="8" Height="8" Fill="{StaticResource Success}"
+                                                 VerticalAlignment="Center" Margin="0,0,8,0" />
+                                        <TextBlock x:Name="GpuBadgeText" Text="CUDA etkin"
+                                                   Foreground="{StaticResource TextPrimary}" FontSize="12"
+                                                   FontWeight="SemiBold" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                            <TextBlock x:Name="GpuHint" Style="{StaticResource FieldHint}" Text="" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="Bellek/VRAM boşaltma süresi" />
+                            <StackPanel Orientation="Horizontal">
+                                <TextBox x:Name="IdleMinutesBox" Width="96" AutomationProperties.Name="Bellek bosaltma suresi (dakika)" PreviewTextInput="NumericOnly_PreviewTextInput" />
+                                <TextBlock Text="dakika" Foreground="{StaticResource TextMuted}" FontSize="13"
+                                           VerticalAlignment="Center" Margin="10,0,0,0" />
+                            </StackPanel>
+                            <TextBlock Style="{StaticResource FieldHint}"
+                                       Text="Model bu süre boyunca kullanılmazsa bellekten atılır. 0 yazarsanız hiç boşaltılmaz: VRAM dolu kalır ama her dikte sıcak başlar." />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Model Kütüphanesi ve İndirme Kartı -->
+                    <Border Style="{StaticResource Card}" Padding="18,16,18,8">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource SectionTitle}" FontSize="15" Text="Model Kütüphanesi ve İndirme" />
+                            <TextBlock Style="{StaticResource SectionHint}" Margin="0,0,0,12"
+                                       Text="Whisper modellerini doğrudan buradan indirebilir veya disk alanı boşaltmak için silebilirsiniz." />
+
+                            <!-- İndirme İlerleme Alanı (Canlı İndirme Sırasında Görünür) -->
+                            <Border x:Name="DownloadProgressCard" Background="#1A1A22" BorderBrush="{StaticResource Accent}" BorderThickness="1"
+                                    CornerRadius="8" Padding="14" Margin="0,0,0,12" Visibility="Collapsed">
+                                <StackPanel>
+                                    <Grid Margin="0,0,0,8">
+                                        <TextBlock x:Name="DownloadingModelTitle" Text="Model İndiriliyor..." Foreground="{StaticResource TextPrimary}" FontWeight="SemiBold" FontSize="13" />
+                                        <Button x:Name="CancelDownloadButton" Style="{StaticResource CompactGhostButton}"
+                                                Content="İptal" Width="56" Height="30" HorizontalAlignment="Right" Click="CancelDownload_Click" ToolTip="İndirmeyi İptal Et" />
+                                    </Grid>
+                                    <ProgressBar x:Name="ModelDownloadProgressBar" Height="8" Minimum="0" Maximum="100" Value="0"
+                                                 Foreground="{StaticResource Accent}" Background="#2A2A35" BorderThickness="0" Margin="0,0,0,8" />
+                                    <Grid>
+                                        <TextBlock x:Name="DownloadDetailText" Text="0 MB / 0 MB (%0)" Foreground="{StaticResource TextMuted}" FontSize="11.5" />
+                                        <TextBlock x:Name="DownloadSpeedText" Text="0 MB/s" Foreground="#A1A1AA" FontSize="11.5" HorizontalAlignment="Right" />
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Model Listesi -->
+                            <ItemsControl x:Name="ModelsListControl">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Background="{StaticResource SurfaceRaised}" BorderBrush="{StaticResource Stroke}" BorderThickness="1"
+                                                CornerRadius="8" Padding="14,10" Margin="0,0,0,8">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+
+                                                <!-- Sol: Model Bilgisi -->
+                                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <TextBlock Text="{Binding DisplayName}" Foreground="{StaticResource TextPrimary}" FontWeight="SemiBold" FontSize="13" />
+                                                        <!-- Aktif / Kurulu Rozeti -->
+                                                        <Border Background="{Binding StatusBackground}" BorderBrush="{Binding StatusBorder}" BorderThickness="1"
+                                                                CornerRadius="6" Padding="6,1" Margin="8,0,0,0" VerticalAlignment="Center">
+                                                            <TextBlock Text="{Binding StatusText}" Foreground="{Binding StatusForeground}" FontSize="11" FontWeight="Medium" />
+                                                        </Border>
+                                                    </StackPanel>
+                                                    <TextBlock Text="{Binding Description}" Foreground="{StaticResource TextMuted}" FontSize="11.5" Margin="0,3,0,0" TextTrimming="CharacterEllipsis" />
+                                                </StackPanel>
+
+                                                <!-- Sağ: Aksiyon Butonları (Sabit hizalı 2 sütunlu grid) -->
+                                                <Grid Grid.Column="1" VerticalAlignment="Center" Margin="16,0,0,0">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="64" />
+                                                        <ColumnDefinition Width="8" />
+                                                        <ColumnDefinition Width="64" />
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <!-- Kolon 0: Seç Aksiyonu -->
+                                                    <Button Grid.Column="0" Content="Seç" Style="{StaticResource CompactGhostButton}" Width="64" Height="30"
+                                                            Tag="{Binding}" Click="SelectModel_Click" Visibility="{Binding SelectButtonVisibility}" ToolTip="Bu modeli aktif Whisper modeli yap" />
+
+                                                    <!-- Kolon 2: İndir veya Sil Aksiyonu (Sil tuşu ile aynı hizada) -->
+                                                    <Button Grid.Column="2" Content="İndir" Style="{StaticResource CompactPrimaryButton}" Width="64" Height="30"
+                                                            Tag="{Binding}" Click="DownloadModel_Click" Visibility="{Binding DownloadButtonVisibility}" ToolTip="Modeli internetten indir" />
+
+                                                    <Button Grid.Column="2" Content="Sil" Style="{StaticResource DangerIconButton}" Width="64" Height="30"
+                                                            Tag="{Binding}" Click="DeleteModel_Click" Visibility="{Binding DeleteButtonVisibility}" ToolTip="Bu modeli diskten silerek alan boşalt" />
+                                                </Grid>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- ================ 3: KISAYOL ================ -->
+                <StackPanel x:Name="PageHotkey" Visibility="Collapsed">
+                    <TextBlock Style="{StaticResource SectionTitle}" Text="Kısayol" />
+                    <TextBlock Style="{StaticResource SectionHint}"
+                               Text="Bas-konuş tuşunu basılı tutun, konuşun, bırakın. İstediğiniz herhangi bir tuşu veya tuş kombinasyonunu atayabilirsiniz." />
+
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="Çalışma biçimi" />
+                            <ComboBox x:Name="DictationModeCombo" Width="330" AutomationProperties.Name="Calisma bicimi" HorizontalAlignment="Left" />
+                            <TextBlock x:Name="DictationModeHint" Style="{StaticResource FieldHint}" Text="" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border x:Name="HandsFreeCard" Style="{StaticResource Card}" Visibility="Collapsed">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="Sessizlikte otomatik bitirme" />
+                            <StackPanel Orientation="Horizontal">
+                                <TextBox x:Name="SilenceMsBox" Width="110" AutomationProperties.Name="Sessizlik suresi (ms)" PreviewTextInput="NumericOnly_PreviewTextInput" />
+                                <TextBlock Text="ms sessizlik" Foreground="{StaticResource TextMuted}" FontSize="13"
+                                           VerticalAlignment="Center" Margin="10,0,24,0" />
+                                <TextBox x:Name="SilenceThresholdBox" Width="110" AutomationProperties.Name="Ses esigi" />
+                                <TextBlock Text="ses eşiği (0-1)" Foreground="{StaticResource TextMuted}" FontSize="13"
+                                           VerticalAlignment="Center" Margin="10,0,0,0" />
+                            </StackPanel>
+                            <TextBlock Style="{StaticResource FieldHint}"
+                                       Text="Konuşma başladıktan sonra bu süre boyunca kesintisiz sessizlik olursa kayıt kendiliğinden biter. Eşik mikrofon duyarlılığına göre değişir: cümle aralarında erken kesiyorsa düşürün, ortam gürültüsünde hiç bitmiyorsa yükseltin." />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Bas-Konuş Tuşu Kartı -->
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="Bas-konuş tuşu veya kombinasyonu" />
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                <!-- Seçili Kısayol Göstergesi -->
+                                <Border Background="{StaticResource SurfaceRaised}" BorderBrush="{StaticResource StrokeStrong}"
+                                        BorderThickness="1" CornerRadius="8" Padding="14,0" Width="260" Height="38">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Path Style="{StaticResource LineIcon}" Data="{StaticResource IconKeyboard}"
+                                                  Stroke="{StaticResource TextMuted}" Width="15" Height="15" Margin="0,0,9,0" />
+                                        <TextBlock x:Name="PttKeyDisplayText" Text="Sağ Ctrl" Foreground="{StaticResource TextPrimary}"
+                                                   FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Kısayol Ata Butonu -->
+                                <Button x:Name="RecordPttButton" Style="{StaticResource PrimaryButton}"
+                                        Content="Kısayol Ata" Width="120" Height="38" Margin="10,0,0,0"
+                                        Click="RecordPttButton_Click" ToolTip="Tıklayın ve klavyeden istediğiniz tuşa veya tuş kombinasyonuna basın" />
+                            </StackPanel>
+
+                            <!-- Kayıt Bilgilendirme Banner'ı (Kayıt sırasındayken görünür) -->
+                            <Border x:Name="PttRecordingBanner" Background="#261E14" BorderBrush="#EAB308" BorderThickness="1"
+                                    CornerRadius="8" Padding="12,8" Margin="0,0,0,12" HorizontalAlignment="Left" Visibility="Collapsed">
+                                <StackPanel Orientation="Horizontal">
+                                    <Ellipse Width="9" Height="9" Fill="#FACC15" VerticalAlignment="Center" Margin="0,0,9,0" />
+                                    <TextBlock Text="Klavyeden herhangi bir tuşa veya kombinasyona basın (örn: Ctrl+Space, F8)... İptal için Esc."
+                                               Foreground="#FACC15" FontSize="12" FontWeight="Medium" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Hızlı Seçenekler -->
+                            <TextBlock Text="Hızlı seçim:" Foreground="{StaticResource TextMuted}" FontSize="11" Margin="0,0,0,6" />
+                            <WrapPanel Margin="0,0,0,2">
+                                <Button Content="Sağ Ctrl" Style="{StaticResource PresetChipButton}" Margin="0,0,6,6" Tag="RightCtrl" Click="PresetPtt_Click" />
+                                <Button Content="Sol Ctrl" Style="{StaticResource PresetChipButton}" Margin="0,0,6,6" Tag="LeftCtrl" Click="PresetPtt_Click" />
+                                <Button Content="Caps Lock" Style="{StaticResource PresetChipButton}" Margin="0,0,6,6" Tag="CapsLock" Click="PresetPtt_Click" />
+                                <Button Content="F8" Style="{StaticResource PresetChipButton}" Margin="0,0,6,6" Tag="F8" Click="PresetPtt_Click" />
+                                <Button Content="F9" Style="{StaticResource PresetChipButton}" Margin="0,0,6,6" Tag="F9" Click="PresetPtt_Click" />
+                                <Button Content="Mouse 4 (Geri)" Style="{StaticResource PresetChipButton}" Margin="0,0,6,6" Tag="Mouse4" Click="PresetPtt_Click" />
+                                <Button Content="Mouse 5 (İleri)" Style="{StaticResource PresetChipButton}" Margin="0,0,6,6" Tag="Mouse5" Click="PresetPtt_Click" />
+                                <Button Content="Ctrl + Space" Style="{StaticResource PresetChipButton}" Margin="0,0,6,6" Tag="Ctrl+Space" Click="PresetPtt_Click" />
+                            </WrapPanel>
+
+                            <TextBlock Style="{StaticResource FieldHint}" Margin="0,4,0,0"
+                                       Text="Tek bir tuş (F8, CapsLock vb.) veya kombinasyon (Ctrl+Boşluk, Alt+D vb.) kullanabilirsiniz." />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- LLM Temizleme Tuşu Kartı -->
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="LLM temizleme tuşu veya kombinasyonu" />
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                                <!-- Seçili Kısayol Göstergesi -->
+                                <Border Background="{StaticResource SurfaceRaised}" BorderBrush="{StaticResource StrokeStrong}"
+                                        BorderThickness="1" CornerRadius="8" Padding="14,0" Width="260" Height="38">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Path Style="{StaticResource SolidIcon}" Data="{StaticResource IconSparkle}"
+                                                  Fill="#A78BFA" Margin="0,0,9,0" />
+                                        <TextBlock x:Name="LlmKeyDisplayText" Text="Shift" Foreground="{StaticResource TextPrimary}"
+                                                   FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Kısayol Ata Butonu -->
+                                <Button x:Name="RecordLlmButton" Style="{StaticResource PrimaryButton}"
+                                        Content="Kısayol Ata" Width="120" Height="38" Margin="10,0,0,0"
+                                        Click="RecordLlmButton_Click" ToolTip="Tıklayın ve klavyeden istediğiniz tuşa veya tuş kombinasyonuna basın" />
+
+                                <!-- Kullanma (Devre Dışı) Butonu -->
+                                <Button x:Name="DisableLlmButton" Style="{StaticResource GhostButton}"
+                                        Content="Kullanma" Width="100" Height="38" Margin="8,0,0,0"
+                                        Click="DisableLlmButton_Click" ToolTip="LLM temizleme tuşunu devre dışı bırak" />
+                            </StackPanel>
+
+                            <!-- Kayıt Bilgilendirme Banner'ı -->
+                            <Border x:Name="LlmRecordingBanner" Background="#261E14" BorderBrush="#EAB308" BorderThickness="1"
+                                    CornerRadius="8" Padding="12,8" Margin="0,0,0,12" HorizontalAlignment="Left" Visibility="Collapsed">
+                                <StackPanel Orientation="Horizontal">
+                                    <Ellipse Width="9" Height="9" Fill="#FACC15" VerticalAlignment="Center" Margin="0,0,9,0" />
+                                    <TextBlock Text="Klavyeden herhangi bir tuşa basın (örn: Shift, Ctrl, Alt, F9)... İptal için Esc."
+                                               Foreground="#FACC15" FontSize="12" FontWeight="Medium" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Hızlı Seçenekler -->
+                            <TextBlock Text="Hızlı seçim:" Foreground="{StaticResource TextMuted}" FontSize="11" Margin="0,0,0,6" />
+                            <WrapPanel Margin="0,0,0,2">
+                                <Button Content="Shift (Varsayılan)" Style="{StaticResource PresetChipButton}" Margin="0,0,6,6" Tag="Shift" Click="PresetLlm_Click" />
+                                <Button Content="Ctrl" Style="{StaticResource PresetChipButton}" Margin="0,0,6,6" Tag="Ctrl" Click="PresetLlm_Click" />
+                                <Button Content="Alt" Style="{StaticResource PresetChipButton}" Margin="0,0,6,6" Tag="Alt" Click="PresetLlm_Click" />
+                                <Button Content="Sağ Shift" Style="{StaticResource PresetChipButton}" Margin="0,0,6,6" Tag="RightShift" Click="PresetLlm_Click" />
+                                <Button Content="Kullanma (Yok)" Style="{StaticResource PresetChipButton}" Margin="0,0,6,6" Tag="None" Click="PresetLlm_Click" />
+                            </WrapPanel>
+
+                            <TextBlock Style="{StaticResource FieldHint}" Margin="0,4,0,0"
+                                       Text="Bas-konuş sırasında bu tuş da basılıysa metin yapay zekâ ile temizlenir. 'Kullanma' seçeneğiyle tamamen kapatabilirsiniz." />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- ================ 4: SÖZLÜK ================ -->
+                <StackPanel x:Name="PageDictionary" Visibility="Collapsed">
+                    <TextBlock Style="{StaticResource SectionTitle}" Text="Özel Sözlük" />
+                    <TextBlock Style="{StaticResource SectionHint}"
+                               Text="Whisper'ın yanlış yazdığı terimleri düzeltin. Değişiklikler anında dictionary.json'a yazılır ve bir sonraki diktede geçerli olur." />
+
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="Yeni kural" />
+                            <Grid MaxWidth="600" HorizontalAlignment="Left">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="220" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="220" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBox x:Name="NewMatchBox" Grid.Column="0" KeyDown="NewRuleBox_KeyDown"
+                                         AutomationProperties.Name="Duyulan hali" />
+                                <TextBlock Grid.Column="1" Text="→" Foreground="{StaticResource TextMuted}"
+                                           FontSize="15" VerticalAlignment="Center" Margin="12,0" />
+                                <TextBox x:Name="NewReplaceBox" Grid.Column="2" KeyDown="NewRuleBox_KeyDown"
+                                         AutomationProperties.Name="Yazilacak hali" />
+                                <Button x:Name="AddRuleButton" Grid.Column="3" Style="{StaticResource PrimaryButton}"
+                                        Content="Ekle" Width="80" Height="38" Margin="12,0,0,0" Click="AddRule_Click" />
+                            </Grid>
+                            <TextBlock Style="{StaticResource FieldHint}" Margin="0,8,0,0"
+                                       Text="Soldaki alana Whisper'ın duyduğu hâli (&quot;piton&quot;), sağdakine doğru yazımı (&quot;Python&quot;) yazın." />
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource Card}" Padding="0" Margin="0,0,0,8">
+                        <DockPanel>
+                            <Grid DockPanel.Dock="Top" Margin="18,12,18,12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="56" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="DUYULAN" Foreground="{StaticResource TextMuted}"
+                                           FontSize="11" FontWeight="SemiBold" />
+                                <TextBlock Grid.Column="1" Text="YAZILAN" Foreground="{StaticResource TextMuted}"
+                                           FontSize="11" FontWeight="SemiBold" />
+                            </Grid>
+                            <Border DockPanel.Dock="Top" Height="1" Background="{StaticResource Stroke}" />
+
+                            <ListBox x:Name="RulesList" Background="Transparent" BorderThickness="0"
+                                     MaxHeight="288" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                     HorizontalContentAlignment="Stretch">
+                                <ListBox.ItemContainerStyle>
+                                    <Style TargetType="ListBoxItem">
+                                        <Setter Property="Padding" Value="0" />
+                                        <Setter Property="Focusable" Value="False" />
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="ListBoxItem">
+                                                    <Border x:Name="bd" Background="Transparent" Padding="18,0">
+                                                        <ContentPresenter />
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter TargetName="bd" Property="Background" Value="#1C1C20" />
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </ListBox.ItemContainerStyle>
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Height="48">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="56" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="{Binding Match}" Foreground="#C9C9D1"
+                                                       FontSize="13" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Grid.Column="1" Text="{Binding Replace}" Foreground="#F4F4F5"
+                                                       FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center"
+                                                       TextTrimming="CharacterEllipsis" />
+                                            <Button Grid.Column="2" Style="{StaticResource DangerIconButton}"
+                                                    Content="Sil" FontSize="11" Width="52" Height="30"
+                                                    HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                    Tag="{Binding}" Click="DeleteRule_Click"
+                                                    ToolTip="Bu kuralı sil" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </DockPanel>
+                    </Border>
+
+                    <TextBlock x:Name="RuleCountText" Style="{StaticResource FieldHint}" Margin="4,4,0,0" Text="" />
+                </StackPanel>
+
+                <!-- ================ 5: YAPAY ZEKA ================ -->
+                <StackPanel x:Name="PageAi" Visibility="Collapsed">
+                    <TextBlock Style="{StaticResource SectionTitle}" Text="Yapay Zeka" />
+                    <TextBlock Style="{StaticResource SectionHint}"
+                               Text="Dikte metnini bir dil modeliyle temizleyin: dolgu kelimeleri atılır, noktalama düzeltilir." />
+
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <CheckBox x:Name="LlmEnabledToggle" Style="{StaticResource Toggle}"
+                                      Content="LLM temizlemeyi varsayılan olarak aç" />
+                            <TextBlock Style="{StaticResource FieldHint}"
+                                       Text="Kapalıyken de Kısayol sekmesindeki LLM tuşuyla tek seferlik kullanabilirsiniz." />
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="Sağlayıcı" />
+                            <ComboBox x:Name="LlmProviderCombo" Width="340" AutomationProperties.Name="LLM saglayicisi" HorizontalAlignment="Left" SelectionChanged="LlmProviderCombo_SelectionChanged" />
+
+                            <!-- Gizlilik Rozetleri (Hizalı ve kompakt) -->
+                            <!-- 1. Ollama (Çevrimdışı Yeşil Rozet) -->
+                            <Border x:Name="OllamaOfflineBadge" Background="#14261C" BorderBrush="#22C55E" BorderThickness="1"
+                                    CornerRadius="8" Padding="12,7" Margin="0,10,0,0" HorizontalAlignment="Left">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Style="{StaticResource LineIcon}" Data="{StaticResource IconLock}"
+                                               Stroke="#4ADE80" Width="14" Height="14" Margin="0,0,9,0" />
+                                    <TextBlock Text="%100 Çevrimdışı: Veriler bilgisayarınızdan dışarı çıkmaz"
+                                               Foreground="#4ADE80" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Border>
+
+                            <!-- 2. Bulut (Uyarı Sarı Rozet) -->
+                            <Border x:Name="CloudWarningBadge" Background="#262114" BorderBrush="#EAB308" BorderThickness="1"
+                                    CornerRadius="8" Padding="12,7" Margin="0,10,0,0" HorizontalAlignment="Left" Visibility="Collapsed">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Style="{StaticResource LineIcon}" Data="{StaticResource IconWarning}"
+                                               Stroke="#FACC15" Width="14" Height="14" Margin="0,0,9,0" />
+                                    <TextBlock Text="Metin bulut sağlayıcısına iletilir (ses iletilmez)"
+                                               Foreground="#FACC15" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Border>
+
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="API adresi" Margin="0,14,0,6" />
+                            <TextBox x:Name="LlmEndpointBox" Width="460" AutomationProperties.Name="API adresi" HorizontalAlignment="Left" />
+                            <TextBlock x:Name="LlmEndpointHint" Style="{StaticResource FieldHint}"
+                                       Text="Ollama için varsayılan: http://localhost:11434/v1/chat/completions" />
+
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="Model adı" Margin="0,14,0,6" />
+                            <TextBox x:Name="LlmModelBox" Width="340" AutomationProperties.Name="LLM model adi" HorizontalAlignment="Left" />
+                            <TextBlock x:Name="LlmModelHint" Style="{StaticResource FieldHint}"
+                                       Text="Önerilen yerel modeller: qwen2.5:3b, llama3.2:3b, gemma2:2b" />
+
+                            <!-- API Anahtarı alanı (Ollama için gizlenebilir) -->
+                            <StackPanel x:Name="LlmApiKeyPanel" Margin="0,14,0,0">
+                                <TextBlock Style="{StaticResource FieldLabel}" Text="API anahtarı" />
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                                    <!-- Ayni kutuda iki denetim: maskeli (varsayilan) ve acik metin. -->
+                                    <Grid Width="460">
+                                        <PasswordBox x:Name="LlmApiKeyPasswordBox"
+                                                     AutomationProperties.Name="API anahtari" />
+                                        <TextBox x:Name="LlmApiKeyBox" Visibility="Collapsed"
+                                                 AutomationProperties.Name="API anahtari (acik metin)" />
+                                    </Grid>
+                                    <Button x:Name="ApiKeyRevealButton" Style="{StaticResource GhostButton}"
+                                            Width="46" Height="38" Padding="0" Margin="8,0,0,0"
+                                            Click="ApiKeyReveal_Click"
+                                            AutomationProperties.Name="API anahtarini goster"
+                                            ToolTip="API anahtarını göster">
+                                        <Path x:Name="ApiKeyRevealIcon" Style="{StaticResource LineIcon}"
+                                              Data="{StaticResource IconEye}" Stroke="{StaticResource TextPrimary}"
+                                              Width="16" Height="16" />
+                                    </Button>
+                                </StackPanel>
+                                <TextBlock Style="{StaticResource FieldHint}"
+                                           Text="Anahtar Windows DPAPI ile şifrelenerek güvenle saklanır." />
+                            </StackPanel>
+
+                            <!-- Bağlantıyı Test Et Butonu ve Durum Mesajı -->
+                            <StackPanel Margin="0,14,0,0">
+                                <Button x:Name="TestLlmConnectionButton" Style="{StaticResource GhostButton}"
+                                        Click="TestLlmConnection_Click" MinWidth="160" Height="36"
+                                        HorizontalAlignment="Left">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Path Style="{StaticResource SolidIcon}" Data="{StaticResource IconBolt}"
+                                              Fill="#FACC15" Margin="0,0,8,0" />
+                                        <TextBlock Text="Bağlantıyı Test Et" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+                                <TextBlock x:Name="LlmConnectionStatusText" Style="{StaticResource FieldHint}"
+                                           Margin="0,8,0,0" TextWrapping="Wrap" Visibility="Collapsed" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- LLM Modları ve Akıllı Şablonlar -->
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource SectionTitle}" FontSize="15" Text="LLM Modları ve Akıllı Şablonlar" />
+                            <TextBlock Style="{StaticResource SectionHint}" Margin="0,0,0,12"
+                                       Text="Dikte bağlamınıza uygun şablonu seçin veya kendi özel komut isteminizi tanımlayın." />
+
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="Aktif Mod" Margin="0,0,0,6" />
+                            <ComboBox x:Name="LlmModeCombo" Width="340" AutomationProperties.Name="Aktif LLM modu" HorizontalAlignment="Left" SelectionChanged="LlmModeCombo_SelectionChanged" />
+                            <TextBlock x:Name="LlmModeDescriptionText" Style="{StaticResource FieldHint}" Margin="0,6,0,12"
+                                       Text="Konuşma dilini temizler, imlayı düzeltir, aslına sadık kalır." />
+
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="Sistem İstemi (Prompt)" Margin="0,0,0,6" />
+                            <TextBox x:Name="LlmModePromptBox" AutomationProperties.Name="Sistem istemi" Height="110" TextWrapping="Wrap" AcceptsReturn="True"
+                                     VerticalScrollBarVisibility="Auto" FontFamily="Consolas, Cascadia Code, Courier New"
+                                     FontSize="12.5" Padding="8" />
+
+                            <Grid Margin="0,10,0,0">
+                                <Button x:Name="ResetModePromptButton" Style="{StaticResource GhostButton}"
+                                        Content="Varsayılan İsteme Sıfırla" Click="ResetModePrompt_Click"
+                                        MinWidth="180" Height="36" HorizontalAlignment="Left" />
+                                <Button x:Name="DeleteCustomModeButton" Style="{StaticResource DangerIconButton}"
+                                        Content="Modu Sil" Click="DeleteCustomMode_Click"
+                                        Width="84" Height="36" HorizontalAlignment="Right" Visibility="Collapsed" />
+                            </Grid>
+
+                            <!-- Yeni Özel Mod Ekle Paneli -->
+                            <Border Background="#1A1A1E" BorderBrush="{StaticResource Stroke}" BorderThickness="1"
+                                    CornerRadius="8" Padding="14" Margin="0,14,0,0">
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                        <Path Style="{StaticResource LineIcon}" Data="{StaticResource IconPlus}"
+                                              Stroke="{StaticResource TextPrimary}" Width="14" Height="14" Margin="0,0,8,0" />
+                                        <TextBlock Text="Yeni Özel Mod Ekle" Foreground="{StaticResource TextPrimary}"
+                                                   FontWeight="SemiBold" FontSize="13" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                    <Grid Margin="0,0,0,10">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" Margin="0,0,12,0" HorizontalAlignment="Center">
+                                            <TextBlock Style="{StaticResource FieldLabel}" Text="İkon" HorizontalAlignment="Center" />
+                                            <TextBox x:Name="NewModeIconBox" Text="🎯" MaxLength="4"
+                                                     Width="54" Height="38"
+                                                     FontFamily="Segoe UI Emoji, Segoe UI Symbol, Segoe UI"
+                                                     FontSize="18" Padding="0"
+                                                     HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                                     TextAlignment="Center">
+                                                <TextBox.Style>
+                                                    <Style TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+                                                        <Setter Property="Padding" Value="0" />
+                                                        <Setter Property="Template">
+                                                            <Setter.Value>
+                                                                <ControlTemplate TargetType="TextBox">
+                                                                    <Border x:Name="bd" Background="{TemplateBinding Background}"
+                                                                            BorderBrush="{TemplateBinding BorderBrush}"
+                                                                            BorderThickness="{TemplateBinding BorderThickness}"
+                                                                            CornerRadius="8">
+                                                                        <ScrollViewer x:Name="PART_ContentHost"
+                                                                                      Margin="0"
+                                                                                      Focusable="False"
+                                                                                      HorizontalScrollBarVisibility="Hidden"
+                                                                                      VerticalScrollBarVisibility="Hidden"
+                                                                                      VerticalAlignment="Center"
+                                                                                      MinHeight="28" />
+                                                                    </Border>
+                                                                    <ControlTemplate.Triggers>
+                                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                                            <Setter TargetName="bd" Property="BorderBrush" Value="#5A5A64" />
+                                                                        </Trigger>
+                                                                        <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                                                            <Setter TargetName="bd" Property="BorderBrush" Value="{StaticResource Accent}" />
+                                                                        </Trigger>
+                                                                        <Trigger Property="IsEnabled" Value="False">
+                                                                            <Setter Property="Opacity" Value="0.45" />
+                                                                        </Trigger>
+                                                                    </ControlTemplate.Triggers>
+                                                                </ControlTemplate>
+                                                            </Setter.Value>
+                                                        </Setter>
+                                                    </Style>
+                                                </TextBox.Style>
+                                            </TextBox>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1">
+                                            <TextBlock Style="{StaticResource FieldLabel}" Text="Mod Adı" />
+                                            <TextBox x:Name="NewModeNameBox" Height="38" />
+                                        </StackPanel>
+                                    </Grid>
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Açıklama" />
+                                    <TextBox x:Name="NewModeDescBox" Margin="0,0,0,10" />
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Sistem İstemi" />
+                                    <TextBox x:Name="NewModePromptBox" Height="74" TextWrapping="Wrap" AcceptsReturn="True"
+                                             VerticalScrollBarVisibility="Auto" FontFamily="Consolas, Cascadia Code, Courier New"
+                                             FontSize="12" Padding="6" Margin="0,0,0,10" />
+                                    <Button x:Name="AddNewModeButton" Style="{StaticResource PrimaryButton}"
+                                            Content="Özel Modu Ekle" HorizontalAlignment="Right" MinWidth="130" Height="36"
+                                            Click="AddNewMode_Click" />
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Uygulamaya Göre Otomatik Mod (Auto App Mode) -->
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <CheckBox x:Name="AutoAppModeToggle" Style="{StaticResource Toggle}"
+                                      Content="Uygulamaya Göre Otomatik Mod (Bağlam Duyarlı)"
+                                      Checked="AutoAppModeToggle_Changed" Unchecked="AutoAppModeToggle_Changed" />
+                            <TextBlock Style="{StaticResource FieldHint}" Margin="0,4,0,12"
+                                       Text="Ön plandaki pencerenin uygulama adını (Outlook, VS Code, Slack vb.) tespit ederek uygun LLM modunu otomatik seçer." />
+
+                            <StackPanel x:Name="AutoAppModePanel">
+                                <Border Height="1" Background="{StaticResource Stroke}" Margin="0,0,0,14" />
+
+                                <TextBlock Style="{StaticResource SectionTitle}" FontSize="14" Text="Uygulama - LLM Modu Eşlemeleri" />
+                                <TextBlock Style="{StaticResource SectionHint}" Margin="0,0,0,12"
+                                           Text="Hangi uygulamanın hangi modla açılacağını belirleyin. Eşleşmeyen uygulamalarda genel aktif mod kullanılır." />
+
+                                <!-- Yeni Eşleme Ekleme Formu -->
+                                <Border Background="#1A1A1E" BorderBrush="{StaticResource Stroke}" BorderThickness="1"
+                                        CornerRadius="8" Padding="12" Margin="0,0,0,12">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Style="{StaticResource FieldLabel}" Text="Süreç / Uygulama Adı" FontSize="11.5" />
+                                            <TextBox x:Name="NewAppProcessBox" ToolTip="Örn: notepad, thunderbird, chrome, WindowsTerminal" />
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="1" Text="→" Foreground="{StaticResource TextMuted}"
+                                                   FontSize="16" VerticalAlignment="Bottom" Margin="12,0,12,8" />
+                                        <StackPanel Grid.Column="2">
+                                            <TextBlock Style="{StaticResource FieldLabel}" Text="Kullanılacak Mod" FontSize="11.5" />
+                                            <ComboBox x:Name="NewAppModeCombo" />
+                                        </StackPanel>
+                                        <Button x:Name="AddAppMappingButton" Grid.Column="3" Style="{StaticResource PrimaryButton}"
+                                                Content="Eşle" MinWidth="74" Height="36" VerticalAlignment="Bottom"
+                                                Margin="12,0,0,0" Click="AddAppMapping_Click" />
+                                    </Grid>
+                                </Border>
+
+                                <!-- Eşleme Listesi -->
+                                <Border Background="{StaticResource SurfaceRaised}" BorderBrush="{StaticResource Stroke}" BorderThickness="1"
+                                        CornerRadius="8" Padding="0">
+                                    <DockPanel>
+                                        <Grid DockPanel.Dock="Top" Margin="16,10,16,10">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="56" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="UYGULAMA (PROCESS)" Foreground="{StaticResource TextMuted}"
+                                                       FontSize="11" FontWeight="SemiBold" />
+                                            <TextBlock Grid.Column="1" Text="LLM MODU" Foreground="{StaticResource TextMuted}"
+                                                       FontSize="11" FontWeight="SemiBold" />
+                                        </Grid>
+                                        <Border DockPanel.Dock="Top" Height="1" Background="{StaticResource Stroke}" />
+
+                                        <ListBox x:Name="AppMappingsList" Background="Transparent" BorderThickness="0"
+                                                 MaxHeight="240" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                                 HorizontalContentAlignment="Stretch">
+                                            <ListBox.ItemContainerStyle>
+                                                <Style TargetType="ListBoxItem">
+                                                    <Setter Property="Padding" Value="0" />
+                                                    <Setter Property="Focusable" Value="False" />
+                                                    <Setter Property="Template">
+                                                        <Setter.Value>
+                                                            <ControlTemplate TargetType="ListBoxItem">
+                                                                <Border x:Name="bd" Background="Transparent" Padding="16,0">
+                                                                    <ContentPresenter />
+                                                                </Border>
+                                                                <ControlTemplate.Triggers>
+                                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                                        <Setter TargetName="bd" Property="Background" Value="#222228" />
+                                                                    </Trigger>
+                                                                </ControlTemplate.Triggers>
+                                                            </ControlTemplate>
+                                                        </Setter.Value>
+                                                    </Setter>
+                                                </Style>
+                                            </ListBox.ItemContainerStyle>
+                                            <ListBox.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Grid Height="40">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="56" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <TextBlock Grid.Column="0" Text="{Binding ProcessName}" Foreground="#E4E4E7"
+                                                                   FontSize="12.5" FontWeight="Medium" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                                        <TextBlock Grid.Column="1" Text="{Binding ModeDisplayName}" Foreground="#A1A1AA"
+                                                                   FontSize="12" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                                        <Button Grid.Column="2" Style="{StaticResource DangerIconButton}"
+                                                                Content="Sil" FontSize="11" Width="52" Height="30"
+                                                                HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                                Tag="{Binding}" Click="DeleteAppMapping_Click"
+                                                                ToolTip="Bu eşlemeyi kaldır" />
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </ListBox.ItemTemplate>
+                                        </ListBox>
+                                    </DockPanel>
+                                </Border>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- ================ 6: KAPSÜL ================ -->
+                <StackPanel x:Name="PageOverlay" Visibility="Collapsed">
+                    <TextBlock Style="{StaticResource SectionTitle}" Text="Kapsül" />
+                    <TextBlock Style="{StaticResource SectionHint}"
+                               Text="Dikte sırasında ekranda beliren küçük göstergenin davranışı ve konumu." />
+
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="Ekrandaki konumu" />
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <ComboBox x:Name="OverlayPositionCombo" Width="220" AutomationProperties.Name="Kapsul konumu" HorizontalAlignment="Left" VerticalAlignment="Center" SelectionChanged="OverlayPositionCombo_SelectionChanged" />
+                                <Button x:Name="LaunchPositioningButton" Style="{StaticResource PrimaryButton}"
+                                        Content="Konumu Ekranda Ayarla" MinWidth="188" Height="36" VerticalAlignment="Center" Margin="10,0,8,0"
+                                        Click="LaunchPositioning_Click" ToolTip="Kapsülü ekranda açar ve fareyle sürükleyip yerleştirmenizi sağlar" />
+                                <Button x:Name="ResetPositionButton" Style="{StaticResource GhostButton}"
+                                        MinWidth="158" Height="36" VerticalAlignment="Center"
+                                        Click="ResetPosition_Click" ToolTip="Kapsülü ekranın alt ortasındaki varsayılan konumuna döndürür">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Path Style="{StaticResource LineIcon}" Data="{StaticResource IconReset}"
+                                              Stroke="{StaticResource TextPrimary}" Width="14" Height="14" Margin="0,0,8,0" />
+                                        <TextBlock Text="Varsayılana Dön" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                <TextBlock Text="Mevcut Konum: " Foreground="{StaticResource TextMuted}" FontSize="11.5" />
+                                <TextBlock x:Name="OverlayCustomCoordsText" Text="Varsayılan (Alt Orta)" Foreground="{StaticResource Accent}" FontSize="11.5" FontWeight="SemiBold" />
+                            </StackPanel>
+                            <TextBlock Style="{StaticResource FieldHint}"
+                                       Text="Kapsülün ekranda nerede görüneceğini belirleyin veya 'Konumu Ekranda Ayarla' ile doğrudan ekranda sürükleyin." />
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource Card}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,16,0">
+                                <TextBlock Style="{StaticResource FieldLabel}" Text="Sonuç gösterim süresi" Margin="0,0,0,3" />
+                                <TextBlock Style="{StaticResource FieldHint}" Margin="0"
+                                           Text="Dikte bittikten sonra sonuç kapsülünün ekranda kalma süresi." />
+                            </StackPanel>
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBox x:Name="OverlayDurationBox" Width="64" Height="36"
+                                         HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                         TextAlignment="Center" FontWeight="SemiBold" FontSize="13.5"
+                                         AutomationProperties.Name="Sonuc gosterim suresi (saniye)"
+                                         PreviewTextInput="NumericOnly_PreviewTextInput" />
+                                <TextBlock Text="saniye" Foreground="{StaticResource TextMuted}" FontSize="13"
+                                           VerticalAlignment="Center" Margin="10,0,0,0" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                </StackPanel>
+
+            </Grid>
+        </ScrollViewer>
+    </Grid>
+
+    <!-- Alt çubuk -->
+        <Border Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+                Background="{StaticResource Surface}" BorderBrush="{StaticResource Stroke}"
+                BorderThickness="0,1,0,0" Padding="24,12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="StatusText" Grid.Column="0" Foreground="{StaticResource TextMuted}" FontSize="12"
+                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,20,0" />
+                <StackPanel Grid.Column="1" Orientation="Horizontal">
+                    <Button x:Name="CancelButton" Style="{StaticResource GhostButton}" Content="Vazgeç"
+                            Width="96" Height="36" Margin="0,0,10,0" IsCancel="True" Click="CancelButton_Click"
+                            ToolTip="Değişiklikleri kaydetmeden kapatır. Sözlük kuralları ve model indirme/silme işlemleri anında uygulandığı için geri alınmaz." />
+                    <Button x:Name="SaveButton" Style="{StaticResource PrimaryButton}" Content="Kaydet"
+                            Width="96" Height="36" IsDefault="True" Click="SaveButton_Click" />
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</Border>
+</Window>

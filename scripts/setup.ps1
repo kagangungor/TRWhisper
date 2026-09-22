@@ -106,6 +106,49 @@ if (-not (Test-Path $vadPath)) {
     Write-Host "[+] VAD modeli ($vadFileName) zaten mevcut." -ForegroundColor Green
 }
 
+# 5. CUDA 13 runtime DLL'leri (Whisper.net'in GPU yolu için)
+# Whisper.net 1.9.1'in CUDA derlemesi CUDA 13'e bağlıdır ve NuGet paketi bu DLL'leri
+# getirmez. Eksikse uygulama sessizce CPU'ya düşer (dikte başına ~14 sn). Sürümler
+# whisper build'i gibi sabitlenmiştir; "latest" indeksleri değişebiliyor.
+$cuda13Dir = Join-Path $rootPath "tools\cuda13"
+$cuda13Files = @("cudart64_13.dll", "cublas64_13.dll", "cublasLt64_13.dll")
+
+if ($Cuda) {
+    $missing = $cuda13Files | Where-Object { -not (Test-Path (Join-Path $cuda13Dir $_)) }
+    if ($missing.Count -gt 0) {
+        if (-not (Test-Path $cuda13Dir)) { New-Item -ItemType Directory -Path $cuda13Dir -Force | Out-Null }
+        Write-Host "[*] CUDA 13 runtime DLL'leri NVIDIA redist'ten indiriliyor (~385 MB)..." -ForegroundColor Yellow
+
+        $redist = @(
+            @{ Name = "cudart"; Url = "https://developer.download.nvidia.com/compute/cuda/redist/cuda_cudart/windows-x86_64/cuda_cudart-windows-x86_64-13.0.96-archive.zip" },
+            @{ Name = "cublas"; Url = "https://developer.download.nvidia.com/compute/cuda/redist/libcublas/windows-x86_64/libcublas-windows-x86_64-13.0.2.14-archive.zip" }
+        )
+
+        try {
+            foreach ($pkg in $redist) {
+                $tempZip = Join-Path $env:TEMP "trwhisper-cuda13-$($pkg.Name).zip"
+                $tempDir = Join-Path $env:TEMP "trwhisper-cuda13-$($pkg.Name)"
+                Invoke-WebRequest -Uri $pkg.Url -OutFile $tempZip -UseBasicParsing
+                Expand-Archive -Path $tempZip -DestinationPath $tempDir -Force
+                Get-ChildItem $tempDir -Recurse -File -Include $cuda13Files |
+                    ForEach-Object { Copy-Item $_.FullName $cuda13Dir -Force }
+                Remove-Item $tempZip -Force -ErrorAction SilentlyContinue
+                Remove-Item $tempDir -Recurse -Force -ErrorAction SilentlyContinue
+            }
+            Write-Host "[+] CUDA 13 runtime DLL'leri hazır: $cuda13Dir" -ForegroundColor Green
+        }
+        catch {
+            Write-Host "[-] CUDA 13 runtime indirme hatası: $($_.Exception.Message)" -ForegroundColor Red
+            Write-Host "[!] Bu dosyalar olmadan uygulama CPU'da çalışır (çok yavaş)." -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host "[+] CUDA 13 runtime DLL'leri zaten mevcut." -ForegroundColor Green
+    }
+} else {
+    Write-Host "[!] -Cuda verilmedi: Whisper.net CPU'da çalışacak (dikte başına ~14 sn)." -ForegroundColor Yellow
+    Write-Host "    NVIDIA GPU'nuz varsa: scripts\setup.ps1 -Cuda" -ForegroundColor Yellow
+}
+
 Write-Host "========================================" -ForegroundColor Cyan
 Write-Host " Kurulum Tamamlandı! " -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Cyan

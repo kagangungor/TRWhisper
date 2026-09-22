@@ -23,6 +23,7 @@ installer/cache/
 # (setup.ps1 betiği bunları otomatik olarak indirir)
 tools/whisper/*
 !tools/whisper/.gitkeep
+tools/cuda13/*
 *.bin
 *.onnx
 *.pt

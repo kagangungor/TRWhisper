@@ -1,11 +1,14 @@
-﻿using System;
+using System;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Forms;
 using TRWhisper.Core;
 using TRWhisper.Core.Audio;
 using TRWhisper.Core.Config;
 using TRWhisper.Core.Diagnostics;
+using TRWhisper.Core.Dictionary;
+using TRWhisper.Core.Normalization;
 using TRWhisper.Core.History;
 using TRWhisper.Core.Llm;
 using TRWhisper.Core.Native;
@@ -54,19 +57,25 @@ namespace TRWhisper
                 ShutdownMode = ShutdownMode.OnExplicitShutdown
             };
 
-            var overlayWindow = new PillOverlayWindow();
-
             var configManager = new ConfigManager();
             EnsureModelAvailable(configManager);
+
+            var overlayWindow = new PillOverlayWindow();
+            overlayWindow.AttachConfig(configManager);
+            var dictionaryService = new CustomDictionaryService(configManager);
+            var textNormalizer = new TurkishTextNormalizer(configManager);
             var history = new TranscriptHistory();
             var logger = new MarkdownLogger(configManager);
             var llmCleaner = new LlmCleanerService(configManager);
-            var trayController = new TrayIconController(configManager, history);
+            var trayController = new TrayIconController(configManager, history, dictionaryService);
 
-            IKeyboardHook keyboardHook = new Win32KeyboardHook();
-            IAudioRecorder audioRecorder = new WasapiRecorder();
-            ITranscriptionEngine transcriptionEngine = new WhisperCliRunner(configManager);
-            IClipboardPaster clipboardPaster = new ClipboardPaster();
+            IKeyboardHook keyboardHook = new Win32KeyboardHook(configManager);
+            IAudioRecorder audioRecorder = new WasapiRecorder(configManager);
+            // Modeli süreç içinde sıcak tutar; whisper-cli yolu WhisperCliRunner olarak duruyor.
+            using var whisperEngine = new WhisperNetEngine(configManager, dictionaryService);
+            ITranscriptionEngine transcriptionEngine = whisperEngine;
+            IClipboardPaster clipboardPaster = new ClipboardPaster(configManager);
+            IForegroundAppDetector appDetector = new ForegroundAppDetector();
 
             using var coordinator = new DictationCoordinator(
                 configManager,
@@ -75,10 +84,64 @@ namespace TRWhisper
                 transcriptionEngine,
                 llmCleaner,
                 clipboardPaster,
+                dictionaryService,
+                textNormalizer,
                 logger,
                 history,
                 trayController,
-                overlayWindow);
+                overlayWindow,
+                appDetector);
+
+            // Tepsiden Ayarlar: pencere tekilddir, açıksa öne getirilir.
+            UI.SettingsWindow? settingsWindow = null;
+            trayController.SettingsRequested += () =>
+            {
+                wpfApp.Dispatcher.Invoke(() =>
+                {
+                    try
+                    {
+                        if (settingsWindow != null)
+                        {
+                            if (settingsWindow.WindowState == WindowState.Minimized)
+                                settingsWindow.WindowState = WindowState.Normal;
+                            settingsWindow.Activate();
+                            settingsWindow.Topmost = true;
+                            settingsWindow.Topmost = false;
+                            return;
+                        }
+
+                        // Model yolu kaydetme anında karşılaştırılır: her "Kaydet"te modeli
+                        // boşaltıp yeniden yüklemek gereksiz ~2.5 sn + VRAM dalgalanması demek.
+                        var modelPathBefore = configManager.Current.Whisper.ModelPath;
+
+                        settingsWindow = new UI.SettingsWindow(configManager, dictionaryService, applied =>
+                        {
+                            // Canlı uygulama: yeniden başlatmaya gerek kalmadan servisleri güncelle.
+                            trayController.SetLlmCleaningMode(applied.LlmCleaning.EnabledByDefault);
+
+                            if (!string.Equals(applied.Whisper.ModelPath, modelPathBefore, StringComparison.OrdinalIgnoreCase))
+                            {
+                                modelPathBefore = applied.Whisper.ModelPath;
+                                _ = Task.Run(() => whisperEngine.SwitchModelAsync(applied.Whisper.ModelPath));
+                            }
+
+                            overlayWindow.ApplyOverlaySettings();
+                            keyboardHook.ReloadConfig();
+                        }, llmCleaner, overlayWindow);
+                        settingsWindow.Closed += (_, _) => settingsWindow = null;
+                        settingsWindow.Show();
+                        settingsWindow.Activate();
+                    }
+                    catch (Exception ex)
+                    {
+                        FileLog.Write($"[Program] Ayarlar penceresi açılamadı: {ex}");
+                        System.Windows.Forms.MessageBox.Show(
+                            "Ayarlar penceresi açılamadı: " + ex.Message, "TRWhisper",
+                            System.Windows.Forms.MessageBoxButtons.OK,
+                            System.Windows.Forms.MessageBoxIcon.Error);
+                    }
+                });
+            };
 
             trayController.ExitRequested += () =>
             {
@@ -103,12 +166,22 @@ namespace TRWhisper
                 var cfg = configManager.Current;
                 cfg.Whisper.ModelPath = modelPath;
                 configManager.Save(cfg);
+                // Eski modeli bellekten at, yenisini hemen yükle ki ilk dikte de hızlı olsun.
+                _ = Task.Run(() => whisperEngine.SwitchModelAsync(modelPath));
             };
 
+            FileLog.Write("[Program] Servisler başlatıldı, coordinator.Start() çağrılıyor...");
             coordinator.Start();
 
+            // Modeli arka planda ısıt: açılıştan sonraki ilk dikte de model yükleme
+            // bedelini (~1-3 sn) ödemesin. Başarısız olursa dikte yine çalışır,
+            // yalnızca ilk çağrıda model yüklenir.
+            _ = Task.Run(() => whisperEngine.WarmUpAsync());
+
             // WPF Message Loop çalıştır
+            FileLog.Write("[Program] wpfApp.Run() başlatılıyor...");
             wpfApp.Run();
+            FileLog.Write("[Program] wpfApp.Run() sonlandı, uygulama kapanıyor.");
             }
             catch (Exception ex)
             {

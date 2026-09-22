@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0-windows</TargetFramework>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <StartupObject>UiSmoke.Program</StartupObject>
+    <AssemblyName>uismoke</AssemblyName>
+    <!-- Sadece elle calistirilir; yayin paketine girmez. -->
+    <IsPublishable>false</IsPublishable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\TRWhisper\TRWhisper.csproj" />
+  </ItemGroup>
+
+</Project>

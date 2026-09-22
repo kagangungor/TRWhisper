@@ -23,6 +23,13 @@
 
   <ItemGroup>
     <PackageReference Include="NAudio" Version="2.2.1" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.12" />
+    <PackageReference Include="Whisper.net" Version="1.9.1" />
+    <!-- 1.9.1 CUDA 13'e bağlı: cudart64_13/cublas64_13/cublasLt64_13 yanında olmalı.
+         cudart64_13 yoksa sessizce CPU'ya düşer; cudart VAR ama cublas YOKSA
+         GGML_ASSERT ile süreç çöker (ikisi birlikte dağıtılmalı). -->
+    <PackageReference Include="Whisper.net.Runtime.Cuda.Windows" Version="1.9.1" />
+    <PackageReference Include="Whisper.net.Runtime" Version="1.9.1" />
   </ItemGroup>
 
   <ItemGroup>
@@ -30,5 +37,36 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
+
+  <!--
+    CUDA 13 runtime DLL'leri. Whisper.net'in CUDA paketi bunları getirmez ve cudart'ı
+    işletim sisteminin varsayılan arama sırasıyla yükler; bu yüzden runtimes\ altında
+    değil, exe'nin YANINDA bulunmak zorundalar. scripts\setup.ps1 indirir.
+  -->
+  <ItemGroup>
+    <None Include="..\..\tools\cuda13\*.dll" Condition="Exists('..\..\tools\cuda13')">
+      <Link>%(Filename)%(Extension)</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </None>
+  </ItemGroup>
+
+  <!--
+    Tek-dosya paketlemede whisper native'leri exe'nin İÇİNE gömülmemeli: Whisper.net
+    onları AppContext.BaseDirectory\runtimes\<rt>\win-x64\ altında DİZİN olarak arar,
+    self-extract dizininde bulamaz ve "Native Library not found in default paths"
+    ile patlar (RuntimeOptions.LibraryPath de bunu çözmüyor).
+
+    IncludeNativeLibrariesForSelfExtract açık kalmalı; yoksa WPF native'leri
+    (PresentationNative_cor3.dll vb.) de dışarı çıkar ve exe hiç açılmaz. Bu yüzden
+    yalnızca whisper + CUDA dosyaları muaf tutuluyor.
+  -->
+  <Target Name="TRWhisperKeepWhisperNativesLoose" AfterTargets="ComputeResolvedFilesToPublishList" BeforeTargets="_ComputeFilesToBundle">
+    <ItemGroup>
+      <ResolvedFileToPublish Condition="$([System.String]::new('%(ResolvedFileToPublish.RelativePath)').Replace('\','/').StartsWith('runtimes/'))&#xA;                  Or $([System.String]::new('%(ResolvedFileToPublish.RelativePath)').StartsWith('cudart64_'))&#xA;                  Or $([System.String]::new('%(ResolvedFileToPublish.RelativePath)').StartsWith('cublas'))">
+        <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+      </ResolvedFileToPublish>
+    </ItemGroup>
+  </Target>
 
 </Project>

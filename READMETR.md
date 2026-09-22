@@ -18,25 +18,36 @@
 
 ## 🚀 Temel Özellikler
 
-- **Global Kısayol Tuşu**: **Sağ Ctrl** tuşunu basılı tutarak konuşun; tuşu bıraktığınızda konuşma yerel olarak metne dönüştürülür.
-- **Otomatik Yapıştırma**:
-  1. Transkript metnini panoya (clipboard) kopyalar.
-  2. Win32 `SendInput` API'si ile `Ctrl + V` tuşlayarak imlecin bulunduğu alana yapıştırır.
-  3. Metin panoda kalır; başka bir yere de `Ctrl + V` ile yapıştırabilirsiniz (önceki pano içeriğinin yerini alır; Windows pano geçmişi açıksa `Win + V` ile hâlâ erişilebilir).
-- **Tamamen Çevrimdışı ve Gizli (STT)**: Yerel `whisper.cpp` motoruyla çalışır. Sesiniz hiçbir sunucuya gönderilmez.
-- **NVIDIA GPU Hızlandırma (isteğe bağlı)**: `whisper.cpp`'nin CUDA derlemesiyle **Large-v3 Turbo** modeli kısa bir dikteyi işlemcideki ~23 saniye yerine ~2–3 saniyede çözer (bkz. [Performans](#-performans)). GPU yoksa otomatik olarak işlemciye geçer.
-- **Tepsiden Model Seçimi**: **Small** (işlemcide daha hızlı, daha az doğru) ile **Large-v3 Turbo** (en doğru) arasında istediğiniz an geçiş yapabilirsiniz; yeniden başlatma gerekmez. Dosyası olmayan model menüde soluk görünür; kullanılabilir NVIDIA GPU'su olmayan bir bilgisayarda Turbo seçilirse "yavaş olabilir" uyarısı gösterilir.
+- **Modern Grafiksel Ayarlar Penceresi (WPF)**: Sistem tepsisinden tek tıkla açılan zengin ve modern ayarlar paneli; **Genel**, **Ses**, **Model**, **Kısayol**, **Sözlük**, **Yapay Zeka (LLM)** ve **Kapsül** sekmeleriyle tüm ayarları görsel olarak yönetme ve anında test etme.
+- **Özel Sözlük & Jargon Desteği (Custom Dictionary)**: Kullanıcı tanımlı fonetik ve mesleki jargon eşlemeleri (`dictionary.json`). Sektörel terimler, özel isimler veya Whisper'ın karıştırabileceği teknik kelimeler kelime sınırı kurallarıyla otomatik olarak düzeltilir.
+- **Gelişmiş Türkçe Metin Normalizasyonu**:
+  - Cümle başı büyük harf uyumu ve noktalama kontrolleri.
+  - de/da ve ki bağlaç düzeltmeleri.
+  - Konuşma sırasındaki kekeleme ve tekrarlı kelimeleri ayıklama (ör. `ve ve ve` -> `ve`).
+- **Bağlama Duyarlı (Context-Aware) LLM Modları & Uygulama Algılama**:
+  - Farklı transkript modları: **Ham Metin**, **Temizle** (dolgu kelimeleri at), **Özetle**, **Resmi Dil** ve **Madde İmleri**.
+  - Aktif ön plan uygulamasını otomatik algılama (`ForegroundAppDetector`): Kod editörleri (VS Code), e-posta (Outlook), mesajlaşma (Discord, Slack) veya doküman editörlerine göre dil tonunu otomatik uyarlar.
+  - **Donanım Seviyesinde Güvenli API Anahtarı Saklama**: Windows DPAPI (`Data Protection API`) ile şifrelenmiş güvenli depolama; API anahtarlarınız düz metin olarak saklanmaz.
+- **Esnek Kısayol Tuşları & Eller Serbest (Hands-Free) Dikte**:
+  - Klasik **Bas-Konuş (Push-to-Talk)** modu (varsayılan: Sağ Ctrl).
+  - Tuşa basılı tutmadan konuşmanızı tamamlayınca sessizlik algılayıp otomatik bitiren **Eller Serbest (Hands-free toggle)** modu.
+  - Özelleştirilebilir tetikleme ve LLM değiştirici tuşları (Sağ/Sol Ctrl, Shift, Alt, F tuşları vb.).
+- **Whisper.net Yerleşik C# Motoru & Dinamik Model Yönetimi**:
+  - `whisper-cli` haricinde süreç içi yüksek performanslı Whisper.net yerel çalışma zamanı entegrasyonu.
+  - Ayarlar arayüzünden doğrudan model indirme ilerleme takibi.
+  - Sistem boşta kaldığında bellek ve VRAM tasarrufu sağlayan otomatik model boşaltma zamanlayıcısı (`IdleTimeoutMinutes`).
+- **Otomatik Yapıştırma & Akıllı Pano**:
+  - Transkript metnini panoya kopyalar ve `Ctrl + V` simülasyonu ile imlecin bulunduğu alana yapıştırır.
+  - İsteğe bağlı olarak yapıştırma sonrası panonun eski içeriğini otomatik geri yükleme seçeneği (`RestoreClipboard`).
+- **Tamamen Çevrimdışı ve Gizli (STT)**: Yerel Whisper motoruyla çalışır. Sesiniz hiçbir sunucuya gönderilmez.
+- **NVIDIA GPU Hızlandırma**: CUDA derlemesiyle **Large-v3 Turbo** modeli dikteyi işlemcideki ~23 saniye yerine ~2–3 saniyede çözer. GPU yoksa otomatik CPU moduna geçer.
 - **Sessizlik Algılama ve Uydurma Metin Filtresi**:
-  - `whisper.cpp`'nin yerleşik **Silero VAD** özelliği konuşma olmayan kısımları atlar. Kısayola basıp konuşmazsanız hiçbir şey yapıştırılmaz ("Altyazı M.K." gibi hayalet metinler yerine).
-  - Whisper'ın bilinen uydurmaları (ör. `Altyazı M.K.`, `İzlediğiniz için teşekkür ederim.`) ve konuşma dışı etiketler (`[MÜZİK ÇALIYOR]`, `(Müzik)`, `[BLANK_AUDIO]`) temizlenir. Bu yalnızca satırın tamamı böyleyse yapılır, gerçek dikte kesilmez.
-- **Kayan Durum Hapı (Pill Overlay)**: Kayıt sırasında **Dinleniyor**, işlem sırasında **Çözümleniyor...** gösterir; iptal (✕) ve bitir (✓) düğmeleri vardır. İş bitince transkripti bir **Kopyala** düğmesiyle birlikte gösterir.
-- **İsteğe Bağlı LLM Temizleme Modu**: Konuşurken **Sağ Ctrl + Shift** tuşlarını basılı tutarsanız (veya tepsi menüsünden **✨ LLM Temizleme**'yi açarsanız) transkript Gemini veya OpenAI API'sine gönderilir; dolgu kelimeleri (`ııı`, `eee`, `şey`, `yani`) temizlenip noktalama düzeltildikten sonra yapıştırılır.
-- **Sistem Tepsisi**:
-  - 🔵 **Mavi**: Boşta (hazır)
-  - 🔴 **Kırmızı**: Kaydediyor (konuşun)
-  - 🟡 **Amber**: Çözümlüyor
-  - Sağ tık menüsü: LLM temizleme anahtarı, **🧠 Whisper Modeli**, **son 10 transkript** (tıklayınca kopyalanır), dikte klasörünü açma, ayarları açma ve çıkış.
-- **Yerel Günlük**: Her transkript zaman damgasıyla `%USERPROFILE%\Dictation\YYYY-MM.md` dosyasına kaydedilir. Geçici ses dosyası hemen silinir. Tanılama mesajları `%USERPROFILE%\Dictation\trwhisper.log` dosyasına yazılır.
+  - Yerleşik **Silero VAD** özelliği konuşma olmayan kısımları atlar. Boş kayıtlarda uydurma metin yapıştırılmaz.
+  - Whisper'ın bilinen hayalet altyazıları (`Altyazı M.K.`, `İzlediğiniz için teşekkür ederim.`) ve ses etiketleri (`[MÜZİK ÇALIYOR]`) filtrelenir.
+- **Kayan Durum Kapsülü (Pill Overlay)**: Kayıt sırasında ses seviyesini ve durumunu, işlem sırasında çözümlenmeyi gösterir; iptal (✕) ve bitir (✓) düğmeleri içerir.
+- **Windows Açılışında Başlatma (Autostart)**: Ayarlar menüsünden tek tıkla Windows başlangıcına eklenebilir.
+- **Kapsamlı Test Paketi**: 87 adet otomatik birim testi ve XAML şablon duman testi (`uismoke`) ile yüksek kod kalitesi.
+- **Yerel Günlük**: Her transkript zaman damgasıyla `%USERPROFILE%\Dictation\YYYY-MM.md` dosyasına kaydedilir. Günlük loglar `%USERPROFILE%\Dictation\trwhisper.log` dosyasına yazılır.
 
 ---
 
@@ -136,14 +147,16 @@ TRWhisper düşük seviyeli bir klavye kancası (`WH_KEYBOARD_LL`) ve `SendInput
 
 ## ⚙️ Yapılandırma (`config.json`)
 
-Uygulama dizinindeki `config.json` dosyasını Not Defteri ile açarak veya tepsi simgesine sağ tıklayıp **"⚙️ Ayarları Aç"** diyerek düzenleyebilirsiniz:
+TRWhisper'ı tepsi simgesine sağ tıklayıp **"⚙️ Ayarlar"** diyerek açılan grafiksel arayüz üzerinden tüm detaylarıyla yapılandırabilirsiniz. İsterseniz uygulama dizinindeki `config.json` dosyasını doğrudan Not Defteri ile de düzenleyebilirsiniz:
 
 ```json
 {
   "General": {
     "Language": "tr",
     "LogDirectory": "%USERPROFILE%\\Dictation",
-    "TempAudioPath": "%TEMP%\\trwhisper_temp.wav"
+    "TempAudioPath": "%TEMP%\\trwhisper_temp.wav",
+    "EnableCustomDictionary": true,
+    "EnableTextNormalization": true
   },
   "Whisper": {
     "CliPath": "tools\\whisper\\whisper-cli.exe",
@@ -151,25 +164,48 @@ Uygulama dizinindeki `config.json` dosyasını Not Defteri ile açarak veya teps
     "VadModelPath": "tools\\whisper\\ggml-silero-v6.2.0.bin",
     "Threads": 8,
     "NoTimestamps": true,
-    "TimeoutSeconds": 120
+    "TimeoutSeconds": 120,
+    "IdleTimeoutMinutes": 10
   },
   "LlmCleaning": {
     "EnabledByDefault": false,
     "Provider": "Gemini",
-    "ApiKey": "AIzaSy...",
-    "Model": "gemini-2.5-flash",
+    "ApiKey": "",
+    "Model": "gemini-2.0-flash",
     "Endpoint": "https://generativelanguage.googleapis.com/v1beta/models",
-    "SystemPrompt": "Aşağıdaki metin Türkçe sesli dikte çıktısıdır. Dolgu kelimelerini (ııı, eee, şey, yani) temizle, noktalama ve imlayı düzelt. YALNIZCA düzeltilmiş metni döndür."
+    "SystemPrompt": "Aşağıdaki metin Türkçe sesli dikte (speech-to-text) çıktısıdır. Lütfen bu metni konuşma dilinden temiz yazı diline dönüştür:\n1. 'ııı', 'eee', 'şey', 'yani', 'falan', 'hımm' gibi duraksama ve dolgu kelimelerini temizle.\n2. Noktalama işaretlerini (nokta, virgül, soru işareti vb.) ve büyük/küçük harf kullanımını eksiksiz düzelt.\n3. Anlatılmak istenen ana fikri ve kelime anlamlarını kesinlikle değiştirme.\n4. Çıktı olarak YALNIZCA düzeltilmiş metni ver. Başına ya da sonuna açıklama, tırnak işareti, selamlama veya markdown ekleme."
+  },
+  "Paste": {
+    "PasteMode": "Clipboard",
+    "RestoreClipboard": true,
+    "RestoreDelayMs": 200
+  },
+  "Audio": {
+    "InputDeviceId": ""
+  },
+  "Hotkey": {
+    "PushToTalkKey": "RightCtrl",
+    "LlmModifierKey": "Shift",
+    "DictationMode": "PushToTalk",
+    "HandsFreeSilenceMs": 1800,
+    "HandsFreeSilenceThreshold": 0.012
+  },
+  "Overlay": {
+    "Position": "Bottom",
+    "ResultDurationSeconds": 10
   }
 }
 ```
 
-- **`ModelPath`**: kullanılan model. Tepsi menüsünden model seçildiğinde bu alan güncellenir.
-- **`VadModelPath`**: sessizlik algılama modeli. Dosya yoksa TRWhisper VAD olmadan çalışmaya devam eder ve log'a not düşer.
-- **`TimeoutSeconds`**: tek bir çözümlemenin en uzun süresi; aşılırsa `whisper-cli` durdurulur.
-- **`Provider`**: `Gemini` veya `OpenAI`.
+- **`EnableCustomDictionary`**: `dictionary.json` dosyasındaki özel mesleki/teknik kelime eşlemelerini etkinleştirir.
+- **`EnableTextNormalization`**: Türkçe büyük harf, noktalama, bağlaç ve kekeleme temizliğini açar.
+- **`IdleTimeoutMinutes`**: Whisper modelinin boşta kaldığında RAM/VRAM'i serbest bırakması için dakika cinsinden süre (varsayılan: 10 dk).
+- **`RestoreClipboard`**: Dikte yapıştırıldıktan sonra panonuzda daha önceden kopyalanmış olan veriyi otomatik olarak geri yükler.
+- **`DictationMode`**: `PushToTalk` (bas-konuş) veya `HandsFree` (eller serbest).
+- **`HandsFreeSilenceMs`**: Eller serbest modunda konuşmanın bittiğini algılayan sessizlik süresi (milisaniye).
+- **`Provider`**: `Gemini` veya `OpenAI`. API anahtarları Windows DPAPI ile şifrelenerek güvenle korunur.
 
-> **İpucu:** Gemini API anahtarınızı Google AI Studio üzerinden ücretsiz alıp `ApiKey` alanına yapıştırabilirsiniz. Anahtar boş bırakılırsa LLM temizleme atlanır ve yerel ham transkript yapıştırılır.
+> **İpucu:** Gemini API anahtarınızı Google AI Studio üzerinden ücretsiz alıp Ayarlar arayüzünden kaydedebilirsiniz. Anahtar boş bırakılırsa LLM temizleme atlanır ve yerel transkript doğrudan yapıştırılır.
 
 ---
 
@@ -210,3 +246,17 @@ powershell -ExecutionPolicy Bypass -File scripts\build.ps1 -Publish
 ```
 
 > **Not:** Paketi her zaman `build.ps1 -Publish` ile oluşturun. Bu komut WPF'in native kütüphanelerini tek dosyalık exe'nin içine gömer (`IncludeNativeLibrariesForSelfExtract`); bu seçenek olmadan yapılan düz bir `dotnet publish`, açılışta çöken bir exe üretir. Uygulama `tools\whisper\` klasörünü exe'nin yanında ya da üst klasörlerinde bulur.
+
+---
+
+## 🧪 Testler ve Doğrulama
+
+TRWhisper'ın kararlılığı ve mimarisi otomatik test paketleriyle korunmaktadır:
+
+```powershell
+# 87 adet birim testini (AppMode, Hotkey, LLM, ModelManager, DPAPI vb.) çalıştırır:
+dotnet test tests\TRWhisper.Tests\TRWhisper.Tests.csproj
+
+# WPF Ayarlar Penceresi XAML şablon ve duman testini çalıştırır:
+dotnet run --project tools\uismoke
+```

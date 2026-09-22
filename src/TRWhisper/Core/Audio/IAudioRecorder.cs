@@ -19,5 +19,17 @@ namespace TRWhisper.Core.Audio
         /// Şu an kayıt yapılıyor mu?
         /// </summary>
         bool IsRecording { get; }
+
+        /// <summary>
+        /// Son ses tamponundaki tepe genlik (0..1). Eller serbest modda sessizlik algılamak
+        /// için kullanılır; kayıt yokken 0 döner.
+        /// </summary>
+        float CurrentLevel { get; }
+
+        /// <summary>
+        /// Kayıt devam ederken o ana kadar biriken 16 kHz mono float ses örneklerini döndürür.
+        /// maxLastSamples belirtilmişse yalnızca sondaki dilimi alır (örn. son 10 saniye için 160000).
+        /// </summary>
+        float[] GetRecordedSamplesSnapshot(int? maxLastSamples = null);
     }
 }

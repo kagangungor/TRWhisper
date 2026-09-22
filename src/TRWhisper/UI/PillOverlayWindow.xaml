@@ -12,21 +12,6 @@
         ResizeMode="NoResize"
         WindowStartupLocation="Manual">
 
-    <Window.Resources>
-        <!-- Waveform Animasyonları -->
-        <Storyboard x:Key="WaveAnim" RepeatBehavior="Forever" AutoReverse="True">
-            <DoubleAnimation Storyboard.TargetName="Bar1" Storyboard.TargetProperty="Height"
-                             From="6" To="20" Duration="0:0:0.35" />
-            <DoubleAnimation Storyboard.TargetName="Bar2" Storyboard.TargetProperty="Height"
-                             From="10" To="26" Duration="0:0:0.42" BeginTime="0:0:0.08" />
-            <DoubleAnimation Storyboard.TargetName="Bar3" Storyboard.TargetProperty="Height"
-                             From="16" To="30" Duration="0:0:0.38" BeginTime="0:0:0.15" />
-            <DoubleAnimation Storyboard.TargetName="Bar4" Storyboard.TargetProperty="Height"
-                             From="10" To="24" Duration="0:0:0.45" BeginTime="0:0:0.05" />
-            <DoubleAnimation Storyboard.TargetName="Bar5" Storyboard.TargetProperty="Height"
-                             From="6" To="18" Duration="0:0:0.32" BeginTime="0:0:0.12" />
-        </Storyboard>
-    </Window.Resources>
 
     <Grid Margin="20">
         <!-- Ana Kapsül (Pill) -->
@@ -36,7 +21,8 @@
                 BorderThickness="1"
                 CornerRadius="26"
                 Padding="8"
-                SnapsToDevicePixels="True">
+                SnapsToDevicePixels="True"
+                MouseLeftButtonDown="PillBorder_MouseLeftButtonDown">
             <Border.Effect>
                 <DropShadowEffect BlurRadius="24" ShadowDepth="4" Direction="270"
                                   Color="#000000" Opacity="0.55" />
@@ -51,7 +37,7 @@
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
 
-                    <!-- Sol: Kapat/İptal Düğmesi (Görseldeki gibi koyu gri daire içinde X) -->
+                    <!-- Sol: Kapat/İptal Düğmesi (Tam ortalı X ikonu) -->
                     <Button x:Name="CancelButton"
                             Grid.Column="0"
                             Width="32" Height="32"
@@ -61,9 +47,10 @@
                             <ControlTemplate TargetType="Button">
                                 <Border x:Name="btnBorder" Background="#26262B" CornerRadius="16">
                                     <Viewbox Width="12" Height="12" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                        <Path Data="M 2,2 L 14,14 M 14,2 L 2,14"
-                                              Stroke="#A0A0AB" StrokeThickness="2.2"
-                                              StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+                                        <Canvas Width="24" Height="24">
+                                            <Line X1="6" Y1="6" X2="18" Y2="18" Stroke="#A0A0AB" StrokeThickness="2.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+                                            <Line X1="18" Y1="6" X2="6" Y2="18" Stroke="#A0A0AB" StrokeThickness="2.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+                                        </Canvas>
                                     </Viewbox>
                                 </Border>
                                 <ControlTemplate.Triggers>
@@ -87,11 +74,11 @@
                                     Orientation="Horizontal"
                                     VerticalAlignment="Center"
                                     Height="32">
-                            <Rectangle x:Name="Bar1" Width="3" Height="10" RadiusX="1.5" RadiusY="1.5" Fill="#D4D4D8" Margin="1.5,0" VerticalAlignment="Center" />
-                            <Rectangle x:Name="Bar2" Width="3" Height="18" RadiusX="1.5" RadiusY="1.5" Fill="#E4E4E7" Margin="1.5,0" VerticalAlignment="Center" />
-                            <Rectangle x:Name="Bar3" Width="3" Height="24" RadiusX="1.5" RadiusY="1.5" Fill="#FFFFFF" Margin="1.5,0" VerticalAlignment="Center" />
-                            <Rectangle x:Name="Bar4" Width="3" Height="16" RadiusX="1.5" RadiusY="1.5" Fill="#E4E4E7" Margin="1.5,0" VerticalAlignment="Center" />
-                            <Rectangle x:Name="Bar5" Width="3" Height="8"  RadiusX="1.5" RadiusY="1.5" Fill="#D4D4D8" Margin="1.5,0" VerticalAlignment="Center" />
+                            <Rectangle x:Name="Bar1" Width="3" Height="6" RadiusX="1.5" RadiusY="1.5" Fill="#D4D4D8" Margin="1.5,0" VerticalAlignment="Center" />
+                            <Rectangle x:Name="Bar2" Width="3" Height="6" RadiusX="1.5" RadiusY="1.5" Fill="#E4E4E7" Margin="1.5,0" VerticalAlignment="Center" />
+                            <Rectangle x:Name="Bar3" Width="3" Height="6" RadiusX="1.5" RadiusY="1.5" Fill="#FFFFFF" Margin="1.5,0" VerticalAlignment="Center" />
+                            <Rectangle x:Name="Bar4" Width="3" Height="6" RadiusX="1.5" RadiusY="1.5" Fill="#E4E4E7" Margin="1.5,0" VerticalAlignment="Center" />
+                            <Rectangle x:Name="Bar5" Width="3" Height="6" RadiusX="1.5" RadiusY="1.5" Fill="#D4D4D8" Margin="1.5,0" VerticalAlignment="Center" />
                         </StackPanel>
 
                         <!-- Durum Metni -->
@@ -100,11 +87,29 @@
                                    Foreground="#CCCCCC"
                                    FontSize="15"
                                    FontWeight="SemiBold"
+                                   MaxWidth="380"
+                                   TextTrimming="CharacterEllipsis"
                                    VerticalAlignment="Center"
                                    Margin="12,0,0,0" />
+
+                        <!-- Aktif LLM Mod Rozeti (Siyah emojisiz, temiz modern rozet) -->
+                        <Border x:Name="ListeningModeBadge"
+                                Visibility="Collapsed"
+                                Background="#26262B"
+                                BorderBrush="#3F3F46"
+                                BorderThickness="1"
+                                CornerRadius="11"
+                                Padding="10,2"
+                                Margin="10,0,0,0"
+                                VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock x:Name="ListeningModeIcon" Visibility="Collapsed" />
+                                <TextBlock x:Name="ListeningModeName" Text="Temiz Metin" Foreground="#E4E4E7" FontSize="11.5" FontWeight="Medium" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
 
-                    <!-- Sağ: Tamamla Düğmesi (Görseldeki gibi beyaz daire içinde siyah tik) -->
+                    <!-- Sağ: Tamamla Düğmesi (Tam ortalanmış beyaz daire içinde siyah tik) -->
                     <Button x:Name="FinishButton"
                             Grid.Column="2"
                             Width="32" Height="32"
@@ -113,11 +118,13 @@
                         <Button.Template>
                             <ControlTemplate TargetType="Button">
                                 <Border x:Name="chkBorder" Background="#FFFFFF" CornerRadius="16">
-                                    <Viewbox Width="14" Height="14" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                        <Path Data="M 3.5,8.5 L 7,12 L 13.5,5"
-                                              Stroke="#161618" StrokeThickness="2.4"
-                                              StrokeStartLineCap="Round" StrokeEndLineCap="Round"
-                                              StrokeLineJoin="Round" />
+                                    <Viewbox Width="13" Height="13" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <Canvas Width="24" Height="24">
+                                            <Polyline Points="5.5,12.5 10,17 18.5,8.5"
+                                                      Stroke="#161618" StrokeThickness="3"
+                                                      StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                                      StrokeLineJoin="Round" />
+                                        </Canvas>
                                     </Viewbox>
                                 </Border>
                                 <ControlTemplate.Triggers>
@@ -131,7 +138,7 @@
                 </Grid>
 
                 <!-- 2. MOD: TRANSKRİPT SONUCU VE KOPYALAMA (RESULT & COPY PANEL) -->
-                <Grid x:Name="ResultPanel" Visibility="Collapsed" MinWidth="340" MaxWidth="560">
+                <Grid x:Name="ResultPanel" Visibility="Collapsed" MinWidth="460" MaxWidth="620">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
@@ -152,70 +159,209 @@
                                    FontWeight="Normal" />
                     </ScrollViewer>
 
-                    <!-- Alt Butonlar -->
+                    <!-- Alt Butonlar ve Durum Satırı -->
                     <Grid Grid.Row="1" Margin="8,4,8,4">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" MinWidth="16" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
 
-                        <TextBlock x:Name="ResultInfoText"
-                                   Grid.Column="0"
-                                   Text="Panoya otomatik kopyalandı"
-                                   Foreground="#71717A"
-                                   FontSize="12"
-                                   VerticalAlignment="Center" />
+                        <!-- Sol: Durum Bilgisi ve LLM Rozeti -->
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock x:Name="ResultInfoText"
+                                       Text="Panoya otomatik kopyalandı"
+                                       Foreground="#71717A"
+                                       FontSize="12"
+                                       VerticalAlignment="Center" />
 
-                        <!-- Kopyala Butonu -->
-                        <Button x:Name="CopyButton"
-                                Grid.Column="1"
-                                Height="30"
-                                Padding="12,0"
-                                Margin="0,0,8,0"
-                                Cursor="Hand"
-                                Click="CopyButton_Click">
+                            <!-- Sonuç LLM Mod Rozeti -->
+                            <Border x:Name="ResultModeBadge"
+                                    Visibility="Collapsed"
+                                    Background="#26262B"
+                                    BorderBrush="#3F3F46"
+                                    BorderThickness="1"
+                                    CornerRadius="10"
+                                    Padding="7,2"
+                                    Margin="8,0,0,0"
+                                    VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock x:Name="ResultModeIcon" Visibility="Collapsed" />
+                                    <TextBlock x:Name="ResultModeName" Text="Temiz Metin" Foreground="#D4D4D8"
+                                               FontSize="11" FontWeight="Medium" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+
+                        <!-- Sağ: Aksiyon Butonları (Orijinal/Cilalı Geçiş + Kopyala + Kapat) -->
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Right">
+                            <!-- Orijinal / Cilalı Geçiş Butonu (Yalnızca LLM temizliği yapılmışsa görünür) -->
+                            <Button x:Name="ToggleTranscriptVersionButton"
+                                    Visibility="Collapsed"
+                                    Height="28"
+                                    Padding="10,0"
+                                    Margin="0,0,6,0"
+                                    Cursor="Hand"
+                                    Click="ToggleTranscriptVersion_Click">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="tgBrd" Background="#26262B" BorderBrush="#3F3F46" BorderThickness="1" CornerRadius="14">
+                                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="10,0">
+                                                <TextBlock x:Name="ToggleIcon" Visibility="Collapsed" />
+                                                <TextBlock x:Name="ToggleText" Text="Orijinali Gör" Foreground="#D4D4D8"
+                                                           FontSize="11.5" FontWeight="Medium" VerticalAlignment="Center" />
+                                            </StackPanel>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="tgBrd" Property="Background" Value="#383842" />
+                                                <Setter TargetName="tgBrd" Property="BorderBrush" Value="#52525B" />
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+
+                            <!-- Kopyala Butonu -->
+                            <Button x:Name="CopyButton"
+                                    Height="28"
+                                    Padding="10,0"
+                                    Margin="0,0,6,0"
+                                    Cursor="Hand"
+                                    Click="CopyButton_Click">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="btnBrd" Background="#27272A" BorderBrush="#3F3F46" BorderThickness="1" CornerRadius="14">
+                                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="8,0">
+                                                <Viewbox Width="12" Height="12" Margin="0,0,5,0" VerticalAlignment="Center">
+                                                    <Path Data="M 8 2 L 10 2 C 10.55 2 11 2.45 11 3 L 11 13 C 11 13.55 10.55 14 10 14 L 4 14 C 3.45 14 3 13.55 3 13 L 3 3 C 3 2.45 3.45 2 4 2 L 6 2 M 6 1 L 8 1 C 8.55 1 9 1.45 9 2 L 9 3 C 9 3.55 8.55 4 8 4 L 6 4 C 5.45 4 5 3.55 5 3 L 5 2 C 5 1.45 5.45 1 6 1 Z"
+                                                          Stroke="#D4D4D8" StrokeThickness="1.5" StrokeLineJoin="Round"
+                                                          StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+                                                </Viewbox>
+                                                <TextBlock x:Name="CopyText" Text="Kopyala" Foreground="#F4F4F5"
+                                                           FontSize="11.5" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                            </StackPanel>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="btnBrd" Property="Background" Value="#3F3F46" />
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+
+                            <!-- Kapat Butonu -->
+                            <Button x:Name="CloseResultButton"
+                                    Width="28" Height="28"
+                                    Cursor="Hand"
+                                    Click="CloseResultButton_Click">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="clsBrd" Background="#27272A" CornerRadius="14">
+                                            <Viewbox Width="10" Height="10" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                <Canvas Width="24" Height="24">
+                                                    <Line X1="6" Y1="6" X2="18" Y2="18" Stroke="#A1A1AA" StrokeThickness="2.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+                                                    <Line X1="18" Y1="6" X2="6" Y2="18" Stroke="#A1A1AA" StrokeThickness="2.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+                                                </Canvas>
+                                            </Viewbox>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="clsBrd" Property="Background" Value="#3F3F46" />
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+
+                <!-- 3. MOD: KONUMLANDIRMA MODU (POSITIONING MODE) -->
+                <Grid x:Name="PositioningPanel" Visibility="Collapsed" Height="36" Margin="6,0,4,0" VerticalAlignment="Center">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Sol: Sürükleme Açıklaması (Siyah pin ikonu kaldırıldı) -->
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,10,0">
+                        <TextBlock Text="Kapsülü sürükleyin" Foreground="#F4F4F5" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center" />
+                    </StackPanel>
+
+                    <!-- Koordinat Rozeti (Metnin hemen yanında derli toplu rozet) -->
+                    <Border Grid.Column="1" Background="#222227" BorderBrush="#35353C" BorderThickness="1"
+                            CornerRadius="10" Padding="8,2" VerticalAlignment="Center">
+                        <TextBlock x:Name="PositionCoordsText" Text="X: 0, Y: 0" Foreground="#A1A1AA" FontSize="11" FontWeight="Medium" VerticalAlignment="Center" />
+                    </Border>
+
+                    <!-- Boşluk (Esnek ayırıcı) -->
+                    <Border Grid.Column="2" MinWidth="16" />
+
+                    <!-- Sağ: Butonlar: Varsayılana Döndür, Kaydet, İptal (Aynı boyutta 126x28 ve tam ortalanmış) -->
+                    <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
+                        <!-- Varsayılana Dön Butonu -->
+                        <Button x:Name="ResetPositionButton" Width="126" Height="28" Margin="0,0,6,0" Cursor="Hand" Click="ResetPositionButton_Click" ToolTip="Varsayılan ekran altı konumuna sıfırla">
                             <Button.Template>
                                 <ControlTemplate TargetType="Button">
-                                    <Border x:Name="btnBrd" Background="#27272A" BorderBrush="#3F3F46" BorderThickness="1" CornerRadius="15">
-                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="8,0">
-                                            <TextBlock x:Name="CopyIcon" Text="📋" FontSize="12" Margin="0,0,5,0" VerticalAlignment="Center" />
-                                            <TextBlock x:Name="CopyText" Text="Kopyala" Foreground="#F4F4F5" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                    <Border x:Name="rstBrd" Background="#26262B" BorderBrush="#3F3F46" BorderThickness="1" CornerRadius="14">
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                            <TextBlock Text="↺" FontSize="12" Margin="0,0,5,0" Foreground="#A1A1AA" VerticalAlignment="Center" />
+                                            <TextBlock Text="Varsayılana Dön" Foreground="#D4D4D8" FontSize="11.5" FontWeight="Medium" VerticalAlignment="Center" />
                                         </StackPanel>
                                     </Border>
                                     <ControlTemplate.Triggers>
                                         <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="btnBrd" Property="Background" Value="#3F3F46" />
+                                            <Setter TargetName="rstBrd" Property="Background" Value="#383842" />
                                         </Trigger>
                                     </ControlTemplate.Triggers>
                                 </ControlTemplate>
                             </Button.Template>
                         </Button>
 
-                        <!-- Kapat Butonu -->
-                        <Button x:Name="CloseResultButton"
-                                Grid.Column="2"
-                                Width="30" Height="30"
-                                Cursor="Hand"
-                                Click="CloseResultButton_Click">
+                        <!-- Kaydet Butonu (Varsayılana Dön ile tam aynı boyut 126x28 ve tam ortalanmış) -->
+                        <Button x:Name="SavePositionButton" Width="126" Height="28" Margin="0,0,6,0" Cursor="Hand" Click="SavePositionButton_Click" ToolTip="Bu konumu kaydet">
                             <Button.Template>
                                 <ControlTemplate TargetType="Button">
-                                    <Border x:Name="clsBrd" Background="#27272A" CornerRadius="15">
-                                        <Viewbox Width="11" Height="11" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                            <Path Data="M 2,2 L 14,14 M 14,2 L 2,14"
-                                                  Stroke="#A1A1AA" StrokeThickness="2"
-                                                  StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
-                                        </Viewbox>
+                                    <Border x:Name="svBrd" Background="#2563EB" CornerRadius="14">
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                            <TextBlock Text="✓" FontSize="12" Margin="0,0,5,0" Foreground="White" FontWeight="Bold" VerticalAlignment="Center" />
+                                            <TextBlock Text="Kaydet" Foreground="White" FontSize="11.5" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                        </StackPanel>
                                     </Border>
                                     <ControlTemplate.Triggers>
                                         <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="clsBrd" Property="Background" Value="#3F3F46" />
+                                            <Setter TargetName="svBrd" Property="Background" Value="#1D4ED8" />
                                         </Trigger>
                                     </ControlTemplate.Triggers>
                                 </ControlTemplate>
                             </Button.Template>
                         </Button>
-                    </Grid>
+
+                        <!-- İptal Butonu (Tam ortalanmış simetrik X ikonu) -->
+                        <Button x:Name="CancelPositionButton" Width="28" Height="28" Cursor="Hand" Click="CancelPositionButton_Click" ToolTip="İptal">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="cncBrd" Background="#26262B" CornerRadius="14">
+                                        <Viewbox Width="10" Height="10" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                            <Canvas Width="24" Height="24">
+                                                <Line X1="6" Y1="6" X2="18" Y2="18" Stroke="#A1A1AA" StrokeThickness="2.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+                                                <Line X1="18" Y1="6" X2="6" Y2="18" Stroke="#A1A1AA" StrokeThickness="2.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round" />
+                                            </Canvas>
+                                        </Viewbox>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="cncBrd" Property="Background" Value="#383842" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
+                    </StackPanel>
                 </Grid>
             </Grid>
         </Border>

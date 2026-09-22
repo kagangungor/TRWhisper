@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
@@ -8,7 +8,9 @@ using System.Windows.Forms;
 using System.Windows.Threading;
 using TRWhisper.Core.Config;
 using TRWhisper.Core.Diagnostics;
+using TRWhisper.Core.Dictionary;
 using TRWhisper.Core.History;
+using TRWhisper.Core.Llm;
 using TRWhisper.Core.Speech;
 
 namespace TRWhisper.Core.Tray
@@ -25,6 +27,7 @@ namespace TRWhisper.Core.Tray
         private readonly NotifyIcon _notifyIcon;
         private readonly ConfigManager _configManager;
         private readonly TranscriptHistory _history;
+        private readonly CustomDictionaryService? _dictionaryService;
 
         // Denetleyicinin oluşturulduğu UI thread'inin dispatcher'ı. Genel metotlar arka plan
         // thread'lerinden çağrılır; WinForms kontrolü (ContextMenuStrip) arka plan thread'inde
@@ -35,21 +38,27 @@ namespace TRWhisper.Core.Tray
         private AppState _currentState = AppState.Idle;
         private bool _isLlmCleaningEnabled;
 
-        // Tepsiden seçilebilen whisper modelleri. NeedsGpu: GPU olmadan CPU'da çok yavaş (~20+ sn).
-        public static readonly (string Label, string Path, bool NeedsGpu)[] WhisperModels =
-        {
-            ("Small (hızlı, daha az doğru)", "tools\\whisper\\ggml-small.bin", false),
-            ("Large-v3 Turbo (en doğru)", "tools\\whisper\\ggml-large-v3-turbo-q5_0.bin", true),
-        };
+        // Tepsiden seçilebilen whisper modelleri (WhisperModelManager kataloğundan dinamik).
+        public static (string Label, string Path, bool NeedsGpu)[] WhisperModels =>
+            WhisperModelManager.Catalog
+                .Where(m => !m.IsVad)
+                .Select(m => (m.DisplayName, m.RelativePath, m.NeedsGpu))
+                .ToArray();
 
         public event Action<bool>? LlmCleaningToggled;
+        public event Action<string>? LlmModeChanged;
         public event Action<string>? WhisperModelChanged;
         public event Action? ExitRequested;
 
-        public TrayIconController(ConfigManager configManager, TranscriptHistory history)
+        /// <summary>Tepsiden Ayarlar penceresi istendi (Program.cs açar).</summary>
+        public event Action? SettingsRequested;
+
+        public TrayIconController(ConfigManager configManager, TranscriptHistory history,
+                                  CustomDictionaryService? dictionaryService = null)
         {
             _configManager = configManager;
             _history = history;
+            _dictionaryService = dictionaryService;
             _uiDispatcher = Dispatcher.CurrentDispatcher;
             _isLlmCleaningEnabled = configManager.Current.LlmCleaning.EnabledByDefault;
 
@@ -169,11 +178,12 @@ namespace TRWhisper.Core.Tray
             var menu = new ContextMenuStrip();
 
             // Başlık / Durum
+            var pttName = TRWhisper.Core.Native.HotkeyBinding.Parse(_configManager.Current.Hotkey.PushToTalkKey).DisplayName;
             string statusStr = _currentState switch
             {
-                AppState.Recording => "🎙️ Kaydediyor... (Sağ Ctrl basılı)",
+                AppState.Recording => $"🎙️ Kaydediyor... ({pttName} basılı)",
                 AppState.Transcribing => "⚙️ Çözümlüyor...",
-                _ => "🟢 Boşta (Sağ Ctrl basılı tutun)"
+                _ => $"🟢 Boşta ({pttName} basılı tutun)"
             };
 
             var statusItem = new ToolStripMenuItem(statusStr)
@@ -195,6 +205,44 @@ namespace TRWhisper.Core.Tray
                 BuildContextMenu();
             };
             menu.Items.Add(llmItem);
+
+            // 🎯 LLM Modu Alt Menüsü
+            var llmModeMenu = new ToolStripMenuItem("🎯 LLM Modu");
+
+            var autoAppModeItem = new ToolStripMenuItem("⚡ Uygulamaya Göre Otomatik Mod")
+            {
+                Checked = _configManager.Current.LlmCleaning.EnableAutoAppMode
+            };
+            autoAppModeItem.Click += (_, _) =>
+            {
+                _configManager.Current.LlmCleaning.EnableAutoAppMode = !_configManager.Current.LlmCleaning.EnableAutoAppMode;
+                _configManager.Save(_configManager.Current);
+                FileLog.Write($"[TrayIconController] Otomatik Mod değiştirildi: {_configManager.Current.LlmCleaning.EnableAutoAppMode}");
+                BuildContextMenu();
+            };
+            llmModeMenu.DropDownItems.Add(autoAppModeItem);
+            llmModeMenu.DropDownItems.Add(new ToolStripSeparator());
+
+            var activeLlmMode = LlmModeRegistry.GetActiveMode(_configManager.Current.LlmCleaning);
+            var allLlmModes = LlmModeRegistry.GetAllModes(_configManager.Current.LlmCleaning);
+            foreach (var mode in allLlmModes)
+            {
+                var modeItem = new ToolStripMenuItem($"{mode.Icon} {mode.Name}")
+                {
+                    Checked = string.Equals(mode.Id, activeLlmMode.Id, StringComparison.OrdinalIgnoreCase)
+                };
+                modeItem.Click += (_, _) =>
+                {
+                    if (modeItem.Checked) return;
+                    _configManager.Current.LlmCleaning.ActiveModeId = mode.Id;
+                    _configManager.Save(_configManager.Current);
+                    LlmModeChanged?.Invoke(mode.Id);
+                    FileLog.Write($"[TrayIconController] LLM Modu değişti: {mode.Name} ({mode.Id})");
+                    BuildContextMenu();
+                };
+                llmModeMenu.DropDownItems.Add(modeItem);
+            }
+            menu.Items.Add(llmModeMenu);
 
             // Whisper Modeli Alt Menüsü (dosyası olmayan model soluk/devre dışı gösterilir)
             var modelMenu = new ToolStripMenuItem("🧠 Whisper Modeli");
@@ -276,7 +324,7 @@ namespace TRWhisper.Core.Tray
             menu.Items.Add(new ToolStripSeparator());
 
             // Dikte Klasörünü Aç
-            var openLogsItem = new ToolStripMenuItem("📁 Dikte Klasörünü Aç (%USERPROFILE%\\Dictation)");
+            var openLogsItem = new ToolStripMenuItem("📁 Dikte Klasörünü Aç");
             openLogsItem.Click += (_, _) =>
             {
                 try
@@ -292,22 +340,37 @@ namespace TRWhisper.Core.Tray
             };
             menu.Items.Add(openLogsItem);
 
-            // Ayarları Düzenle
-            var openConfigItem = new ToolStripMenuItem("⚙️ Ayarları Aç (config.json)");
-            openConfigItem.Click += (_, _) =>
+            // Ayarlar penceresi
+            var openSettingsItem = new ToolStripMenuItem("⚙️ Ayarları Aç");
+            openSettingsItem.Click += (_, _) => SettingsRequested?.Invoke();
+            menu.Items.Add(openSettingsItem);
+
+            // Özel Sözlüğü Düzenle. Kaydedilen değişiklikler bir sonraki diktede
+            // kendiliğinden devreye girer; yeniden başlatmaya gerek yok.
+            if (_dictionaryService != null)
             {
-                try
+                var openDictionaryItem = new ToolStripMenuItem("📖 Özel Sözlüğü Aç");
+                openDictionaryItem.Click += (_, _) =>
                 {
-                    var path = _configManager.ConfigFilePath;
-                    if (!File.Exists(path)) _configManager.Save(_configManager.Current);
-                    Process.Start(new ProcessStartInfo { FileName = "notepad.exe", Arguments = $"\"{path}\"", UseShellExecute = true });
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show($"Ayar dosyası açılamadı: {ex.Message}", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                }
-            };
-            menu.Items.Add(openConfigItem);
+                    try
+                    {
+                        // Dosya silinmişse varsayılanlarla yeniden oluşturulur; boş bir
+                        // Not Defteri penceresi açılmasın.
+                        _dictionaryService.Refresh();
+                        Process.Start(new ProcessStartInfo
+                        {
+                            FileName = "notepad.exe",
+                            Arguments = $"\"{_dictionaryService.DictionaryPath}\"",
+                            UseShellExecute = true
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show($"Sözlük dosyası açılamadı: {ex.Message}", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                };
+                menu.Items.Add(openDictionaryItem);
+            }
 
             menu.Items.Add(new ToolStripSeparator());
 

@@ -30,5 +30,10 @@ namespace TRWhisper.Core.Native
         /// Şu anda tuş basılı mı?
         /// </summary>
         bool IsHotkeyHeld { get; }
+
+        /// <summary>
+        /// Kısayol yapılandırmasını yeniden yükler.
+        /// </summary>
+        void ReloadConfig();
     }
 }

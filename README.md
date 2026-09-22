@@ -18,25 +18,36 @@
 
 ## 🚀 Key Features
 
-- **Global Hotkey**: Hold down **Right Ctrl** to record; release it and the speech is transcribed locally.
-- **Auto-Paste**:
-  1. Copies the transcribed text to the clipboard.
-  2. Uses the Win32 `SendInput` API to simulate `Ctrl + V`, pasting into the currently focused field.
-  3. The text stays on the clipboard, so you can paste it again elsewhere with `Ctrl + V` (the previous clipboard content is replaced; with Windows clipboard history enabled it remains available via `Win + V`).
-- **Completely Offline & Private (STT)**: Powered by a local `whisper.cpp` engine. Your voice is never sent to any server.
-- **NVIDIA GPU Acceleration (optional)**: With the CUDA build of `whisper.cpp`, the **Large-v3 Turbo** model transcribes a short dictation in ~2–3 seconds instead of ~23 seconds on the CPU (see [Performance](#-performance)). Without a GPU it automatically falls back to the CPU.
-- **Model Selection from the Tray**: Switch between **Small** (faster on CPU, less accurate) and **Large-v3 Turbo** (most accurate) at any time — no restart needed. Models whose file is missing are greyed out, and selecting Turbo on a machine without a usable NVIDIA GPU shows a "may be slow" warning.
+- **Modern Graphical Settings Window (WPF)**: A clean and accessible multi-tab settings panel (**General**, **Audio**, **Model**, **Hotkey**, **Dictionary**, **AI / LLM**, and **Overlay Pill**) to configure and test everything in real time.
+- **Custom Dictionary & Jargon Support**: User-defined phonetic/jargon replacements (`dictionary.json`). Automatically corrects technical terms, acronyms, brand names, or words frequently misheard by Whisper with word-boundary awareness.
+- **Advanced Turkish Text Normalization**:
+  - Automatic sentence-start capitalization and punctuation validation.
+  - Turkish suffix and conjunction rules (de/da, ki).
+  - Speech stutter and repetitive word filter (e.g. `ve ve ve` -> `ve`).
+- **Context-Aware LLM Modes & Active Window Detection**:
+  - Multiple transcription modes: **Raw Text**, **Clean** (removes fillers like `ııı`, `eee`, `şey`), **Summarize**, **Formal Tone**, and **Bullet Points**.
+  - Active foreground window detection (`ForegroundAppDetector`): Intelligently adapts LLM prompt persona based on whether you are working in code editors (VS Code), email clients (Outlook), messaging (Discord, Slack), or document editors.
+  - **Hardware-Backed Secure API Key Storage**: Encrypted with Windows DPAPI (`Data Protection API`); keys are never stored in plain text.
+- **Flexible Hotkeys & Hands-Free Dictation**:
+  - Classic **Push-to-Talk** mode (default: Right Ctrl).
+  - **Hands-Free Toggle** mode with intelligent silence detection to automatically finish dictation when you stop speaking.
+  - Fully customizable hotkeys and modifier keys (Right/Left Ctrl, Shift, Alt, Function keys).
+- **In-Process Whisper.net Engine & Model Management**:
+  - High-performance in-process native Whisper.net C# engine alongside Whisper CLI.
+  - Download models directly inside the Settings UI with progress tracking.
+  - Automatic idle memory unloading (`IdleTimeoutMinutes`) to free VRAM/RAM when not dictating.
+- **Auto-Paste & Smart Clipboard**:
+  - Copies transcript to clipboard and simulates `Ctrl + V` via Win32 `SendInput`.
+  - Optional clipboard restoration (`RestoreClipboard`) to preserve your previous clipboard contents after pasting.
+- **100% Offline & Private (STT)**: Powered by local Whisper. Your voice data never leaves your computer.
+- **NVIDIA GPU Acceleration**: CUDA build processes dictations in ~2–3 seconds with **Large-v3 Turbo** instead of ~23 seconds on CPU. Automatically falls back to CPU if no compatible GPU is detected.
 - **Silence Detection & Hallucination Filter**:
-  - The built-in **Silero VAD** of `whisper.cpp` skips parts without speech. If you press the hotkey without speaking, nothing is pasted (instead of phantom text like "Altyazı M.K.").
-  - Known Whisper hallucinations (e.g. `Altyazı M.K.`, `İzlediğiniz için teşekkür ederim.`) and non-speech tags (`[MÜZİK ÇALIYOR]`, `(Müzik)`, `[BLANK_AUDIO]`) are removed — only when they make up a whole line, so real dictation is never cut.
-- **Floating Pill Overlay**: Shows **Dinleniyor** (listening) while recording and **Çözümleniyor...** (transcribing) while processing, with cancel (✕) and finish (✓) buttons. When done, it shows the transcript with a **Kopyala** (copy) button.
-- **Optional LLM Cleanup Mode**: Hold **Right Ctrl + Shift** while speaking (or turn on **✨ LLM Temizleme** in the tray menu) and the transcript is sent to the Gemini or OpenAI API to remove filler words (`ııı`, `eee`, `şey`, `yani`) and fix punctuation before pasting.
-- **System Tray**:
-  - 🔵 **Blue**: Idle (ready)
-  - 🔴 **Red**: Recording (speak)
-  - 🟡 **Amber**: Transcribing
-  - Right-click menu: LLM cleanup toggle, **🧠 Whisper model**, **last 10 transcripts** (click to copy), open dictation folder, open settings, and exit.
-- **Local Logging**: Every transcript is saved with a timestamp to `%USERPROFILE%\Dictation\YYYY-MM.md`. The temporary audio file is deleted immediately. Diagnostic messages go to `%USERPROFILE%\Dictation\trwhisper.log`.
+  - Built-in **Silero VAD** skips non-speech segments to avoid phantom text on silent triggers.
+  - Filters out known Whisper phantom subtitles (`Altyazı M.K.`, `İzlediğiniz için teşekkür ederim.`) and audio bracket tags (`[MÜZİK ÇALIYOR]`).
+- **Floating Pill Overlay**: Real-time status display indicating listening volume, processing status, with cancel (✕) and complete (✓) buttons.
+- **Windows Startup Integration**: Enable or disable autostart on Windows boot with a single switch in the Settings UI.
+- **Automated Test Suite**: 87 automated unit tests and a UI smoke testing utility (`uismoke`) guaranteeing zero XAML template breakage.
+- **Local Markdown Logging**: Transcripts are automatically logged with timestamps to `%USERPROFILE%\Dictation\YYYY-MM.md`. Logs are written to `%USERPROFILE%\Dictation\trwhisper.log`.
 
 ---
 
@@ -137,14 +148,16 @@ Because TRWhisper uses a low-level keyboard hook (`WH_KEYBOARD_LL`) and the `Sen
 
 ## ⚙️ Configuration (`config.json`)
 
-You can edit `config.json` in the application directory with Notepad, or right-click the tray icon and select **"⚙️ Ayarları Aç"** (Open Settings):
+You can configure every setting easily through the graphical interface by right-clicking the tray icon and selecting **"⚙️ Ayarlar"** (Settings). Alternatively, you can edit `config.json` in the application directory:
 
 ```json
 {
   "General": {
     "Language": "tr",
     "LogDirectory": "%USERPROFILE%\\Dictation",
-    "TempAudioPath": "%TEMP%\\trwhisper_temp.wav"
+    "TempAudioPath": "%TEMP%\\trwhisper_temp.wav",
+    "EnableCustomDictionary": true,
+    "EnableTextNormalization": true
   },
   "Whisper": {
     "CliPath": "tools\\whisper\\whisper-cli.exe",
@@ -152,25 +165,48 @@ You can edit `config.json` in the application directory with Notepad, or right-c
     "VadModelPath": "tools\\whisper\\ggml-silero-v6.2.0.bin",
     "Threads": 8,
     "NoTimestamps": true,
-    "TimeoutSeconds": 120
+    "TimeoutSeconds": 120,
+    "IdleTimeoutMinutes": 10
   },
   "LlmCleaning": {
     "EnabledByDefault": false,
     "Provider": "Gemini",
-    "ApiKey": "AIzaSy...",
-    "Model": "gemini-2.5-flash",
+    "ApiKey": "",
+    "Model": "gemini-2.0-flash",
     "Endpoint": "https://generativelanguage.googleapis.com/v1beta/models",
-    "SystemPrompt": "Aşağıdaki metin Türkçe sesli dikte çıktısıdır. Dolgu kelimelerini (ııı, eee, şey, yani) temizle, noktalama ve imlayı düzelt. YALNIZCA düzeltilmiş metni döndür."
+    "SystemPrompt": "Aşağıdaki metin Türkçe sesli dikte (speech-to-text) çıktısıdır. Lütfen bu metni konuşma dilinden temiz yazı diline dönüştür:\n1. 'ııı', 'eee', 'şey', 'yani', 'falan', 'hımm' gibi duraksama ve dolgu kelimelerini temizle.\n2. Noktalama işaretlerini (nokta, virgül, soru işareti vb.) ve büyük/küçük harf kullanımını eksiksiz düzelt.\n3. Anlatılmak istenen ana fikri ve kelime anlamlarını kesinlikle değiştirme.\n4. Çıktı olarak YALNIZCA düzeltilmiş metni ver. Başına ya da sonuna açıklama, tırnak işareti, selamlama veya markdown ekleme."
+  },
+  "Paste": {
+    "PasteMode": "Clipboard",
+    "RestoreClipboard": true,
+    "RestoreDelayMs": 200
+  },
+  "Audio": {
+    "InputDeviceId": ""
+  },
+  "Hotkey": {
+    "PushToTalkKey": "RightCtrl",
+    "LlmModifierKey": "Shift",
+    "DictationMode": "PushToTalk",
+    "HandsFreeSilenceMs": 1800,
+    "HandsFreeSilenceThreshold": 0.012
+  },
+  "Overlay": {
+    "Position": "Bottom",
+    "ResultDurationSeconds": 10
   }
 }
 ```
 
-- **`ModelPath`**: the active model. Selecting a model from the tray menu updates this field.
-- **`VadModelPath`**: the silence detection model. If the file is missing, TRWhisper keeps working without VAD and writes a note to the log.
-- **`TimeoutSeconds`**: maximum time for a single transcription; `whisper-cli` is stopped if it takes longer.
-- **`Provider`**: `Gemini` or `OpenAI`.
+- **`EnableCustomDictionary`**: Enables user-defined phonetic/jargon mappings in `dictionary.json`.
+- **`EnableTextNormalization`**: Enables Turkish capitalization, punctuation validation, and speech stutter cleaning.
+- **`IdleTimeoutMinutes`**: Automatically unloads the model from RAM/VRAM after inactivity (default: 10 minutes).
+- **`RestoreClipboard`**: Automatically restores previous clipboard contents after dictation has been pasted.
+- **`DictationMode`**: `PushToTalk` (press & hold) or `HandsFree` (voice toggle with silence cutoff).
+- **`HandsFreeSilenceMs`**: Silence duration (ms) before hands-free dictation automatically finishes.
+- **`Provider`**: `Gemini` or `OpenAI`. Keys are securely encrypted with Windows DPAPI.
 
-> **Tip:** You can obtain a free Gemini API key from Google AI Studio and paste it into the `ApiKey` field. If left blank, LLM cleanup is skipped and the raw local transcript is pasted.
+> **Tip:** You can obtain a free Gemini API key from Google AI Studio and enter it via the Settings UI. If left empty, LLM cleanup is skipped and raw local transcripts are pasted directly.
 
 ---
 
@@ -199,15 +235,29 @@ Measured on an Intel Core i5-12450H + NVIDIA GeForce RTX 3050 Laptop GPU (4 GB) 
 
 ---
 
-## 🚀 Building and Running the Project
+## 🚀 Building & Running from Source
 
 Using PowerShell:
 ```powershell
 # Run in development mode
 powershell -ExecutionPolicy Bypass -File scripts\build.ps1 -Run
 
-# Create a standalone single-file Release package (in publish\)
+# Create a self-contained, single-file Release package (in publish\ folder)
 powershell -ExecutionPolicy Bypass -File scripts\build.ps1 -Publish
 ```
 
-> **Note:** Always create the package with `build.ps1 -Publish`. It embeds the native WPF libraries into the single-file executable (`IncludeNativeLibrariesForSelfExtract`); a plain `dotnet publish` without that option produces an executable that crashes on startup. The application finds the `tools\whisper\` folder next to the executable or in a parent folder.
+> **Note:** Always create release packages with `build.ps1 -Publish`. This bundles WPF native libraries inside the single-file executable (`IncludeNativeLibrariesForSelfExtract`). A plain `dotnet publish` without these flags produces an executable that crashes on launch. The application locates the `tools\whisper\` folder either beside the executable or in its parent directories.
+
+---
+
+## 🧪 Testing & Verification
+
+TRWhisper maintains high reliability with automated test suites:
+
+```powershell
+# Run the 87 automated unit tests (AppMode, Hotkeys, LLM, ModelManager, DPAPI, etc.):
+dotnet test tests\TRWhisper.Tests\TRWhisper.Tests.csproj
+
+# Run the WPF Settings Window XAML template & UI smoke test suite:
+dotnet run --project tools\uismoke
+```
