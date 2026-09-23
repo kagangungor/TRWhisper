@@ -101,13 +101,13 @@ before it starts:
   ```
 
 > [!NOTE]
-> **Security & VirusTotal Results (67/69 Clean):**  
+> **Security & VirusTotal Results (68/69 Clean):**  
 > Because this is a free, independent open-source project without an expensive commercial EV code signing certificate, Windows SmartScreen may show an "unknown publisher" warning on first launch: **More info > Run anyway**.  
 >  
-> You can review the updated [VirusTotal Scan Report (v2.0.0)](https://www.virustotal.com/gui/file/3caab66a8a72207e35374f07294b887aff7eb725d9134cd124c2b451bdb7784e?nocache=1). Top-tier security vendors including Microsoft Defender, Kaspersky, Bitdefender, ESET, Sophos, and Malwarebytes (**67 vendors in total**) confirm the binary is **100% clean**.  
+> You can review the updated [VirusTotal Scan Report (v2.1.0)](https://www.virustotal.com/gui/file/bc7f92be96bae06c652c572e3da75953c105eba5755d22505e5ad2532d98d3ff?nocache=1). Top-tier security vendors including Microsoft Defender, Kaspersky, Bitdefender, ESET, Sophos, and Malwarebytes (**68 vendors in total**) confirm the binary is **100% clean**.  
 >  
-> **Regarding the 2 Heuristic/ML Detections (Trapmine & Arctic Wolf):**  
-> These two automated machine-learning endpoint engines assign generic low-confidence suspicion scores to newly observed unsigned binaries. TRWhisper's implementation of low-level Windows APIs — global low-level keyboard hooks (`SetWindowsHookEx` / `WH_KEYBOARD_LL`) for push-to-talk hotkeys, keyboard event synthesis (`SendInput`) to paste recognized text directly into active fields, and Windows DPAPI for encrypting local user credentials — naturally triggers aggressive heuristic engines. The entire codebase is open source, transparent, and completely safe.
+> **Regarding the 1 Heuristic/ML Detection (Trapmine):**  
+> This automated machine-learning endpoint engine assigns a generic low-confidence suspicion score (`Suspicious.low.ml.score`) to newly observed unsigned binaries. TRWhisper's implementation of low-level Windows APIs — global low-level keyboard hooks (`SetWindowsHookEx` / `WH_KEYBOARD_LL`) for push-to-talk hotkeys, keyboard event synthesis (`SendInput`) to paste recognized text directly into active fields, and Windows DPAPI for encrypting local user credentials — naturally triggers aggressive heuristic engines. The entire codebase is open source, transparent, and completely safe.
 
 ---
 

@@ -615,7 +615,8 @@ begin
 
   if CurPageID = EnginePage.ID then
   begin
-    if UseCudaEngine and (GpuState = 0) then
+    // Sessiz kurulumda MsgBox bastırılamaz ve kurulumu asılı bırakır; /ENGINE açık bir seçimdir.
+    if UseCudaEngine and (GpuState = 0) and not WizardSilent then
       if MsgBox(CustomMessage('GpuConfirm'), mbConfirmation, MB_YESNO) = IDNO then
       begin
         Result := False;
@@ -633,11 +634,14 @@ begin
   begin
     if not (WantTurbo or WantSmall) then
     begin
-      MsgBox(CustomMessage('ModelNoneSelected'), mbError, MB_OK);
+      if WizardSilent then
+        Log('TRWhisper: ' + CustomMessage('ModelNoneSelected'))
+      else
+        MsgBox(CustomMessage('ModelNoneSelected'), mbError, MB_OK);
       Result := False;
       Exit;
     end;
-    if UseCpuEngine and WantTurbo and not WantSmall then
+    if UseCpuEngine and WantTurbo and not WantSmall and not WizardSilent then
       if MsgBox(CustomMessage('ModelTurboOnCpu'), mbConfirmation, MB_YESNO) = IDNO then
       begin
         Result := False;
@@ -730,7 +734,10 @@ begin
     ExtractArchive(ZipPath, ExpandConstant('{app}'), '', True, nil);
     Log('TRWhisper: CUDA 13 dosyalari basariyla acildi.');
   except
-    MsgBox(FmtMessage(CustomMessage('ExtractFailed'), [GetExceptionMessage]), mbError, MB_OK);
+    if WizardSilent then
+      Log('TRWhisper: ' + FmtMessage(CustomMessage('ExtractFailed'), [GetExceptionMessage]))
+    else
+      MsgBox(FmtMessage(CustomMessage('ExtractFailed'), [GetExceptionMessage]), mbError, MB_OK);
   end;
 end;
 

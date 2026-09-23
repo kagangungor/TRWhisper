@@ -100,13 +100,13 @@ Sihirbaz Türkçe ve İngilizce'dir ve kuruluma başlamadan önce ne kurulacağ�
   ```
 
 > [!NOTE]
-> **Güvenlik & VirusTotal Sonuçları (67/69 Temiz):**  
+> **Güvenlik & VirusTotal Sonuçları (68/69 Temiz):**  
 > Kurulum dosyası açık kaynaklı ve bağımsız bir proje olduğundan ticari kod imzalama sertifikası (EV Code Signing) içermez. Windows SmartScreen ilk çalıştırmada "bilinmeyen yayımcı" uyarısı verebilir: **Daha fazla bilgi > Yine de çalıştır**.  
 >  
-> Güncel [VirusTotal Tarama Raporu (v2.0.0)](https://www.virustotal.com/gui/file/3caab66a8a72207e35374f07294b887aff7eb725d9134cd124c2b451bdb7784e?nocache=1)'nu inceleyebilirsiniz. Microsoft Defender, Kaspersky, Bitdefender, ESET, Sophos ve Malwarebytes dahil **67 antivirüs motoru dosyayı %100 temiz** olarak onaylamaktadır.  
+> Güncel [VirusTotal Tarama Raporu (v2.1.0)](https://www.virustotal.com/gui/file/bc7f92be96bae06c652c572e3da75953c105eba5755d22505e5ad2532d98d3ff?nocache=1)'nu inceleyebilirsiniz. Microsoft Defender, Kaspersky, Bitdefender, ESET, Sophos ve Malwarebytes dahil **68 antivirüs motoru dosyayı %100 temiz** olarak onaylamaktadır.  
 >  
-> **2 Sezgisel/ML Uyarısı (Trapmine & Arctic Wolf) Hakkında:**  
-> Bu iki motor, imzasız ve yeni yayınlanan dosyalara otomatik düşük olasılıklı makine öğrenimi puanı vermektedir. TRWhisper'ın global bas-konuş kısayolunu dinlemek için düşük seviyeli Windows klavye kancası (`SetWindowsHookEx` / `WH_KEYBOARD_LL`), dikte edilen metni aktif imleç konumuna yapıştırmak için klavye simülasyonu (`SendInput`) ve API anahtarlarını şifrelemek için Windows DPAPI kullanması, bu tür yapay zeka motorlarında yanlış pozitif (false positive) uyarı oluşturabilmektedir. Yazılım tamamen açık kaynaklıdır ve hiçbir zararlı bileşen barındırmaz.
+> **1 Sezgisel/ML Uyarısı (Trapmine) Hakkında:**  
+> Bu motor, imzasız ve yeni yayınlanan dosyalara otomatik düşük olasılıklı makine öğrenimi puanı (`Suspicious.low.ml.score`) vermektedir. TRWhisper'ın global bas-konuş kısayolunu dinlemek için düşük seviyeli Windows klavye kancası (`SetWindowsHookEx` / `WH_KEYBOARD_LL`), dikte edilen metni aktif imleç konumuna yapıştırmak için klavye simülasyonu (`SendInput`) ve API anahtarlarını şifrelemek için Windows DPAPI kullanması, bu tür yapay zeka motorlarında yanlış pozitif (false positive) uyarı oluşturabilmektedir. Yazılım tamamen açık kaynaklıdır ve hiçbir zararlı bileşen barındırmaz.
 
 ---
 
