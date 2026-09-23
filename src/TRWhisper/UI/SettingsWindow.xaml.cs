@@ -13,6 +13,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using NAudio.CoreAudioApi;
+using TRWhisper.Core.Backup;
 using TRWhisper.Core.Config;
 using TRWhisper.Core.Diagnostics;
 using TRWhisper.Core.Dictionary;
@@ -48,6 +49,13 @@ namespace TRWhisper.UI
         private readonly CustomDictionaryService _dictionaryService;
         private readonly ILlmCleaner _llmCleaner;
         private readonly PillOverlayWindow? _overlayWindow;
+        private readonly BackupService _backupService;
+
+        /// <summary>
+        /// Günlük bulut çağrısı sayacı. Temizleyiciden ayrı örnek ama aynı dosyayı okur;
+        /// böylece pencere <see cref="ILlmCleaner"/> arayüzünü genişletmeden sayacı gösterebilir.
+        /// </summary>
+        private readonly ApiUsageTracker _usageTracker;
 
         /// <summary>Kaydedilen ayarların canlı uygulanması için geri çağrı (Program.cs bağlar).</summary>
         private readonly Action<AppConfig>? _onApplied;
@@ -55,6 +63,7 @@ namespace TRWhisper.UI
         private readonly ObservableCollection<DictionaryRule> _rules = new();
         private readonly ObservableCollection<AppModeMappingItem> _appMappings = new();
         private readonly ObservableCollection<WhisperModelItem> _modelItems = new();
+        private readonly ObservableCollection<BackupListItem> _backupItems = new();
         private readonly StackPanel[] _pages;
 
         private List<LlmMode> _currentModes = new();
@@ -90,7 +99,8 @@ namespace TRWhisper.UI
                               CustomDictionaryService dictionaryService,
                               Action<AppConfig>? onApplied = null,
                               ILlmCleaner? llmCleaner = null,
-                              PillOverlayWindow? overlayWindow = null)
+                              PillOverlayWindow? overlayWindow = null,
+                              BackupService? backupService = null)
         {
             InitializeComponent();
 
@@ -99,12 +109,15 @@ namespace TRWhisper.UI
             _onApplied = onApplied;
             _llmCleaner = llmCleaner ?? new LlmCleanerService(configManager);
             _overlayWindow = overlayWindow;
+            _backupService = backupService ?? new BackupService(configManager);
+            _usageTracker = new ApiUsageTracker(ApiUsageTracker.ResolveDefaultPath(configManager));
 
-            _pages = new[] { PageGeneral, PageAudio, PageModel, PageHotkey, PageDictionary, PageAi, PageOverlay };
+            _pages = new[] { PageGeneral, PageAudio, PageModel, PageHotkey, PageDictionary, PageAi, PageOverlay, PageBackup };
 
             RulesList.ItemsSource = _rules;
             AppMappingsList.ItemsSource = _appMappings;
             ModelsListControl.ItemsSource = _modelItems;
+            BackupsListControl.ItemsSource = _backupItems;
             PreviewKeyDown += SettingsWindow_PreviewKeyDown;
             PreviewKeyUp += SettingsWindow_PreviewKeyUp;
             PreviewMouseDown += SettingsWindow_PreviewMouseDown;
@@ -230,7 +243,18 @@ namespace TRWhisper.UI
                 LlmModelBox.Text = cfg.LlmCleaning.Model ?? "";
                 ApiKeyText = cfg.LlmCleaning.ApiKey ?? "";
 
+                KeyRotationDaysBox.Text = cfg.LlmCleaning.ApiKeyRotationReminderDays.ToString(CultureInfo.InvariantCulture);
+                DailyLimitBox.Text = cfg.LlmCleaning.DailyRequestLimit.ToString(CultureInfo.InvariantCulture);
+                FillCombo(QuotaActionCombo, new[]
+                {
+                    new ComboEntry(QuotaActions.Block, "Engelle — LLM temizlemeyi atla"),
+                    new ComboEntry(QuotaActions.WarnOnly, "Yalnızca uyar — çağrıyı yine de yap"),
+                }, QuotaActions.Normalize(cfg.LlmCleaning.QuotaExceededAction));
+
                 UpdateLlmProviderUI();
+                UpdateApiKeyLifecycleUI();
+                UpdateQuotaActionHint();
+                UpdateQuotaUsageUI();
 
                 // LLM Modları yükleme
                 _currentModes = LlmModeRegistry.GetAllModes(cfg.LlmCleaning);
@@ -262,6 +286,21 @@ namespace TRWhisper.UI
 
                 UpdateOverlayCoordsUI();
                 OverlayDurationBox.Text = cfg.Overlay.ResultDurationSeconds.ToString(CultureInfo.InvariantCulture);
+            });
+
+            TryLoad(problems, "yedekleme", () =>
+            {
+                AutoBackupToggle.IsChecked = cfg.Backup.EnableAutomaticBackup;
+                BackupIntervalBox.Text = cfg.Backup.AutomaticBackupIntervalDays.ToString(CultureInfo.InvariantCulture);
+                BackupRetentionBox.Text = cfg.Backup.RetentionCount.ToString(CultureInfo.InvariantCulture);
+                IncludeTranscriptsToggle.IsChecked = cfg.Backup.IncludeTranscripts;
+                BackupDirBox.Text = cfg.Backup.BackupDirectory ?? "";
+
+                BackupStatusText.Text = cfg.Backup.LastBackupUtc is { } last
+                    ? $"Son yedek: {last.ToLocalTime():dd.MM.yyyy HH:mm}"
+                    : "Henüz yedek alınmadı.";
+
+                RefreshBackupList();
             });
 
             if (configBroken)
@@ -389,6 +428,10 @@ namespace TRWhisper.UI
 
             if (LlmApiKeyPanel != null)
                 LlmApiKeyPanel.Visibility = isOllama ? Visibility.Collapsed : Visibility.Visible;
+
+            // Kota yalnızca ücret doğuran bulut sağlayıcılar için anlamlıdır.
+            if (QuotaCard != null)
+                QuotaCard.Visibility = isOllama ? Visibility.Collapsed : Visibility.Visible;
 
             if (isOllama)
             {
@@ -899,6 +942,14 @@ namespace TRWhisper.UI
             Add(SelectedValue(LlmModeCombo, ""));
             Add(LlmModePromptBox.Text);
             Add(AutoAppModeToggle.IsChecked);
+            Add(KeyRotationDaysBox.Text);
+            Add(DailyLimitBox.Text);
+            Add(SelectedValue(QuotaActionCombo, ""));
+            Add(AutoBackupToggle.IsChecked);
+            Add(BackupIntervalBox.Text);
+            Add(BackupRetentionBox.Text);
+            Add(IncludeTranscriptsToggle.IsChecked);
+            Add(BackupDirBox.Text);
             Add(_overlayPosition);
             Add(_customX);
             Add(_customY);
@@ -984,6 +1035,20 @@ namespace TRWhisper.UI
                     }
                 }
 
+                cfg.LlmCleaning.ApiKeyRotationReminderDays = ParseInt(KeyRotationDaysBox.Text, cfg.LlmCleaning.ApiKeyRotationReminderDays, 0, 3650);
+                cfg.LlmCleaning.DailyRequestLimit = ParseInt(DailyLimitBox.Text, cfg.LlmCleaning.DailyRequestLimit, 0, 100000);
+                cfg.LlmCleaning.QuotaExceededAction = QuotaActions.Normalize(
+                    SelectedValue(QuotaActionCombo, cfg.LlmCleaning.QuotaExceededAction));
+
+                cfg.Backup.EnableAutomaticBackup = AutoBackupToggle.IsChecked == true;
+                cfg.Backup.AutomaticBackupIntervalDays = ParseInt(BackupIntervalBox.Text, cfg.Backup.AutomaticBackupIntervalDays, 1, 365);
+                cfg.Backup.RetentionCount = ParseInt(BackupRetentionBox.Text, cfg.Backup.RetentionCount, 0, 100);
+                cfg.Backup.IncludeTranscripts = IncludeTranscriptsToggle.IsChecked == true;
+
+                // Boş bırakılırsa yedekler tanımsız bir yere gitmesin: eski değer korunur.
+                var backupDir = BackupDirBox.Text.Trim();
+                if (backupDir.Length > 0) cfg.Backup.BackupDirectory = backupDir;
+
                 // Otomatik Uygulama Modu kaydetme
                 cfg.LlmCleaning.EnableAutoAppMode = AutoAppModeToggle.IsChecked == true;
                 cfg.LlmCleaning.AppModeMappings = _appMappings.ToDictionary(
@@ -1006,6 +1071,9 @@ namespace TRWhisper.UI
                 _configManager.Save(cfg);
                 _onApplied?.Invoke(cfg);
 
+                // Anahtar değiştiyse rotasyon damgası az önce tazelendi; yaş göstergesi tazelensin.
+                UpdateApiKeyLifecycleUI();
+
                 if (!silent)
                     StatusText.Text = $"Kaydedildi — {DateTime.Now:HH:mm:ss}";
                 FileLog.Write("[Settings] Ayarlar kaydedildi ve uygulandı.");
@@ -1022,6 +1090,267 @@ namespace TRWhisper.UI
                 }
                 return false;
             }
+        }
+
+        // ------------------------------------------------------------------ API anahtarı yaşam döngüsü
+
+        /// <summary>Sağlayıcının anahtar yönetim sayfası; yerel sağlayıcıda yoktur.</summary>
+        private static string? ProviderConsoleUrl(string provider)
+        {
+            if (provider.Equals("Gemini", StringComparison.OrdinalIgnoreCase))
+                return "https://aistudio.google.com/app/apikey";
+            if (provider.Equals("OpenAI", StringComparison.OrdinalIgnoreCase))
+                return "https://platform.openai.com/api-keys";
+            return null;
+        }
+
+        /// <summary>
+        /// Anahtarın yaşını ve gerekiyorsa rotasyon hatırlatmasını gösterir. Uygulama
+        /// anahtarı kendiliğinden geçersiz kılmaz; kapsam, süre ve iptal sağlayıcıdadır.
+        /// </summary>
+        private void UpdateApiKeyLifecycleUI()
+        {
+            if (ApiKeyAgeText == null || ApiKeyRotationBadge == null) return;
+
+            var llm = _configManager.Current.LlmCleaning;
+            var savedKey = llm.ApiKey ?? "";
+            var reminderDays = ParseInt(KeyRotationDaysBox.Text, llm.ApiKeyRotationReminderDays, 0, 3650);
+
+            if (string.IsNullOrWhiteSpace(savedKey))
+            {
+                ApiKeyAgeText.Text = "anahtar kayıtlı değil";
+                ApiKeyRotationBadge.Visibility = Visibility.Collapsed;
+                return;
+            }
+
+            if (llm.ApiKeyUpdatedUtc is not { } updated)
+            {
+                ApiKeyAgeText.Text = "bilinmiyor";
+                ApiKeyRotationText.Text = "Anahtarın en son ne zaman değiştirildiği kayıtlı değil. " +
+                                          "Sağlayıcı panelinden yeni bir anahtar üretip buraya yapıştırmanız önerilir.";
+                ApiKeyRotationBadge.Visibility = Visibility.Visible;
+                return;
+            }
+
+            var days = (int)Math.Floor((DateTime.UtcNow - updated).TotalDays);
+            if (days < 0) days = 0;
+            ApiKeyAgeText.Text = $"{days} gün ({updated.ToLocalTime():dd.MM.yyyy})";
+
+            if (reminderDays > 0 && days >= reminderDays)
+            {
+                ApiKeyRotationText.Text = $"Bu anahtar {days} gündür değişmedi ({reminderDays} gün eşiği aşıldı). " +
+                                          "Sağlayıcı panelinden yeni bir anahtar üretip eskisini iptal edin.";
+                ApiKeyRotationBadge.Visibility = Visibility.Visible;
+            }
+            else
+            {
+                ApiKeyRotationBadge.Visibility = Visibility.Collapsed;
+            }
+        }
+
+        private void ClearApiKey_Click(object sender, RoutedEventArgs e)
+        {
+            if (string.IsNullOrWhiteSpace(ApiKeyText))
+            {
+                StatusText.Text = "Silinecek bir API anahtarı yok.";
+                return;
+            }
+
+            var answer = MessageBox.Show(
+                "API anahtarı bu bilgisayardan silinecek ve ayarlar hemen kaydedilecek.\n\n" +
+                "Anahtarı sağlayıcı panelinden de iptal etmeniz önerilir: silmek, anahtarın " +
+                "başka bir yerde hâlâ geçerli olmasını engellemez.\n\nDevam edilsin mi?",
+                "TRWhisper", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+
+            if (answer != MessageBoxResult.Yes) return;
+
+            ApiKeyText = "";
+            if (ApplyAndSave())
+            {
+                _savedSignature = UiSignature();
+                StatusText.Text = "API anahtarı silindi. Sağlayıcı panelinden de iptal etmeyi unutmayın.";
+            }
+        }
+
+        private void OpenProviderConsole_Click(object sender, RoutedEventArgs e)
+        {
+            var url = ProviderConsoleUrl(SelectedValue(LlmProviderCombo, "Ollama"));
+            if (url == null)
+            {
+                StatusText.Text = "Yerel sağlayıcıda anahtar paneli yoktur.";
+                return;
+            }
+
+            try
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = url,
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                FileLog.Write($"[Settings] Sağlayıcı paneli açılamadı: {ex.Message}");
+                StatusText.Text = "Tarayıcı açılamadı: " + url;
+            }
+        }
+
+        // ------------------------------------------------------------------ kullanım tavanı
+
+        private void QuotaActionCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+            => UpdateQuotaActionHint();
+
+        private void UpdateQuotaActionHint()
+        {
+            if (QuotaActionHint == null) return;
+
+            QuotaActionHint.Text = SelectedValue(QuotaActionCombo, QuotaActions.Block) == QuotaActions.WarnOnly
+                ? "Yalnızca uyar: tavan aşılsa da istek gönderilir, yalnızca bir bildirim çıkar. Fatura büyümeye devam edebilir."
+                : "Engelle: tavan dolunca LLM temizleme atlanır, ham transkript yazılır; ek ücret doğmaz.";
+        }
+
+        private void UpdateQuotaUsageUI()
+        {
+            if (QuotaUsageText == null) return;
+
+            var used = _usageTracker.GetTodayCount();
+            var limit = ParseInt(DailyLimitBox.Text, _configManager.Current.LlmCleaning.DailyRequestLimit, 0, 100000);
+
+            QuotaUsageText.Text = limit > 0 ? $"{used} / {limit} çağrı" : $"{used} çağrı (tavan yok)";
+        }
+
+        private void ResetUsage_Click(object sender, RoutedEventArgs e)
+        {
+            _usageTracker.ResetToday();
+            UpdateQuotaUsageUI();
+            StatusText.Text = "Bugünkü kullanım sayacı sıfırlandı (sağlayıcıdaki gerçek kullanım değişmez).";
+        }
+
+        // ------------------------------------------------------------------ yedekleme
+
+        private static string FormatSize(long bytes)
+            => bytes >= 1024 * 1024
+                ? $"{bytes / (1024.0 * 1024.0):0.#} MB"
+                : $"{Math.Max(1, bytes / 1024)} KB";
+
+        private void RefreshBackupList()
+        {
+            _backupItems.Clear();
+            foreach (var backup in _backupService.ListBackups().Take(20))
+            {
+                _backupItems.Add(new BackupListItem(
+                    backup.FileName,
+                    backup.CreatedUtc.ToLocalTime().ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture),
+                    FormatSize(backup.SizeBytes)));
+            }
+
+            NoBackupsText.Visibility = _backupItems.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        private void OpenBackupFolder_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var dir = Environment.ExpandEnvironmentVariables(BackupDirBox.Text.Trim());
+                if (string.IsNullOrWhiteSpace(dir)) dir = _backupService.BackupDirectory;
+
+                Directory.CreateDirectory(dir);
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = "explorer.exe",
+                    Arguments = $"\"{dir}\"",
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                BackupStatusText.Text = "Klasör açılamadı: " + ex.Message;
+            }
+        }
+
+        private async void CreateBackupNow_Click(object sender, RoutedEventArgs e)
+        {
+            // Yedek, ekrandaki (henüz kaydedilmemiş) klasör ve kapsam ayarlarıyla alınmalı.
+            if (!ApplyAndSave(silent: true)) return;
+            _savedSignature = UiSignature();
+
+            SetBackupButtonsEnabled(false);
+            BackupStatusText.Text = "Yedek alınıyor...";
+            try
+            {
+                var entry = await Task.Run(() => _backupService.CreateBackup());
+                BackupStatusText.Text = $"Yedek alındı: {entry.FileName} ({FormatSize(entry.SizeBytes)})";
+            }
+            catch (Exception ex)
+            {
+                FileLog.Write($"[Settings] Yedek alınamadı: {ex.Message}");
+                BackupStatusText.Text = "Yedek alınamadı: " + ex.Message;
+            }
+            finally
+            {
+                SetBackupButtonsEnabled(true);
+                RefreshBackupList();
+            }
+        }
+
+        private async void RestoreBackup_Click(object sender, RoutedEventArgs e)
+        {
+            var startDir = _backupService.BackupDirectory;
+            var dialog = new Microsoft.Win32.OpenFileDialog
+            {
+                Title = "Geri yüklenecek yedek dosyasını seçin",
+                Filter = "TRWhisper yedeği (*.zip)|*.zip",
+                CheckFileExists = true,
+                InitialDirectory = Directory.Exists(startDir) ? startDir : ""
+            };
+
+            if (dialog.ShowDialog(this) != true) return;
+
+            var answer = MessageBox.Show(
+                $"\"{System.IO.Path.GetFileName(dialog.FileName)}\" geri yüklenecek.\n\n" +
+                "Ayarlarınızın, özel sözlüğünüzün ve aynı adlı dikte günlüklerinizin ÜZERİNE YAZILIR. " +
+                "İşlemden hemen önce mevcut durumun yedeği otomatik alınır.\n\n" +
+                "API anahtarınız yedekte bulunmaz; mevcut anahtarınız korunur.\n\nDevam edilsin mi?",
+                "TRWhisper", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+
+            if (answer != MessageBoxResult.Yes) return;
+
+            SetBackupButtonsEnabled(false);
+            BackupStatusText.Text = "Geri yükleniyor...";
+            try
+            {
+                var result = await Task.Run(() => _backupService.Restore(dialog.FileName));
+
+                // Yapılandırma diskten değişti: pencereyi ve canlı servisleri tazele.
+                _loading = true;
+                LoadSettings();
+                _loading = false;
+                _savedSignature = UiSignature();
+                _onApplied?.Invoke(_configManager.Current);
+
+                BackupStatusText.Text =
+                    $"Geri yüklendi — ayarlar: {(result.ConfigRestored ? "evet" : "hayır")}, " +
+                    $"sözlük: {(result.DictionaryRestored ? "evet" : "hayır")}, " +
+                    $"transkript dosyası: {result.TranscriptsRestored}. " +
+                    $"Önceki durumun yedeği: {System.IO.Path.GetFileName(result.SafetyBackupPath)}";
+            }
+            catch (Exception ex)
+            {
+                FileLog.Write($"[Settings] Geri yükleme başarısız: {ex.Message}");
+                BackupStatusText.Text = "Geri yüklenemedi: " + ex.Message;
+            }
+            finally
+            {
+                SetBackupButtonsEnabled(true);
+                RefreshBackupList();
+            }
+        }
+
+        private void SetBackupButtonsEnabled(bool enabled)
+        {
+            CreateBackupButton.IsEnabled = enabled;
+            RestoreBackupButton.IsEnabled = enabled;
         }
 
         // ------------------------------------------------------------------ Model Kütüphanesi
@@ -1460,6 +1789,9 @@ namespace TRWhisper.UI
         public string ModeId { get; set; } = string.Empty;
         public string ModeDisplayName { get; set; } = string.Empty;
     }
+
+    /// <summary>Yedek listesindeki tek satır (yalnızca gösterim için).</summary>
+    public sealed record BackupListItem(string FileName, string CreatedText, string SizeText);
 
     public class WhisperModelItem
     {

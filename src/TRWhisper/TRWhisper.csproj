@@ -12,9 +12,9 @@
     <StartupObject>TRWhisper.Program</StartupObject>
     <ApplicationIcon>..\..\assets\TRWhisper.ico</ApplicationIcon>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <Version>2.0.1</Version>
-    <FileVersion>2.0.1.0</FileVersion>
-    <AssemblyVersion>2.0.1.0</AssemblyVersion>
+    <Version>2.1.0</Version>
+    <FileVersion>2.1.0.0</FileVersion>
+    <AssemblyVersion>2.1.0.0</AssemblyVersion>
     <Product>TRWhisper</Product>
     <Company>Mustafa Kağan Güngör</Company>
     <Copyright>Copyright (c) 2026 Mustafa Kağan Güngör</Copyright>
@@ -32,9 +32,15 @@
     <PackageReference Include="Whisper.net.Runtime" Version="1.9.1" />
   </ItemGroup>
 
+  <!--
+    Depoda "config.json" ADIYLA dosya tutulmaz: .gitignore bu adı yok sayar ve kullanıcının
+    (DPAPI ile şifreli API anahtarı içerebilen) kopyasıyla karışmamalıdır. Şablon, çıktı
+    klasörüne config.json olarak kopyalanır; var olan daha yeni kopyanın üzerine yazılmaz.
+  -->
   <ItemGroup>
-    <None Update="config.json">
+    <None Update="config.default.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <TargetPath>config.json</TargetPath>
     </None>
   </ItemGroup>
 

@@ -7,6 +7,7 @@ using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Windows.Threading;
+using TRWhisper.Core.Backup;
 using TRWhisper.Core.Config;
 using TRWhisper.Core.Diagnostics;
 using TRWhisper.Core.Dictionary;
@@ -32,6 +33,7 @@ namespace TRWhisper.Core.Tray
         private readonly ConfigManager _configManager;
         private readonly TranscriptHistory _history;
         private readonly CustomDictionaryService? _dictionaryService;
+        private readonly BackupService? _backupService;
 
         // Denetleyicinin oluşturulduğu UI thread'inin dispatcher'ı. Genel metotlar arka plan
         // thread'lerinden çağrılır; WinForms kontrolü (ContextMenuStrip) arka plan thread'inde
@@ -58,11 +60,13 @@ namespace TRWhisper.Core.Tray
         public event Action? SettingsRequested;
 
         public TrayIconController(ConfigManager configManager, TranscriptHistory history,
-                                  CustomDictionaryService? dictionaryService = null)
+                                  CustomDictionaryService? dictionaryService = null,
+                                  BackupService? backupService = null)
         {
             _configManager = configManager;
             _history = history;
             _dictionaryService = dictionaryService;
+            _backupService = backupService;
             _uiDispatcher = Dispatcher.CurrentDispatcher;
             _isLlmCleaningEnabled = configManager.Current.LlmCleaning.EnabledByDefault;
 
@@ -387,6 +391,14 @@ namespace TRWhisper.Core.Tray
                 menu.Items.Add(openDictionaryItem);
             }
 
+            // Yedekleme: transkriptler, sözlük ve ayarlar tek bir ZIP'e alınır.
+            if (_backupService != null)
+            {
+                var backupItem = new ToolStripMenuItem("💾 Şimdi Yedek Al");
+                backupItem.Click += (_, _) => RunBackupFromTray();
+                menu.Items.Add(backupItem);
+            }
+
             menu.Items.Add(new ToolStripSeparator());
 
             // Çıkış
@@ -398,6 +410,30 @@ namespace TRWhisper.Core.Tray
             menu.Items.Add(exitItem);
 
             _notifyIcon.ContextMenuStrip = menu;
+        }
+
+        /// <summary>
+        /// Yedeği arka planda alır: dosya birkaç MB olabilir, tepsi menüsünün açıldığı
+        /// UI thread'i bekletilmemeli. Sonuç balon bildirimiyle duyurulur.
+        /// </summary>
+        private void RunBackupFromTray()
+        {
+            var service = _backupService;
+            if (service == null) return;
+
+            _ = Task.Run(() =>
+            {
+                try
+                {
+                    var entry = service.CreateBackup();
+                    ShowNotification("Yedek alındı", $"{entry.FileName} ({entry.SizeBytes / 1024} KB)");
+                }
+                catch (Exception ex)
+                {
+                    FileLog.Write($"[TrayIconController] Yedek alınamadı: {ex.Message}");
+                    ShowNotification("Yedek alınamadı", ex.Message, ToolTipIcon.Error);
+                }
+            });
         }
 
         public void ShowNotification(string title, string message, ToolTipIcon icon = ToolTipIcon.Info)

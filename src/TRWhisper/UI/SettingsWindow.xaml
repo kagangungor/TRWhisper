@@ -51,6 +51,9 @@
         <PathGeometry x:Key="IconBolt"     Figures="M13 2 3 14h9l-1 8 10-12h-9l1-8z" />
         <PathGeometry x:Key="IconEye"      Figures="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />
         <PathGeometry x:Key="IconEyeOff"   Figures="M9.88 9.88a3 3 0 1 0 4.24 4.24M10.73 5.08A10.43 10.43 0 0 1 12 5c6.4 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68M6.61 6.61A13.5 13.5 0 0 0 2 12s3.6 7 10 7a9.74 9.74 0 0 0 5.39-1.61M2 2l20 20" />
+        <PathGeometry x:Key="IconArchive"  Figures="M3 8h18v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1zM2 3h20v5H2zM10 12h4" />
+        <PathGeometry x:Key="IconTrash"    Figures="M4 6h16M9 6V4h6v2M6 6l1 14h10l1-14M10 10v7M14 10v7" />
+        <PathGeometry x:Key="IconFolder"   Figures="M3 6h6l2 2h10v11a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6z" />
 
         <!-- Çizgi ikon: ince konturlu, yuvarlak uçlu. -->
         <Style x:Key="LineIcon" TargetType="Path">
@@ -887,6 +890,7 @@
                         <RadioButton x:Name="NavDictionary" Style="{StaticResource NavButton}" Content="Sözlük"      Checked="Nav_Checked" Tag="4" />
                         <RadioButton x:Name="NavAi"         Style="{StaticResource NavButton}" Content="Yapay Zeka"  Checked="Nav_Checked" Tag="5" />
                         <RadioButton x:Name="NavOverlay"    Style="{StaticResource NavButton}" Content="Kapsül"      Checked="Nav_Checked" Tag="6" />
+                        <RadioButton x:Name="NavBackup"     Style="{StaticResource NavButton}" Content="Yedekleme"   Checked="Nav_Checked" Tag="7" />
                     </StackPanel>
                 </DockPanel>
             </Border>
@@ -1429,6 +1433,67 @@
                                 </StackPanel>
                                 <TextBlock Style="{StaticResource FieldHint}"
                                            Text="Anahtar Windows DPAPI ile şifrelenerek güvenle saklanır." />
+
+                                <!-- Anahtar yaşam döngüsü: yaş, rotasyon hatırlatması, silme -->
+                                <Grid Margin="0,12,0,0" Width="514" HorizontalAlignment="Left">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Left">
+                                        <TextBlock Text="Anahtar yaşı: " Foreground="{StaticResource TextMuted}"
+                                                   FontSize="12" VerticalAlignment="Center" />
+                                        <TextBlock x:Name="ApiKeyAgeText" Text="—" Foreground="{StaticResource Accent}"
+                                                   FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                    <Button x:Name="ClearApiKeyButton" Style="{StaticResource DangerIconButton}"
+                                            Width="128" Height="36" HorizontalAlignment="Right"
+                                            Click="ClearApiKey_Click"
+                                            AutomationProperties.Name="API anahtarini sil"
+                                            ToolTip="Anahtarı bu bilgisayardan siler. Sağlayıcı panelinden de iptal etmeniz önerilir.">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Path Style="{StaticResource LineIcon}" Data="{StaticResource IconTrash}"
+                                                  Stroke="{StaticResource Danger}" Width="14" Height="14" Margin="0,0,8,0" />
+                                            <TextBlock Text="Anahtarı Sil" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Button>
+                                </Grid>
+
+                                <Border x:Name="ApiKeyRotationBadge" Background="#262114" BorderBrush="#EAB308"
+                                        BorderThickness="1" CornerRadius="8" Padding="12,7" Margin="0,10,0,0"
+                                        HorizontalAlignment="Left" Visibility="Collapsed">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Path Style="{StaticResource LineIcon}" Data="{StaticResource IconWarning}"
+                                              Stroke="#FACC15" Width="14" Height="14" Margin="0,0,9,0" />
+                                        <TextBlock x:Name="ApiKeyRotationText" Foreground="#FACC15" FontSize="12"
+                                                   FontWeight="SemiBold" VerticalAlignment="Center" TextWrapping="Wrap"
+                                                   MaxWidth="470" />
+                                    </StackPanel>
+                                </Border>
+
+                                <Grid Margin="0,12,0,0" Width="514" HorizontalAlignment="Left">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Left">
+                                        <TextBlock Text="Rotasyon hatırlatması" Foreground="{StaticResource TextMuted}"
+                                                   FontSize="12" VerticalAlignment="Center" Margin="0,0,10,0" />
+                                        <TextBox x:Name="KeyRotationDaysBox" Width="64" Height="36"
+                                                 HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                                 TextAlignment="Center" FontWeight="SemiBold" FontSize="13.5"
+                                                 AutomationProperties.Name="Rotasyon hatirlatma gun sayisi"
+                                                 PreviewTextInput="NumericOnly_PreviewTextInput" />
+                                        <TextBlock Text="gün (0 = kapalı)" Foreground="{StaticResource TextMuted}"
+                                                   FontSize="12" VerticalAlignment="Center" Margin="10,0,0,0" />
+                                    </StackPanel>
+                                    <Button x:Name="OpenProviderConsoleButton" Style="{StaticResource GhostButton}"
+                                            MinWidth="176" Height="36" HorizontalAlignment="Right"
+                                            Click="OpenProviderConsole_Click"
+                                            ToolTip="Sağlayıcının anahtar yönetim sayfasını açar: anahtarı kısıtlayabilir, döndürebilir veya iptal edebilirsiniz.">
+                                        <StackPanel Orientation="Horizontal">
+                                            <Path Style="{StaticResource LineIcon}" Data="{StaticResource IconLock}"
+                                                  Stroke="{StaticResource TextPrimary}" Width="14" Height="14" Margin="0,0,8,0" />
+                                            <TextBlock Text="Anahtar Panelini Aç" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Button>
+                                </Grid>
+
+                                <TextBlock Style="{StaticResource FieldHint}" TextWrapping="Wrap" MaxWidth="514"
+                                           HorizontalAlignment="Left"
+                                           Text="TRWhisper anahtarı yalnızca saklar; kapsamını daraltmak (model/IP kısıtı), süresini yönetmek ve iptal etmek sağlayıcı panelinden yapılır. Anahtarı düzenli aralıklarla yenilemek, sızma hâlinde zararı sınırlar." />
                             </StackPanel>
 
                             <!-- Bağlantıyı Test Et Butonu ve Durum Mesajı -->
@@ -1445,6 +1510,54 @@
                                 <TextBlock x:Name="LlmConnectionStatusText" Style="{StaticResource FieldHint}"
                                            Margin="0,8,0,0" TextWrapping="Wrap" Visibility="Collapsed" />
                             </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Kullanım ve maliyet tavanı (yalnızca bulut sağlayıcılarda) -->
+                    <Border x:Name="QuotaCard" Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource SectionTitle}" FontSize="15" Text="Kullanım ve Maliyet Tavanı" />
+                            <TextBlock Style="{StaticResource SectionHint}" Margin="0,0,0,12" TextWrapping="Wrap"
+                                       Text="Bulut sağlayıcı seçiliyken LLM temizlemeli her dikte bir API çağrısı doğurur. Günlük tavan, beklenmedik faturaya karşı uygulamanın kendi içindeki durdurucusudur." />
+
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="Günlük çağrı tavanı" Margin="0,0,0,6" />
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                                <TextBox x:Name="DailyLimitBox" Width="80" Height="36"
+                                         HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                         TextAlignment="Center" FontWeight="SemiBold" FontSize="13.5"
+                                         AutomationProperties.Name="Gunluk cagri tavani"
+                                         PreviewTextInput="NumericOnly_PreviewTextInput" />
+                                <TextBlock Text="çağrı/gün (0 = sınırsız)" Foreground="{StaticResource TextMuted}"
+                                           FontSize="12" VerticalAlignment="Center" Margin="10,0,0,0" />
+                            </StackPanel>
+
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="Tavan dolduğunda" Margin="0,14,0,6" />
+                            <ComboBox x:Name="QuotaActionCombo" Width="340" HorizontalAlignment="Left"
+                                      AutomationProperties.Name="Tavan dolunca yapilacak"
+                                      SelectionChanged="QuotaActionCombo_SelectionChanged" />
+                            <TextBlock x:Name="QuotaActionHint" Style="{StaticResource FieldHint}" TextWrapping="Wrap" MaxWidth="514"
+                                       Text="Engelle: tavan dolunca LLM temizleme atlanır, ham transkript yazılır; ek ücret doğmaz." />
+
+                            <Border Height="1" Background="{StaticResource Stroke}" Margin="0,14,0,11" />
+
+                            <Grid Width="514" HorizontalAlignment="Left">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Left">
+                                    <TextBlock Text="Bugünkü kullanım: " Foreground="{StaticResource TextMuted}"
+                                               FontSize="12" VerticalAlignment="Center" />
+                                    <TextBlock x:Name="QuotaUsageText" Text="—" Foreground="{StaticResource Accent}"
+                                               FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                </StackPanel>
+                                <Button x:Name="ResetUsageButton" Style="{StaticResource GhostButton}"
+                                        MinWidth="150" Height="36" HorizontalAlignment="Right"
+                                        Click="ResetUsage_Click"
+                                        ToolTip="Bugünkü sayacı sıfırlar. Sağlayıcıdaki gerçek kullanımı değiştirmez.">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Path Style="{StaticResource LineIcon}" Data="{StaticResource IconReset}"
+                                              Stroke="{StaticResource TextPrimary}" Width="14" Height="14" Margin="0,0,8,0" />
+                                        <TextBlock Text="Sayacı Sıfırla" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+                            </Grid>
                         </StackPanel>
                     </Border>
 
@@ -1716,6 +1829,151 @@
                                            VerticalAlignment="Center" Margin="10,0,0,0" />
                             </StackPanel>
                         </Grid>
+                    </Border>
+                </StackPanel>
+
+                <!-- ================ 7: YEDEKLEME ================ -->
+                <StackPanel x:Name="PageBackup" Visibility="Collapsed">
+                    <TextBlock Style="{StaticResource SectionTitle}" Text="Yedekleme" />
+                    <TextBlock Style="{StaticResource SectionHint}" TextWrapping="Wrap"
+                               Text="Dikte günlükleri (.md), özel sözlük ve ayarlar tek bir ZIP dosyasına alınır. Yedek yalnızca bu bilgisayarda durur; hiçbir sunucuya gönderilmez." />
+
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <CheckBox x:Name="AutoBackupToggle" Style="{StaticResource Toggle}"
+                                      Content="Açılışta otomatik yedek al" />
+                            <TextBlock Style="{StaticResource FieldHint}" TextWrapping="Wrap" MaxWidth="560"
+                                       Text="Son yedeğin üzerinden aşağıdaki kadar gün geçtiyse TRWhisper açılırken arka planda sessizce yedek alır." />
+
+                            <Grid Margin="0,14,0,0" Width="560" HorizontalAlignment="Left">
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center" HorizontalAlignment="Left">
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Yedekleme aralığı" Margin="0,0,0,6" />
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBox x:Name="BackupIntervalBox" Width="64" Height="36"
+                                                 HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                                 TextAlignment="Center" FontWeight="SemiBold" FontSize="13.5"
+                                                 AutomationProperties.Name="Yedekleme araligi (gun)"
+                                                 PreviewTextInput="NumericOnly_PreviewTextInput" />
+                                        <TextBlock Text="gün" Foreground="{StaticResource TextMuted}"
+                                                   FontSize="12" VerticalAlignment="Center" Margin="10,0,0,0" />
+                                    </StackPanel>
+                                </StackPanel>
+                                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Right">
+                                    <TextBlock Style="{StaticResource FieldLabel}" Text="Saklanacak yedek sayısı" Margin="0,0,0,6" />
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBox x:Name="BackupRetentionBox" Width="64" Height="36"
+                                                 HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                                 TextAlignment="Center" FontWeight="SemiBold" FontSize="13.5"
+                                                 AutomationProperties.Name="Saklanacak yedek sayisi"
+                                                 PreviewTextInput="NumericOnly_PreviewTextInput" />
+                                        <TextBlock Text="adet (0 = hepsi)" Foreground="{StaticResource TextMuted}"
+                                                   FontSize="12" VerticalAlignment="Center" Margin="10,0,0,0" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </Grid>
+
+                            <Border Height="1" Background="{StaticResource Stroke}" Margin="0,16,0,12" />
+
+                            <CheckBox x:Name="IncludeTranscriptsToggle" Style="{StaticResource Toggle}"
+                                      Content="Dikte günlüklerini (.md) yedeğe dahil et" />
+                            <TextBlock Style="{StaticResource FieldHint}" TextWrapping="Wrap" MaxWidth="560"
+                                       Text="Kapatılırsa yedek yalnızca ayarları ve özel sözlüğü içerir; dikte metinleriniz ZIP'e yazılmaz." />
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="Yedek klasörü" />
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                                <TextBox x:Name="BackupDirBox" Width="430" Height="36"
+                                         VerticalContentAlignment="Center"
+                                         AutomationProperties.Name="Yedek klasoru" />
+                                <Button x:Name="OpenBackupFolderButton" Style="{StaticResource GhostButton}"
+                                        MinWidth="122" Height="36" Margin="8,0,0,0"
+                                        Click="OpenBackupFolder_Click"
+                                        ToolTip="Yedek klasörünü Dosya Gezgini'nde açar">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Path Style="{StaticResource LineIcon}" Data="{StaticResource IconFolder}"
+                                              Stroke="{StaticResource TextPrimary}" Width="14" Height="14" Margin="0,0,8,0" />
+                                        <TextBlock Text="Klasörü Aç" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+                            <TextBlock Style="{StaticResource FieldHint}"
+                                       Text="%USERPROFILE%, %APPDATA% gibi ortam değişkenleri kullanılabilir." />
+                        </StackPanel>
+                    </Border>
+
+                    <Border Style="{StaticResource Card}">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource SectionTitle}" FontSize="15" Text="Yedek Al / Geri Yükle" />
+                            <TextBlock Style="{StaticResource SectionHint}" Margin="0,0,0,12" TextWrapping="Wrap"
+                                       Text="Geri yükleme, mevcut ayarların ve dikte günlüklerinin üzerine yazar. Bunu yapmadan önce TRWhisper otomatik olarak mevcut durumun yedeğini alır." />
+
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                                <Button x:Name="CreateBackupButton" Style="{StaticResource PrimaryButton}"
+                                        MinWidth="168" Height="36" Click="CreateBackupNow_Click">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Path Style="{StaticResource LineIcon}" Data="{StaticResource IconArchive}"
+                                              Stroke="White" Width="14" Height="14" Margin="0,0,8,0" />
+                                        <TextBlock Text="Şimdi Yedek Al" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+                                <Button x:Name="RestoreBackupButton" Style="{StaticResource GhostButton}"
+                                        MinWidth="184" Height="36" Margin="10,0,0,0" Click="RestoreBackup_Click">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Path Style="{StaticResource LineIcon}" Data="{StaticResource IconReset}"
+                                              Stroke="{StaticResource TextPrimary}" Width="14" Height="14" Margin="0,0,8,0" />
+                                        <TextBlock Text="Yedekten Geri Yükle" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Button>
+                            </StackPanel>
+
+                            <TextBlock x:Name="BackupStatusText" Style="{StaticResource FieldHint}"
+                                       Margin="0,10,0,0" TextWrapping="Wrap" MaxWidth="560" />
+
+                            <Border Height="1" Background="{StaticResource Stroke}" Margin="0,14,0,12" />
+
+                            <TextBlock Style="{StaticResource FieldLabel}" Text="Mevcut yedekler" />
+                            <TextBlock x:Name="NoBackupsText" Style="{StaticResource FieldHint}"
+                                       Text="Henüz yedek alınmamış." Visibility="Collapsed" />
+                            <ScrollViewer MaxHeight="184" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                                <ItemsControl x:Name="BackupsListControl">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Background="#1A1A1E" BorderBrush="{StaticResource Stroke}"
+                                                    BorderThickness="1" CornerRadius="8" Padding="12,8" Margin="0,0,0,6">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,12,0">
+                                                        <TextBlock Text="{Binding FileName}" Foreground="{StaticResource TextPrimary}"
+                                                                   FontSize="12.5" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                                        <TextBlock Text="{Binding CreatedText}" Foreground="{StaticResource TextMuted}"
+                                                                   FontSize="11.5" Margin="0,2,0,0" />
+                                                    </StackPanel>
+                                                    <TextBlock Grid.Column="1" Text="{Binding SizeText}"
+                                                               Foreground="{StaticResource TextMuted}" FontSize="11.5"
+                                                               VerticalAlignment="Center" />
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </StackPanel>
+                    </Border>
+
+                    <Border Background="#141B24" BorderBrush="#2563EB" BorderThickness="1"
+                            CornerRadius="8" Padding="14,10" Margin="0,4,0,0">
+                        <StackPanel Orientation="Horizontal">
+                            <Path Style="{StaticResource LineIcon}" Data="{StaticResource IconLock}"
+                                  Stroke="#60A5FA" Width="15" Height="15" Margin="0,1,10,0" VerticalAlignment="Top" />
+                            <TextBlock Foreground="#93C5FD" FontSize="12" TextWrapping="Wrap" MaxWidth="540"
+                                       Text="API anahtarınız yedeğe yazılmaz. Yedek dosyası başka bir bilgisayara taşınabilir; sır taşımaması için anahtar dışarıda bırakılır. Geri yükleme sonrası anahtarı Yapay Zeka sekmesinden yeniden girin." />
+                        </StackPanel>
                     </Border>
                 </StackPanel>
 

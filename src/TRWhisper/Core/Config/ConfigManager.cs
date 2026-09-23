@@ -101,7 +101,12 @@ namespace TRWhisper.Core.Config
             var current = Path.Combine(Directory.GetCurrentDirectory(), expanded);
             if (File.Exists(current)) return current;
 
-            // 3. Üst dizinleri tara (bin/Release/net9.0-windows -> proje kökü)
+            // 3. Kullanıcı veri dizini: uygulama dizini yazma korumalıysa (Program Files
+            // kurulumu) sonradan indirilen modeller buraya yazılır.
+            var userData = Path.Combine(AppPaths.LocalDataDirectory, expanded);
+            if (File.Exists(userData)) return userData;
+
+            // 4. Üst dizinleri tara (bin/Release/net9.0-windows -> proje kökü)
             var currentDir = new DirectoryInfo(AppDomain.CurrentDomain.BaseDirectory);
             for (int i = 0; i < 5 && currentDir != null; i++)
             {
@@ -128,6 +133,32 @@ namespace TRWhisper.Core.Config
 
         public bool EnableAutoAppMode { get; set; } = true;
 
+        /// <summary>
+        /// API anahtarının en son değiştirildiği an (UTC). ConfigManager.Save() anahtar
+        /// değerinin değiştiğini görünce damgalar; Ayarlar penceresi bundan "anahtar yaşı"
+        /// hesaplayıp rotasyon hatırlatması gösterir. Boş = bilinmiyor (eski yapılandırma).
+        /// </summary>
+        public DateTime? ApiKeyUpdatedUtc { get; set; }
+
+        /// <summary>
+        /// Anahtar bu kadar günden uzun süredir değişmediyse Ayarlar penceresi rotasyon
+        /// önerir. Uygulama anahtarı kendiliğinden geçersiz kılmaz; 0 = hatırlatma kapalı.
+        /// </summary>
+        public int ApiKeyRotationReminderDays { get; set; } = 90;
+
+        /// <summary>
+        /// Bulut sağlayıcıda bir günde yapılabilecek en fazla istek. Yerel sağlayıcılar
+        /// (Ollama vb.) sayılmaz, ücret doğurmazlar. 0 = sınırsız.
+        /// </summary>
+        public int DailyRequestLimit { get; set; } = 200;
+
+        /// <summary>
+        /// Günlük tavan dolunca ne yapılacağı:
+        /// "Block" — LLM temizleme atlanır, ham transkript yazılır (varsayılan);
+        /// "WarnOnly" — istek yine gönderilir, yalnızca uyarı gösterilir.
+        /// </summary>
+        public string QuotaExceededAction { get; set; } = QuotaActions.Block;
+
         private Dictionary<string, string> _appModeMappings = GetDefaultAppModeMappings();
         public Dictionary<string, string> AppModeMappings
         {
@@ -148,6 +179,45 @@ namespace TRWhisper.Core.Config
                 { "pwsh", "Technical" }
             };
         }
+    }
+
+    /// <summary>Günlük tavan dolunca uygulanacak davranışlar.</summary>
+    public static class QuotaActions
+    {
+        public const string Block = "Block";
+        public const string WarnOnly = "WarnOnly";
+
+        /// <summary>Tanınmayan değerleri güvenli varsayılana (Block) indirger.</summary>
+        public static string Normalize(string? value)
+            => string.Equals(value?.Trim(), WarnOnly, StringComparison.OrdinalIgnoreCase) ? WarnOnly : Block;
+    }
+
+    /// <summary>
+    /// Yedekleme: transkript günlükleri (.md), dictionary.json ve config.json tek bir ZIP'e
+    /// alınır. API anahtarı yedeğe HİÇ yazılmaz (bkz. BackupService); yedek dosyası başka bir
+    /// makineye kopyalandığında sır sızdırmaz.
+    /// </summary>
+    public class BackupConfig
+    {
+        /// <summary>Açılışta son yedeğin üzerinden yeterli gün geçtiyse kendiliğinden yedek al.</summary>
+        public bool EnableAutomaticBackup { get; set; } = true;
+
+        /// <summary>Otomatik yedekler arasındaki en az gün sayısı.</summary>
+        public int AutomaticBackupIntervalDays { get; set; } = 1;
+
+        /// <summary>Klasörde tutulacak en yeni yedek sayısı; fazlası silinir. 0 = hepsini sakla.</summary>
+        public int RetentionCount { get; set; } = 10;
+
+        /// <summary>Dikte günlüğü (.md) dosyaları yedeğe dahil edilsin mi.</summary>
+        public bool IncludeTranscripts { get; set; } = true;
+
+        public string BackupDirectory { get; set; } = "%USERPROFILE%\\Dictation\\Yedekler";
+
+        /// <summary>En son başarılı yedeğin zamanı (UTC). Otomatik yedek zamanlaması için.</summary>
+        public DateTime? LastBackupUtc { get; set; }
+
+        [JsonIgnore]
+        public string ResolvedBackupDirectory => Environment.ExpandEnvironmentVariables(BackupDirectory);
     }
 
     public class AudioConfig
@@ -242,6 +312,7 @@ namespace TRWhisper.Core.Config
         private AudioConfig _audio = new();
         private HotkeyConfig _hotkey = new();
         private OverlayConfig _overlay = new();
+        private BackupConfig _backup = new();
 
         public GeneralConfig General
         {
@@ -284,6 +355,12 @@ namespace TRWhisper.Core.Config
             get => _overlay;
             set => _overlay = value ?? new OverlayConfig();
         }
+
+        public BackupConfig Backup
+        {
+            get => _backup;
+            set => _backup = value ?? new BackupConfig();
+        }
     }
 
     public class ConfigManager
@@ -297,6 +374,13 @@ namespace TRWhisper.Core.Config
         private readonly string _configFilePath;
         private AppConfig _currentConfig;
         private readonly object _lock = new();
+
+        /// <summary>
+        /// En son diske yazılan/okunan API anahtarı. Ayrı tutulur çünkü çağıranlar
+        /// (Ayarlar penceresi) <see cref="Current"/> nesnesini yerinde değiştirip Save()
+        /// çağırır; o anda eski değer artık hiçbir yerde durmaz, karşılaştırılamazdı.
+        /// </summary>
+        private string _lastSavedApiKey = "";
 
         public event Action<AppConfig>? ConfigChanged;
 
@@ -320,9 +404,39 @@ namespace TRWhisper.Core.Config
         /// </summary>
         public bool LastLoadFailed { get; private set; }
 
+        /// <summary>
+        /// Yapılandırma dosyasının konumu. Uygulama dizini yazılabiliyorsa (varsayılan,
+        /// kullanıcı profiline kurulum) dosya exe'nin yanındadır. Program Files gibi yazma
+        /// korumalı bir kurulumda %APPDATA%\TRWhisper altına düşülür; kurulumla gelen
+        /// şablon ilk çalıştırmada oraya kopyalanarak varsayılanlar korunur.
+        /// </summary>
+        public static string ResolveDefaultConfigPath()
+        {
+            var appDirConfig = Path.Combine(AppPaths.BaseDirectory, "config.json");
+            if (AppPaths.IsBaseDirectoryWritable) return appDirConfig;
+
+            try
+            {
+                Directory.CreateDirectory(AppPaths.RoamingDataDirectory);
+                var roamingConfig = Path.Combine(AppPaths.RoamingDataDirectory, "config.json");
+
+                if (!File.Exists(roamingConfig) && File.Exists(appDirConfig))
+                {
+                    File.Copy(appDirConfig, roamingConfig);
+                }
+
+                return roamingConfig;
+            }
+            catch
+            {
+                // Yedek konum da kullanılamıyorsa eski davranışa dön; Save() hatayı loglar.
+                return appDirConfig;
+            }
+        }
+
         public ConfigManager(string? configFilePath = null)
         {
-            _configFilePath = configFilePath ?? Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "config.json");
+            _configFilePath = configFilePath ?? ResolveDefaultConfigPath();
             _currentConfig = LoadOrCreate();
             WatchConfigFile();
         }
@@ -340,6 +454,7 @@ namespace TRWhisper.Core.Config
                         if (config != null)
                         {
                             config.LlmCleaning.ApiKey = SecretProtection.Unprotect(config.LlmCleaning.ApiKey);
+                            _lastSavedApiKey = config.LlmCleaning.ApiKey;
                             LastLoadFailed = false;
                             _currentConfig = config;
                             return _currentConfig;
@@ -352,6 +467,7 @@ namespace TRWhisper.Core.Config
                     }
 
                     _currentConfig = new AppConfig();
+                    _lastSavedApiKey = "";
                     Save(_currentConfig);
                     return _currentConfig;
                 }
@@ -377,6 +493,8 @@ namespace TRWhisper.Core.Config
                         Directory.CreateDirectory(dir);
                     }
 
+                    StampApiKeyRotation(config);
+
                     // Diske kaydederken API anahtarını DPAPI ile şifrele, bellekteki nesneyi koru
                     var clone = JsonSerializer.Deserialize<AppConfig>(JsonSerializer.Serialize(config, JsonOptions), JsonOptions) ?? config;
                     clone.LlmCleaning.ApiKey = SecretProtection.Protect(config.LlmCleaning.ApiKey);
@@ -399,6 +517,20 @@ namespace TRWhisper.Core.Config
             {
                 Console.WriteLine($"[ConfigManager] ConfigChanged tetikleme hatası: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// API anahtarı gerçekten değiştiyse rotasyon damgasını tazeler. Damga yalnızca
+        /// değişimde atılır: her kaydetmede tazelenseydi "anahtar kaç gündür aynı" sorusu
+        /// hiçbir zaman doğru yanıtlanamazdı. Anahtar silinirse damga da temizlenir.
+        /// </summary>
+        private void StampApiKeyRotation(AppConfig config)
+        {
+            var newKey = config.LlmCleaning.ApiKey ?? "";
+            if (string.Equals(newKey, _lastSavedApiKey, StringComparison.Ordinal)) return;
+
+            config.LlmCleaning.ApiKeyUpdatedUtc = string.IsNullOrWhiteSpace(newKey) ? null : DateTime.UtcNow;
+            _lastSavedApiKey = newKey;
         }
 
         private void WatchConfigFile()

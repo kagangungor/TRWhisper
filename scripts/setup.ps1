@@ -14,6 +14,49 @@ $whisperBuild = "b4938"
 
 $ErrorActionPreference = "Stop"
 
+# İndirilen her dosya sabit bir SHA-256 özetiyle doğrulanır. HTTPS yalnızca aktarımı
+# korur; yayın varlığı kaynağında değiştirilirse (hesap ele geçirme, bozuk ayna) tek
+# koruma bu pindir. Özetler: GitHub Releases API (asset digest), NVIDIA CUDA redist
+# manifesti (redistrib_13.0.x.json) ve WhisperModelManager.cs kataloğu.
+$WhisperZipHashes = @{
+    "whisper-bin-x64.zip"               = "C2A4B60EDB11F7E11A9191FFB50929535527D4D91C9903DBE3E554583BBBC63D"
+    "whisper-cublas-12.4.0-bin-x64.zip" = "C1B17166E1E31A91CC8E9C1F910D3785E3CE757BB2958BF9DCE13FDB4880005F"
+}
+
+# Hugging Face adresleri commit'e sabitlenmiştir: "main" değişirse özet tutmazdı.
+$WhisperHfCommit = "5359861c739e955e79d9a303bcbc70fb988958b1"
+$VadHfCommit = "9ffd54a1e1ee413ddf265af9913beaf518d1639b"
+
+$ModelHashes = @{
+    "large-v3-turbo-q5_0" = "394221709CD5AD1F40C46E6031CA61BCE88931E6E088C188294C6D5A55FFA7E2"
+    "small"               = "1BE3A9B2063867B937E64E2EC7483364A79917E157FA98C5D94B5C1FFFEA987B"
+    "base"                = "60ED5BC3DD14EEA856493D334349B405782DDCAF0028D4B5DF4088345FBA2EFE"
+    "tiny"                = "BE07E048E1E599AD46341C8D2A135645097A538221678B7ACDD1B1919C6E1B21"
+    "medium"              = "6C14D5ADEE5F86394037B4E4E8B59F1673B6CEE10E3CF0B11BBDBEE79C156208"
+    "large-v3"            = "64D182B440B98D5203C4F9BD541544D84C605196C4F7B845DFA11FB23594D1E2"
+}
+
+$VadSha = "2AA269B785EEB53A82983A20501DDF7C1D9C48E33AB63A41391AC6C9F7FB6987"
+
+# İndirir ve SHA-256 tutmazsa dosyayı silip durur (fail-closed).
+function Invoke-VerifiedDownload {
+    param(
+        [Parameter(Mandatory = $true)][string]$Url,
+        [Parameter(Mandatory = $true)][string]$OutFile,
+        [Parameter(Mandatory = $true)][string]$Sha256
+    )
+
+    Invoke-WebRequest -Uri $Url -OutFile $OutFile -UseBasicParsing
+
+    $actual = (Get-FileHash $OutFile -Algorithm SHA256).Hash
+    if ($actual -ne $Sha256.ToUpperInvariant()) {
+        Remove-Item $OutFile -Force -ErrorAction SilentlyContinue
+        throw "SHA-256 dogrulamasi BASARISIZ: $Url (beklenen $($Sha256.ToUpperInvariant()), gelen $actual). Dosya guvenlik gerekcesiyle silindi."
+    }
+
+    Write-Host "[+] SHA-256 doğrulandı: $(Split-Path $OutFile -Leaf)" -ForegroundColor Green
+}
+
 $rootPath = Resolve-Path (Join-Path $PSScriptRoot "..")
 $toolsDir = Join-Path $rootPath "tools\whisper"
 $dictationDir = [Environment]::ExpandEnvironmentVariables("%USERPROFILE%\Dictation")
@@ -47,7 +90,10 @@ if (-not $hasBinary -or ($Cuda -and -not (Test-Path $cudaDll))) {
     $tempZip = Join-Path $env:TEMP $zipName
 
     try {
-        Invoke-WebRequest -Uri $zipUrl -OutFile $tempZip -UseBasicParsing
+        if (-not $WhisperZipHashes.ContainsKey($zipName)) {
+            throw "$zipName icin SHA-256 ozeti tanimli degil; dogrulanmamis ikili indirilmeyecek."
+        }
+        Invoke-VerifiedDownload -Url $zipUrl -OutFile $tempZip -Sha256 $WhisperZipHashes[$zipName]
         Expand-Archive -Path $tempZip -DestinationPath $toolsDir -Force
         Remove-Item $tempZip -Force
         $nestedRelease = Join-Path $toolsDir "Release"
@@ -69,13 +115,16 @@ if (-not $hasBinary -or ($Cuda -and -not (Test-Path $cudaDll))) {
 $modelFileName = "ggml-$Model.bin"
 $modelPath = Join-Path $toolsDir $modelFileName
 
+if (-not $ModelHashes.ContainsKey($Model)) {
+    throw "Bilinmeyen model: '$Model'. SHA-256 ozeti tanimli olmayan model indirilmez. Desteklenenler: $($ModelHashes.Keys -join ', ')"
+}
+
 if (-not (Test-Path $modelPath)) {
     Write-Host "[*] $modelFileName modeli Hugging Face üzerinden indiriliyor (~465 MB)..." -ForegroundColor Yellow
-    $modelUrl = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/$modelFileName"
+    $modelUrl = "https://huggingface.co/ggerganov/whisper.cpp/resolve/$WhisperHfCommit/$modelFileName"
 
     try {
-        # İlerleme çubuğu ile indirme
-        Invoke-WebRequest -Uri $modelUrl -OutFile $modelPath
+        Invoke-VerifiedDownload -Url $modelUrl -OutFile $modelPath -Sha256 $ModelHashes[$Model]
         Write-Host "[+] Model başarıyla indirildi: $modelPath" -ForegroundColor Green
     }
     catch {
@@ -92,10 +141,10 @@ $vadPath = Join-Path $toolsDir $vadFileName
 
 if (-not (Test-Path $vadPath)) {
     Write-Host "[*] $vadFileName VAD modeli indiriliyor (~1 MB)..." -ForegroundColor Yellow
-    $vadUrl = "https://huggingface.co/ggml-org/whisper-vad/resolve/main/$vadFileName"
+    $vadUrl = "https://huggingface.co/ggml-org/whisper-vad/resolve/$VadHfCommit/$vadFileName"
 
     try {
-        Invoke-WebRequest -Uri $vadUrl -OutFile $vadPath
+        Invoke-VerifiedDownload -Url $vadUrl -OutFile $vadPath -Sha256 $VadSha
         Write-Host "[+] VAD modeli başarıyla indirildi: $vadPath" -ForegroundColor Green
     }
     catch {
@@ -119,16 +168,18 @@ if ($Cuda) {
         if (-not (Test-Path $cuda13Dir)) { New-Item -ItemType Directory -Path $cuda13Dir -Force | Out-Null }
         Write-Host "[*] CUDA 13 runtime DLL'leri NVIDIA redist'ten indiriliyor (~385 MB)..." -ForegroundColor Yellow
 
+        # Özetler NVIDIA redist manifestlerinden alınmıştır
+        # (redistrib_13.0.2.json -> cuda_cudart 13.0.96, redistrib_13.0.1.json -> libcublas 13.0.2.14).
         $redist = @(
-            @{ Name = "cudart"; Url = "https://developer.download.nvidia.com/compute/cuda/redist/cuda_cudart/windows-x86_64/cuda_cudart-windows-x86_64-13.0.96-archive.zip" },
-            @{ Name = "cublas"; Url = "https://developer.download.nvidia.com/compute/cuda/redist/libcublas/windows-x86_64/libcublas-windows-x86_64-13.0.2.14-archive.zip" }
+            @{ Name = "cudart"; Url = "https://developer.download.nvidia.com/compute/cuda/redist/cuda_cudart/windows-x86_64/cuda_cudart-windows-x86_64-13.0.96-archive.zip"; Sha256 = "A2ED875F9997AA24904FB70CC9DB3ACD9308433CDE99BC8E63EC1271C9DA31B4" },
+            @{ Name = "cublas"; Url = "https://developer.download.nvidia.com/compute/cuda/redist/libcublas/windows-x86_64/libcublas-windows-x86_64-13.0.2.14-archive.zip"; Sha256 = "B03FD06FB14FA33E27FC441433FE74CCEE9738B62C62A08D39960CB0CE9F1D14" }
         )
 
         try {
             foreach ($pkg in $redist) {
                 $tempZip = Join-Path $env:TEMP "trwhisper-cuda13-$($pkg.Name).zip"
                 $tempDir = Join-Path $env:TEMP "trwhisper-cuda13-$($pkg.Name)"
-                Invoke-WebRequest -Uri $pkg.Url -OutFile $tempZip -UseBasicParsing
+                Invoke-VerifiedDownload -Url $pkg.Url -OutFile $tempZip -Sha256 $pkg.Sha256
                 Expand-Archive -Path $tempZip -DestinationPath $tempDir -Force
                 Get-ChildItem $tempDir -Recurse -File -Include $cuda13Files |
                     ForEach-Object { Copy-Item $_.FullName $cuda13Dir -Force }

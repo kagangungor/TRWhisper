@@ -1,8 +1,21 @@
-; TRWhisper kurulum betiği (Inno Setup 6.4+)
+; TRWhisper kurulum betiği (Inno Setup 6.5+)
 ; Derleme: scripts\build-installer.ps1  (elle ISCC çağırmayın; önbellek dosyaları gerekir)
+;
+; KODLAMA: Bu dosya BOM'SUZ UTF-8'dir ve öyle kalmalıdır. Inno Setup 6.3'ten beri
+; BOM'suz UTF-8 betikler doğrudan desteklenir; 6.5 sürüm notlarında BOM kullanımının
+; "gerekli olmadığı ve önerilmediği" açıkça yazar. Dosyayı ANSI olarak kaydeden bir
+; düzenleyici kullanmayın: buradaki Türkçe metinler kurulum arayüzünde bozulur
+; ("betiği" -> "betiÄŸi").
+;
+; Sürüm gereksinimi: ExtractArchive ve TDownloadWizardPage.LastBaseNameOrUrl yordamları
+; Inno Setup 6.5.0 ile geldi. Eski bir derleyicide anlaşılmaz bir "Unknown identifier"
+; hatası almak yerine burada açık bir mesajla duralım.
+#if VER < EncodeVer(6, 5, 0)
+  #error Inno Setup 6.5 veya uzeri gerekli. Guncelleme: winget upgrade JRSoftware.InnoSetup
+#endif
 
 #ifndef AppVersion
-  #define AppVersion "2.0.1"
+  #define AppVersion "2.1.0"
 #endif
 
 #define AppName "TRWhisper"
@@ -53,13 +66,17 @@ AppPublisher={#AppPublisher}
 AppPublisherURL={#AppURL}
 AppSupportURL={#AppURL}/issues
 AppUpdatesURL={#AppURL}/releases
-DefaultDirName={localappdata}\Programs\{#AppName}
+DefaultDirName={autopf}\{#AppName}
 DefaultGroupName={#AppName}
 DisableProgramGroupPage=yes
 UninstallDisplayIcon={app}\{#AppExe}
 UninstallDisplayName={#AppName}
-; Uygulama config.json'u kendi klasörüne yazdığı için kullanıcı profiline kurulur (yönetici gerekmez).
+; Varsayilan kurulum kullanici profilinedir ({localappdata}\Programs\TRWhisper): yonetici
+; hakki gerekmez. Sertlestirilmis ortamlar icin "TRWhisper-Setup.exe /ALLUSERS" Program Files'a
+; kurar; uygulama dizini yazma korumali oldugunda uygulama ayarlari %APPDATA%\TRWhisper,
+; indirilen modelleri %LOCALAPPDATA%\TRWhisper altina yazar (bkz. AppPaths.cs).
 PrivilegesRequired=lowest
+PrivilegesRequiredOverridesAllowed=commandline
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0.17763
@@ -167,7 +184,7 @@ Source: "..\LICENSE"; DestDir: "{app}"; DestName: "LICENSE.txt"; Flags: ignoreve
 Source: "i18n\THIRD-PARTY-NOTICES.txt"; DestDir: "{app}"; Flags: ignoreversion
 Source: "cache\ggml-silero-v6.2.0.bin"; DestDir: "{app}\tools\whisper"; Flags: ignoreversion
 ; Kullanıcının ayarları yükseltmede korunur.
-Source: "..\src\TRWhisper\config.json"; DestDir: "{app}"; Flags: onlyifdoesntexist uninsremovereadonly
+Source: "..\src\TRWhisper\config.default.json"; DestDir: "{app}"; DestName: "config.json"; Flags: onlyifdoesntexist uninsremovereadonly
 
 ; --- whisper-cli ve CPU motoru ---
 Source: "cache\cpu\Release\whisper-cli.exe"; DestDir: "{app}\tools\whisper"; Flags: ignoreversion
@@ -222,6 +239,9 @@ Type: files; Name: "{app}\cublasLt64_13.dll"
 Type: files; Name: "{app}\cudart64_13.dll"
 Type: files; Name: "{app}\config.json"
 Type: files; Name: "{app}\dictionary.json"
+; /ALLUSERS kurulumunda ayarlar ve indirilen modeller kullanici profilindedir.
+Type: filesandordirs; Name: "{userappdata}\TRWhisper"
+Type: filesandordirs; Name: "{localappdata}\TRWhisper"
 Type: dirifempty; Name: "{app}"
 
 [Code]

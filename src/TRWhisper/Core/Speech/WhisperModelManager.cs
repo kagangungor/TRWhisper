@@ -50,7 +50,17 @@ namespace TRWhisper.Core.Speech
             }
         }
 
-        public string ResolvedPath => Path.Combine(WhisperModelManager.GetToolsDirectory(), FileName);
+        public string ResolvedPath
+        {
+            get
+            {
+                var installed = Path.Combine(WhisperModelManager.GetToolsDirectory(), FileName);
+                if (File.Exists(installed)) return installed;
+
+                var downloaded = Path.Combine(WhisperModelManager.GetWritableToolsDirectory(), FileName);
+                return File.Exists(downloaded) ? downloaded : installed;
+            }
+        }
 
         public string FormattedSize => WhisperModelManager.FormatBytes(InstalledSizeBytes > 0 ? InstalledSizeBytes : ApproximateSizeBytes);
     }
@@ -161,14 +171,43 @@ namespace TRWhisper.Core.Speech
             var currentWorking = Path.Combine(Directory.GetCurrentDirectory(), "tools", "whisper");
             if (Directory.Exists(currentWorking)) return currentWorking;
 
+            var userTools = Path.Combine(AppPaths.LocalDataDirectory, "tools", "whisper");
+            if (Directory.Exists(userTools)) return userTools;
+
+            return GetWritableToolsDirectory();
+        }
+
+        /// <summary>
+        /// İndirilen modellerin yazılacağı dizin. Uygulama dizini yazılabiliyorsa (varsayılan
+        /// kurulum) exe'nin yanındaki tools\whisper, değilse (Program Files kurulumu)
+        /// %LOCALAPPDATA%\TRWhisper\tools\whisper kullanılır.
+        /// </summary>
+        public static string GetWritableToolsDirectory()
+        {
+            var appTools = Path.Combine(AppPaths.BaseDirectory, "tools", "whisper");
+
+            if (AppPaths.IsBaseDirectoryWritable)
+            {
+                try
+                {
+                    Directory.CreateDirectory(appTools);
+                    return appTools;
+                }
+                catch
+                {
+                    // aşağıdaki kullanıcı dizinine düşülür
+                }
+            }
+
+            var userTools = Path.Combine(AppPaths.LocalDataDirectory, "tools", "whisper");
             try
             {
-                Directory.CreateDirectory(direct);
-                return direct;
+                Directory.CreateDirectory(userTools);
+                return userTools;
             }
             catch
             {
-                return baseDir;
+                return appTools;
             }
         }
 
@@ -199,12 +238,7 @@ namespace TRWhisper.Core.Speech
                 return (false, $"Bilinmeyen model kimliği: {modelId}");
             }
 
-            var toolsDir = GetToolsDirectory();
-            if (!Directory.Exists(toolsDir))
-            {
-                Directory.CreateDirectory(toolsDir);
-            }
-
+            var toolsDir = GetWritableToolsDirectory();
             var finalPath = Path.Combine(toolsDir, model.FileName);
             var tempPath = finalPath + ".downloading";
 

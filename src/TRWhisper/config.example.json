@@ -21,6 +21,9 @@
     "ApiKey": "BURAYA_GEMINI_VEYA_OPENAI_API_ANAHTARINIZI_GIRINIZ",
     "Model": "gemini-2.0-flash",
     "Endpoint": "https://generativelanguage.googleapis.com/v1beta/models",
+    "ApiKeyRotationReminderDays": 90,
+    "DailyRequestLimit": 200,
+    "QuotaExceededAction": "Block",
     "SystemPrompt": "Aşağıdaki metin Türkçe sesli dikte (speech-to-text) çıktısıdır. Lütfen bu metni konuşma dilinden temiz yazı diline dönüştür:\n1. 'ııı', 'eee', 'şey', 'yani', 'falan', 'hımm' gibi duraksama ve dolgu kelimelerini temizle.\n2. Noktalama işaretlerini (nokta, virgül, soru işareti vb.) ve büyük/küçük harf kullanımını eksiksiz düzelt.\n3. Anlatılmak istenen ana fikri ve kelime anlamlarını kesinlikle değiştirme.\n4. Çıktı olarak YALNIZCA düzeltilmiş metni ver. Başına ya da sonuna açıklama, tırnak işareti, selamlama veya markdown ekleme."
   },
   "Paste": {
@@ -41,5 +44,12 @@
   "Overlay": {
     "Position": "Bottom",
     "ResultDurationSeconds": 10
+  },
+  "Backup": {
+    "EnableAutomaticBackup": true,
+    "AutomaticBackupIntervalDays": 1,
+    "RetentionCount": 10,
+    "IncludeTranscripts": true,
+    "BackupDirectory": "%USERPROFILE%\\Dictation\\Yedekler"
   }
 }

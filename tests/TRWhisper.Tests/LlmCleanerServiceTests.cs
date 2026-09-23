@@ -440,5 +440,113 @@ namespace TRWhisper.Tests
             Assert.False(success);
             Assert.Contains("API anahtarı boş olamaz", message);
         }
+
+        [Fact]
+        public async Task CleanTranscriptAsync_Ollama_InsecureHttpOnExternalHost_RejectsAndReturnsRaw()
+        {
+            _configManager.Current.LlmCleaning.Provider = "Ollama";
+            _configManager.Current.LlmCleaning.ApiKey = "test-key";
+            _configManager.Current.LlmCleaning.Endpoint = "http://192.168.1.50:11434/v1/chat/completions";
+
+            var mockHandler = new MockHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK));
+            using var httpClient = new HttpClient(mockHandler);
+            var service = new LlmCleanerService(_configManager, httpClient);
+
+            string raw = "uzak ollama sunucusu";
+            string result = await service.CleanTranscriptAsync(raw);
+
+            Assert.Equal(raw, result);
+            Assert.Contains("HTTPS zorunludur", service.LastError);
+            Assert.Null(mockHandler.LastRequest); // İstek hiç gönderilmemeli
+        }
+
+        [Fact]
+        public async Task TestConnectionAsync_Ollama_InsecureHttpOnExternalHost_Rejects()
+        {
+            var testConfig = new LlmCleaningConfig
+            {
+                Provider = "Ollama",
+                ApiKey = "test-key",
+                Endpoint = "http://192.168.1.50:11434/v1/chat/completions"
+            };
+
+            var mockHandler = new MockHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK));
+            using var httpClient = new HttpClient(mockHandler);
+            var service = new LlmCleanerService(_configManager, httpClient);
+
+            var (success, message) = await service.TestConnectionAsync(testConfig);
+
+            Assert.False(success);
+            Assert.Contains("HTTPS zorunludur", message);
+            Assert.Null(mockHandler.LastRequest);
+        }
+
+        [Fact]
+        public async Task CleanTranscriptAsync_Ollama_HttpsOnExternalHost_Allowed()
+        {
+            _configManager.Current.LlmCleaning.Provider = "Ollama";
+            _configManager.Current.LlmCleaning.Endpoint = "https://ollama.ornek.com/v1/chat/completions";
+
+            string response = """
+            {
+              "choices": [
+                {
+                  "message": { "role": "assistant", "content": "Uzak yanıt." }
+                }
+              ]
+            }
+            """;
+
+            using var httpClient = new HttpClient(new MockHttpMessageHandler(req =>
+            {
+                Assert.Equal("https", req.RequestUri?.Scheme);
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(response, Encoding.UTF8, "application/json")
+                };
+            }));
+            var service = new LlmCleanerService(_configManager, httpClient);
+
+            string result = await service.CleanTranscriptAsync("uzak yanit");
+            Assert.Equal("Uzak yanıt.", result);
+        }
+
+        [Theory]
+        [InlineData("AIzaSyA1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7")]
+        [InlineData("sk-proj-abcdefghijklmnopqrstuvwxyz0123456789")]
+        public void SanitizeErrorBody_MasksApiKeyLikeStrings(string secret)
+        {
+            var masked = LlmCleanerService.SanitizeErrorBody($"invalid key: {secret} reddedildi");
+
+            Assert.DoesNotContain(secret, masked);
+            Assert.Contains("***", masked);
+        }
+
+        [Fact]
+        public void SanitizeErrorBody_TruncatesLongBodiesAndFlattensNewlines()
+        {
+            var body = "satır1\nsatır2 " + new string('x', 500);
+
+            var sanitized = LlmCleanerService.SanitizeErrorBody(body);
+
+            Assert.True(sanitized.Length < body.Length);
+            Assert.DoesNotContain("\n", sanitized);
+            Assert.EndsWith("(kısaltıldı)", sanitized);
+        }
+
+        [Fact]
+        public void SanitizeErrorBody_MasksAuthorizationHeaderEchoes()
+        {
+            var masked = LlmCleanerService.SanitizeErrorBody("{\"error\":{\"authorization\": \"Bearer gizli-deger\"}}");
+
+            Assert.DoesNotContain("gizli-deger", masked);
+        }
+
+        [Fact]
+        public void SanitizeErrorBody_EmptyBody_ReturnsPlaceholder()
+        {
+            Assert.Equal("(boş yanıt)", LlmCleanerService.SanitizeErrorBody(""));
+            Assert.Equal("(boş yanıt)", LlmCleanerService.SanitizeErrorBody(null));
+        }
     }
 }

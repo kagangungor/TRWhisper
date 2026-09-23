@@ -124,6 +124,22 @@ namespace TRWhisper.Core
             CleanupOrphanedTempAudioFiles();
         }
 
+        /// <summary>
+        /// LLM temizleyicinin bıraktığı, akışı durdurmayan uyarıyı (günlük API tavanı)
+        /// tepsi balonu olarak gösterir. Uyarı varsa true döner.
+        /// </summary>
+        private bool ShowLlmWarningIfAny()
+        {
+            var warning = _llmCleaner.LastWarning;
+            if (string.IsNullOrEmpty(warning)) return false;
+
+            _trayController.ShowNotification(
+                "API Kullanım Tavanı",
+                warning,
+                System.Windows.Forms.ToolTipIcon.Warning);
+            return true;
+        }
+
         private void CleanupOrphanedTempAudioFiles()
         {
             try
@@ -498,9 +514,11 @@ namespace TRWhisper.Core
                             {
                                 llmSucceeded = true;
                                 finalTranscript = _normalizer.Normalize(_dictionaryService.Apply(cleaned));
+                                ShowLlmWarningIfAny();
                             }
-                            else
+                            else if (!ShowLlmWarningIfAny())
                             {
+                                // Kota uyarısı yoksa sorun bağlantıdadır.
                                 var provider = _configManager.Current.LlmCleaning.Provider ?? "Ollama";
                                 _trayController.ShowNotification(
                                     "LLM Bağlantı Uyarısı",

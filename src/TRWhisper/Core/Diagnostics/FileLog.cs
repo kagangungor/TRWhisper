@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Text;
 
 namespace TRWhisper.Core.Diagnostics
@@ -14,6 +15,9 @@ namespace TRWhisper.Core.Diagnostics
     {
         private static readonly object Gate = new();
         private const long MaxBytes = 1_000_000;
+
+        /// <summary>Eski sürümlerin düz metin transkript satırlarını tanıyan imza.</summary>
+        private const string LegacyTranscriptMarker = "] Whisper tamamlandı: '";
 
         private static readonly string LogPath = Path.Combine(
             Environment.ExpandEnvironmentVariables("%USERPROFILE%\\Dictation"),
@@ -44,6 +48,44 @@ namespace TRWhisper.Core.Diagnostics
             {
                 // Loglama hatası hiçbir zaman uygulama akışını bozmamalı.
             }
+        }
+
+        /// <summary>
+        /// 2.0.1 öncesi derlemeler dikte metnini bu günlüğe düz metin olarak yazıyordu
+        /// ("Whisper tamamlandı: '...'"). Güncel sürüm yalnızca karakter sayısını yazar;
+        /// bu yordam eski kurulumlardan kalan satırları açılışta bir kez temizler.
+        /// </summary>
+        public static void PurgeLegacyTranscriptLines()
+        {
+            int removed = 0;
+
+            lock (Gate)
+            {
+                foreach (var path in new[] { LogPath, LogPath + ".old" })
+                {
+                    try
+                    {
+                        if (!File.Exists(path)) continue;
+
+                        var lines = File.ReadAllLines(path, Encoding.UTF8);
+                        var kept = lines
+                            .Where(line => !line.Contains(LegacyTranscriptMarker, StringComparison.Ordinal))
+                            .ToArray();
+
+                        if (kept.Length == lines.Length) continue;
+
+                        File.WriteAllLines(path, kept, Encoding.UTF8);
+                        removed += lines.Length - kept.Length;
+                    }
+                    catch
+                    {
+                        // Temizlik başarısız olursa uygulama açılışı engellenmemeli.
+                    }
+                }
+            }
+
+            if (removed > 0)
+                Write($"[FileLog] Eski sürümlerden kalan {removed} düz metin transkript satırı günlükten silindi.");
         }
     }
 }

@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     TRWhisper'ın tek dosyalık kurulum paketini (TRWhisper-Setup-x.y.z.exe) üretir.
 
@@ -10,11 +10,24 @@
 
 .EXAMPLE
     powershell -ExecutionPolicy Bypass -File scripts\build-installer.ps1
+
+.EXAMPLE
+    # Yayındaki CUDA paketini koruyarak yeni sürüm üretir (olağan durum):
+    powershell -ExecutionPolicy Bypass -File scripts\build-installer.ps1 -Version 2.1.0 -SkipCudaPackage
 #>
 
 param (
-    [string]$Version,      # boş ise csproj'daki <Version> kullanılır
-    [switch]$SkipPublish   # publish\TRWhisper.exe güncelse yeniden derleme
+    [string]$Version,          # boş ise csproj'daki <Version> kullanılır
+    [switch]$SkipPublish,      # publish\TRWhisper.exe güncelse yeniden derleme
+    # CUDA zip'ini YENIDEN URETME. TRWhisper.iss'teki sabit CudaZipUrl + CudaZipSha ikilisi
+    # olduğu gibi kullanılır. Zip yeniden üretilirse hash'i değişir ama .iss'teki indirme
+    # adresi eski sürüm varlığına sabit kaldığı için kullanıcıların GPU indirmesi
+    # SHA doğrulamasında düşerdi. Yeni bir CUDA paketi yayınlamıyorsanız bunu kullanın.
+    [switch]$SkipCudaPackage,
+    # Authenticode imzalama. Verilmezse çıktı İMZASIZ üretilir ve uyarı yazılır.
+    # Varsayılan olarak TRWHISPER_SIGN_THUMBPRINT ortam değişkeni okunur.
+    [string]$CertThumbprint = $env:TRWHISPER_SIGN_THUMBPRINT,
+    [string]$TimestampUrl = "http://timestamp.digicert.com"
 )
 
 $ErrorActionPreference = "Stop"
@@ -35,6 +48,46 @@ $vadSha = "2AA269B785EEB53A82983A20501DDF7C1D9C48E33AB63A41391AC6C9F7FB6987"
 
 function Write-Step($text) { Write-Host "[*] $text" -ForegroundColor Cyan }
 function Write-Ok($text)   { Write-Host "[+] $text" -ForegroundColor Green }
+function Write-Warn($text) { Write-Host "[!] $text" -ForegroundColor Yellow }
+
+# signtool.exe'yi PATH'te ve Windows SDK'nin standart konumlarinda arar.
+function Get-SignTool {
+    $fromPath = Get-Command signtool.exe -ErrorAction SilentlyContinue
+    if ($fromPath) { return $fromPath.Source }
+
+    $sdkRoot = Join-Path ${env:ProgramFiles(x86)} "Windows Kits\10\bin"
+    if (-not (Test-Path $sdkRoot)) { return $null }
+
+    return Get-ChildItem -Path $sdkRoot -Filter signtool.exe -Recurse -ErrorAction SilentlyContinue |
+        Where-Object { $_.FullName -match "\\x64\\" } |
+        Sort-Object FullName -Descending |
+        Select-Object -First 1 -ExpandProperty FullName
+}
+
+# Dosyayi Authenticode ile imzalar. Thumbprint verilmemisse imzalamaz, yalnizca uyarir:
+# imzasiz dagitimda kullanicinin elindeki tek dogrulama yolu yayindaki SHA-256 ozetidir.
+function Invoke-CodeSign {
+    param([Parameter(Mandatory = $true)][string]$Path)
+
+    if (-not $CertThumbprint) {
+        Write-Warn "İmzasız: $(Split-Path $Path -Leaf) (imzalamak için -CertThumbprint verin veya TRWHISPER_SIGN_THUMBPRINT ayarlayın)"
+        return
+    }
+
+    $signtool = Get-SignTool
+    if (-not $signtool) {
+        throw "signtool.exe bulunamadi (Windows SDK kurulu mu?). Imzalama istendi ama yapilamiyor."
+    }
+
+    Write-Step "İmzalanıyor: $(Split-Path $Path -Leaf)"
+    & $signtool sign /sha1 $CertThumbprint /fd SHA256 /tr $TimestampUrl /td SHA256 $Path
+    if ($LASTEXITCODE -ne 0) { throw "signtool imzalama basarisiz oldu (cikis kodu $LASTEXITCODE): $Path" }
+
+    & $signtool verify /pa $Path
+    if ($LASTEXITCODE -ne 0) { throw "Imza dogrulamasi basarisiz oldu: $Path" }
+
+    Write-Ok "İmzalandı ve doğrulandı: $(Split-Path $Path -Leaf)"
+}
 
 function Get-FileOrDownload {
     param([string]$Path, [string]$Url, [string]$Sha256)
@@ -81,6 +134,9 @@ if ($exeBytes -lt 168000000) {
 }
 Write-Ok ("Uygulama hazır: {0:N1} MB" -f ($exeBytes / 1MB))
 
+# Kuruluma gömülmeden ÖNCE imzalanmalı; sonra imzalamak gömülü kopyayı imzasız bırakırdı.
+Invoke-CodeSign -Path $publishExe
+
 # 3. CUDA 13 paketini hazırla (trwhisper-cuda13-win-x64.zip)
 $outputDir = Join-Path $installerDir "Output"
 New-Item -ItemType Directory -Force -Path $outputDir | Out-Null
@@ -94,7 +150,12 @@ $cudaFilesExist = (Test-Path (Join-Path $root "publish\cublas64_13.dll")) -and
 $cudaSha = "2D397A7077760C74EFA2838F42D4E8B502D8D3CCAB9259844BBCFE06F5EB922F"
 $cudaSize = 544457658
 
-if ($cudaFilesExist) {
+if ($SkipCudaPackage) {
+    # $cudaSha/$cudaSize sıfırlanır: ISCC'ye hiç geçilmez, .iss'teki sabitler tek kaynak olur.
+    $cudaSha = $null
+    $cudaSize = $null
+    Write-Warn "CUDA 13 paketi yeniden üretilmedi (-SkipCudaPackage). TRWhisper.iss'teki sabit adres ve SHA-256 kullanılacak."
+} elseif ($cudaFilesExist) {
     Write-Step "CUDA 13 paketi hazırlanıyor (trwhisper-cuda13-win-x64.zip)..."
     $cudaStaging = Join-Path $env:TEMP "trwhisper_cuda13_stg_$([Guid]::NewGuid().ToString('N'))"
     if (Test-Path $cudaStaging) { Remove-Item $cudaStaging -Recurse -Force }
@@ -171,6 +232,9 @@ if (-not $compiled) { throw "Inno Setup derlemesi başarısız oldu (ISCC çık�
 $setupExe = Join-Path $installerDir "Output\TRWhisper-Setup-$Version.exe"
 if (-not (Test-Path $setupExe)) { throw "Kurulum dosyası oluşmadı: $setupExe" }
 
+Invoke-CodeSign -Path $setupExe
+
+# Özet imzalamadan SONRA alınır: imza dosya içeriğini değiştirir.
 $hash = (Get-FileHash $setupExe -Algorithm SHA256).Hash
 Set-Content -Path "$setupExe.sha256" -Value "$hash *TRWhisper-Setup-$Version.exe" -Encoding ASCII
 
@@ -179,8 +243,15 @@ Write-Ok "Kurulum dosyası hazır:"
 Write-Host "    $setupExe" -ForegroundColor White
 Write-Host "    Boyut : $([math]::Round((Get-Item $setupExe).Length / 1MB, 1)) MB" -ForegroundColor White
 Write-Host "    SHA256: $hash" -ForegroundColor White
-if (Test-Path $cudaZipOut) {
+if (-not $CertThumbprint) {
+    Write-Warn "Bu kurulum dosyası Authenticode ile İMZASIZ. Yayınlarken SHA-256 özetini sürüm notlarına ekleyin."
+}
+if ($SkipCudaPackage) {
+    # Klasorde eski bir zip durabilir; kuruluma GIRMEDIGINI acikca soyle.
+    Write-Host "    CUDA  : yeniden uretilmedi; TRWhisper.iss'teki sabit adres ve SHA-256 gecerli." -ForegroundColor White
+} elseif (Test-Path $cudaZipOut) {
     Write-Host "    CUDA  : $cudaZipOut" -ForegroundColor White
     Write-Host "    Boyut : $([math]::Round((Get-Item $cudaZipOut).Length / 1MB, 1)) MB" -ForegroundColor White
     Write-Host "    SHA256: $cudaSha" -ForegroundColor White
+    Write-Warn "CUDA paketi yeniden uretildi: bu dosyayi TRWhisper.iss'teki CudaZipUrl adresine YUKLEYIN, yoksa kullanicilarin GPU indirmesi SHA dogrulamasinda duser."
 }

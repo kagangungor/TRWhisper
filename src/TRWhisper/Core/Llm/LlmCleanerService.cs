@@ -4,6 +4,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using TRWhisper.Core.Config;
@@ -14,6 +15,12 @@ namespace TRWhisper.Core.Llm
     public interface ILlmCleaner
     {
         string? LastError { get; }
+
+        /// <summary>
+        /// Son çağrıda kullanıcıya iletilmesi gereken, akışı durdurmayan uyarı
+        /// (ör. günlük API tavanına yaklaşıldı). Uyarı yoksa null.
+        /// </summary>
+        string? LastWarning { get; }
         Task<string> CleanTranscriptAsync(string rawTranscript, LlmMode? modeOverride = null, CancellationToken cancellationToken = default);
         Task<(bool Success, string Message)> TestConnectionAsync(LlmCleaningConfig? configOverride = null, CancellationToken cancellationToken = default);
     }
@@ -27,6 +34,7 @@ namespace TRWhisper.Core.Llm
 
         private readonly ConfigManager _configManager;
         private readonly HttpClient _httpClient;
+        private readonly ApiUsageTracker _usageTracker;
         private static readonly HttpClient DefaultHttpClient = new()
         {
             Timeout = TimeSpan.FromSeconds(60) // Yerel modellerin ilk soğuk yükleme (cold load) ve üretim süresi için pay
@@ -34,10 +42,80 @@ namespace TRWhisper.Core.Llm
 
         public string? LastError { get; private set; }
 
-        public LlmCleanerService(ConfigManager configManager, HttpClient? httpClient = null)
+        public string? LastWarning { get; private set; }
+
+        /// <summary>Günlük bulut çağrısı sayacı; Ayarlar penceresi kullanımı buradan okur.</summary>
+        public ApiUsageTracker UsageTracker => _usageTracker;
+
+        public LlmCleanerService(ConfigManager configManager, HttpClient? httpClient = null,
+                                 ApiUsageTracker? usageTracker = null)
         {
             _configManager = configManager;
             _httpClient = httpClient ?? DefaultHttpClient;
+            _usageTracker = usageTracker ?? new ApiUsageTracker(ApiUsageTracker.ResolveDefaultPath(configManager));
+        }
+
+        private const int MaxErrorBodyLength = 200;
+
+        /// <summary>
+        /// Hata gövdelerinde maskelenecek anahtar biçimleri. Sağlayıcılar hata yanıtında
+        /// isteğin bir kısmını yankılayabildiği için gövde hem maskelenir hem kısaltılır.
+        /// </summary>
+        private static readonly Regex SecretPattern = new(
+            "AIza[0-9A-Za-z_-]{10,}|sk-[A-Za-z0-9_-]{10,}|\"(?:api_?key|authorization|x-goog-api-key)\"\\s*:\\s*\"[^\"]*\"",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
+            TimeSpan.FromMilliseconds(250));
+
+        /// <summary>
+        /// Sağlayıcı bu makinede mi çalışıyor. Yerel sağlayıcılar ücret doğurmaz ve
+        /// veriyi dışarı çıkarmaz; kota ve bulut uyarıları yalnızca diğerleri için geçerlidir.
+        /// </summary>
+        public static bool IsLocalProvider(string? provider)
+        {
+            var name = provider?.Trim() ?? "Ollama";
+            return name.Equals("Ollama", StringComparison.OrdinalIgnoreCase) ||
+                   name.Equals("Local", StringComparison.OrdinalIgnoreCase) ||
+                   name.Equals("LlamaCpp", StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// Loopback olmayan uç noktalarda düz HTTP'yi reddeder: API anahtarı ve dikte metni
+        /// şifresiz hatta çıkmamalıdır. Uç nokta güvenliyse null, değilse hata mesajı döner.
+        /// </summary>
+        public static string? ValidateEndpointSecurity(string endpoint)
+        {
+            if (!Uri.TryCreate(endpoint, UriKind.Absolute, out var parsedUri))
+                return "Geçersiz API uç noktası URL'si.";
+
+            if (parsedUri.Scheme.Equals(Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase) && !parsedUri.IsLoopback)
+                return "Güvenlik hatası: Harici API uç noktaları için HTTPS zorunludur. Düz HTTP üzerinden API anahtarı iletilemez.";
+
+            return null;
+        }
+
+        /// <summary>
+        /// Sağlayıcı hata gövdesini loglanabilir/gösterilebilir hâle getirir: anahtar benzeri
+        /// dizgileri maskeler, satır sonlarını sadeleştirir ve gövdeyi kısaltır.
+        /// </summary>
+        public static string SanitizeErrorBody(string? body)
+        {
+            if (string.IsNullOrWhiteSpace(body)) return "(boş yanıt)";
+
+            string masked;
+            try
+            {
+                masked = SecretPattern.Replace(body, "***");
+            }
+            catch (RegexMatchTimeoutException)
+            {
+                return "(yanıt gövdesi işlenemedi)";
+            }
+
+            masked = masked.Replace('\r', ' ').Replace('\n', ' ').Trim();
+
+            return masked.Length <= MaxErrorBodyLength
+                ? masked
+                : masked[..MaxErrorBodyLength] + "… (kısaltıldı)";
         }
 
         /// <summary>
@@ -51,6 +129,7 @@ namespace TRWhisper.Core.Llm
         public async Task<string> CleanTranscriptAsync(string rawTranscript, LlmMode? modeOverride = null, CancellationToken cancellationToken = default)
         {
             LastError = null;
+            LastWarning = null;
 
             if (string.IsNullOrWhiteSpace(rawTranscript))
                 return rawTranscript;
@@ -58,9 +137,7 @@ namespace TRWhisper.Core.Llm
             var config = _configManager.Current.LlmCleaning;
             var provider = config.Provider?.Trim() ?? "Ollama";
 
-            bool isLocal = provider.Equals("Ollama", StringComparison.OrdinalIgnoreCase) ||
-                           provider.Equals("Local", StringComparison.OrdinalIgnoreCase) ||
-                           provider.Equals("LlamaCpp", StringComparison.OrdinalIgnoreCase);
+            bool isLocal = IsLocalProvider(provider);
 
             // Bulut sağlayıcılarda API anahtarı girilmemişse doğrudan ham transkripti döndür
             if (!isLocal && string.IsNullOrWhiteSpace(config.ApiKey))
@@ -68,6 +145,11 @@ namespace TRWhisper.Core.Llm
                 LastError = "API anahtarı girilmedi.";
                 return rawTranscript;
             }
+
+            // Maliyet tavanı: yalnızca bulut sağlayıcılar sayılır. Tavan dolduysa (ve
+            // davranış "Block" ise) istek hiç gönderilmez; ham transkript yazılır.
+            if (!isLocal && !TryConsumeQuota(config))
+                return rawTranscript;
 
             var activeMode = modeOverride ?? LlmModeRegistry.GetActiveMode(config);
             var systemPrompt = LlmModeRegistry.EnsureSandboxedPrompt(activeMode.SystemPrompt);
@@ -97,6 +179,39 @@ namespace TRWhisper.Core.Llm
             }
         }
 
+        /// <summary>
+        /// Günlük tavanı denetler ve isteğe izin verilirse sayacı artırır.
+        /// Engellendiyse false döner ve <see cref="LastError"/> doldurulur.
+        /// </summary>
+        private bool TryConsumeQuota(LlmCleaningConfig config)
+        {
+            var decision = _usageTracker.EvaluateNext(config);
+            var limit = config.DailyRequestLimit;
+
+            if (decision == QuotaDecision.Blocked)
+            {
+                LastError = $"Günlük API çağrı tavanı doldu ({limit}). Ham transkript yazıldı.";
+                LastWarning = $"Günlük {limit} çağrı tavanına ulaşıldı; LLM temizleme bugün atlanıyor. " +
+                              "Tavanı Ayarlar → Yapay Zeka'dan değiştirebilirsiniz.";
+                FileLog.Write($"[LlmCleanerService] Günlük tavan ({limit}) doldu, bulut çağrısı yapılmadı.");
+                return false;
+            }
+
+            var used = _usageTracker.Record();
+
+            if (decision == QuotaDecision.LimitReachedWarnOnly)
+            {
+                LastWarning = $"Günlük {limit} çağrı tavanı aşıldı (bugün {used}). " +
+                              "Yalnızca uyarı modunda olduğunuz için istek yine gönderildi.";
+            }
+            else if (decision == QuotaDecision.NearLimit)
+            {
+                LastWarning = $"Günlük API tavanına yaklaşıldı: bugün {used}/{limit} çağrı.";
+            }
+
+            return true;
+        }
+
         public async Task<string> CallOllamaAsync(string rawTranscript, LlmCleaningConfig config, string? systemPrompt = null, CancellationToken cancellationToken = default)
         {
             systemPrompt = LlmModeRegistry.EnsureSandboxedPrompt(systemPrompt ?? LlmModeRegistry.GetActiveMode(config).SystemPrompt);
@@ -110,6 +225,14 @@ namespace TRWhisper.Core.Llm
                 !endpoint.EndsWith("/generate", StringComparison.OrdinalIgnoreCase))
             {
                 endpoint = endpoint.TrimEnd('/') + "/v1/chat/completions";
+            }
+
+            var endpointError = ValidateEndpointSecurity(endpoint);
+            if (endpointError != null)
+            {
+                LastError = endpointError;
+                FileLog.Write("[LlmCleanerService] HATA: Yerel sağlayıcı için harici düz HTTP uç noktası engellendi.");
+                return rawTranscript;
             }
 
             var model = string.IsNullOrWhiteSpace(config.Model) ? "qwen2.5:3b" : config.Model;
@@ -142,7 +265,7 @@ namespace TRWhisper.Core.Llm
             if (!response.IsSuccessStatusCode)
             {
                 var errorText = await response.Content.ReadAsStringAsync(cancellationToken);
-                FileLog.Write($"[LlmCleanerService] Ollama API hata döndü ({response.StatusCode}): {errorText}");
+                FileLog.Write($"[LlmCleanerService] Ollama API hata döndü ({response.StatusCode}): {SanitizeErrorBody(errorText)}");
                 LastError = $"Ollama API hatası ({(int)response.StatusCode})";
                 return rawTranscript;
             }
@@ -221,7 +344,7 @@ namespace TRWhisper.Core.Llm
             if (!response.IsSuccessStatusCode)
             {
                 var errorText = await response.Content.ReadAsStringAsync(cancellationToken);
-                FileLog.Write($"[LlmCleanerService] Gemini API hata döndü ({response.StatusCode}): {errorText}");
+                FileLog.Write($"[LlmCleanerService] Gemini API hata döndü ({response.StatusCode}): {SanitizeErrorBody(errorText)}");
                 LastError = $"Gemini API hatası ({(int)response.StatusCode})";
                 return rawTranscript;
             }
@@ -248,15 +371,10 @@ namespace TRWhisper.Core.Llm
             systemPrompt = LlmModeRegistry.EnsureSandboxedPrompt(systemPrompt ?? LlmModeRegistry.GetActiveMode(config).SystemPrompt);
             var endpoint = string.IsNullOrWhiteSpace(config.Endpoint) ? "https://api.openai.com/v1/chat/completions" : config.Endpoint.Trim();
 
-            if (!Uri.TryCreate(endpoint, UriKind.Absolute, out var parsedUri))
+            var endpointError = ValidateEndpointSecurity(endpoint);
+            if (endpointError != null)
             {
-                LastError = "Geçersiz API uç noktası URL'si.";
-                return rawTranscript;
-            }
-
-            if (parsedUri.Scheme.Equals(Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase) && !parsedUri.IsLoopback)
-            {
-                LastError = "Güvenlik hatası: Harici API uç noktaları için HTTPS zorunludur. Düz HTTP üzerinden API anahtarı iletilemez.";
+                LastError = endpointError;
                 FileLog.Write("[LlmCleanerService] HATA: Harici HTTP uç noktasına API anahtarı gönderimi engellendi.");
                 return rawTranscript;
             }
@@ -286,7 +404,7 @@ namespace TRWhisper.Core.Llm
             if (!response.IsSuccessStatusCode)
             {
                 var errorText = await response.Content.ReadAsStringAsync(cancellationToken);
-                FileLog.Write($"[LlmCleanerService] OpenAI API hata döndü ({response.StatusCode}): {errorText}");
+                FileLog.Write($"[LlmCleanerService] OpenAI API hata döndü ({response.StatusCode}): {SanitizeErrorBody(errorText)}");
                 LastError = $"OpenAI API hatası ({(int)response.StatusCode})";
                 return rawTranscript;
             }
@@ -311,9 +429,7 @@ namespace TRWhisper.Core.Llm
             var config = configOverride ?? _configManager.Current.LlmCleaning;
             var provider = config.Provider?.Trim() ?? "Ollama";
 
-            bool isLocal = provider.Equals("Ollama", StringComparison.OrdinalIgnoreCase) ||
-                           provider.Equals("Local", StringComparison.OrdinalIgnoreCase) ||
-                           provider.Equals("LlamaCpp", StringComparison.OrdinalIgnoreCase);
+            bool isLocal = IsLocalProvider(provider);
 
             using var testCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             testCts.CancelAfter(TimeSpan.FromSeconds(30));
@@ -331,6 +447,12 @@ namespace TRWhisper.Core.Llm
                         !endpoint.EndsWith("/generate", StringComparison.OrdinalIgnoreCase))
                     {
                         endpoint = endpoint.TrimEnd('/') + "/v1/chat/completions";
+                    }
+
+                    var localEndpointError = ValidateEndpointSecurity(endpoint);
+                    if (localEndpointError != null)
+                    {
+                        return (false, localEndpointError);
                     }
 
                     var model = string.IsNullOrWhiteSpace(config.Model) ? "qwen2.5:3b" : config.Model;
@@ -368,7 +490,7 @@ namespace TRWhisper.Core.Llm
                         return (false, $"Ollama çalışıyor ancak '{model}' modeli bulunamadı. Terminalden 'ollama run {model}' komutuyla modeli indirin.");
                     }
 
-                    return (false, $"Ollama hata döndürdü ({(int)response.StatusCode}): {errBody}");
+                    return (false, $"Ollama hata döndürdü ({(int)response.StatusCode}): {SanitizeErrorBody(errBody)}");
                 }
                 else if (provider.Equals("Gemini", StringComparison.OrdinalIgnoreCase))
                 {
@@ -417,7 +539,7 @@ namespace TRWhisper.Core.Llm
                         return (false, $"Gemini modeli bulunamadı ({model}). 'gemini-2.0-flash' modelini kullanın.");
                     }
 
-                    return (false, $"Gemini API hata döndürdü ({(int)response.StatusCode}): {errBody}");
+                    return (false, $"Gemini API hata döndürdü ({(int)response.StatusCode}): {SanitizeErrorBody(errBody)}");
                 }
                 else
                 {
@@ -429,14 +551,10 @@ namespace TRWhisper.Core.Llm
 
                     var endpoint = string.IsNullOrWhiteSpace(config.Endpoint) ? "https://api.openai.com/v1/chat/completions" : config.Endpoint.Trim();
 
-                    if (!Uri.TryCreate(endpoint, UriKind.Absolute, out var parsedUri))
+                    var openAiEndpointError = ValidateEndpointSecurity(endpoint);
+                    if (openAiEndpointError != null)
                     {
-                        return (false, "Geçersiz API uç noktası URL'si.");
-                    }
-
-                    if (parsedUri.Scheme.Equals(Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase) && !parsedUri.IsLoopback)
-                    {
-                        return (false, "Güvenlik uyarısı: Harici API uç noktaları için HTTPS zorunludur. Düz HTTP üzerinden API anahtarı iletilemez.");
+                        return (false, openAiEndpointError);
                     }
 
                     var model = string.IsNullOrWhiteSpace(config.Model) ? "gpt-4o-mini" : config.Model;
@@ -465,7 +583,7 @@ namespace TRWhisper.Core.Llm
                     }
 
                     var errBody = await response.Content.ReadAsStringAsync(testCts.Token);
-                    return (false, $"OpenAI API hata döndürdü ({(int)response.StatusCode}): {errBody}");
+                    return (false, $"OpenAI API hata döndürdü ({(int)response.StatusCode}): {SanitizeErrorBody(errBody)}");
                 }
             }
             catch (TaskCanceledException)

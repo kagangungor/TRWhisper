@@ -6,6 +6,7 @@ using System.Windows;
 using System.Windows.Forms;
 using TRWhisper.Core;
 using TRWhisper.Core.Audio;
+using TRWhisper.Core.Backup;
 using TRWhisper.Core.Config;
 using TRWhisper.Core.Diagnostics;
 using TRWhisper.Core.Dictionary;
@@ -52,6 +53,8 @@ namespace TRWhisper
             try
             {
                 FileLog.Write("[Program] TRWhisper Main başlatılıyor...");
+                // Eski sürümlerin günlüğe düz metin yazdığı transkriptleri bir kez temizle.
+                FileLog.PurgeLegacyTranscriptLines();
 
                 // Tekil oturum kontrolü (Aynı anda birden fazla örnek çalışmasını engelle)
                 using var mutex = new Mutex(true, MutexName, out bool isNewInstance);
@@ -86,7 +89,8 @@ namespace TRWhisper
             var history = new TranscriptHistory();
             var logger = new MarkdownLogger(configManager);
             var llmCleaner = new LlmCleanerService(configManager);
-            var trayController = new TrayIconController(configManager, history, dictionaryService);
+            var backupService = new BackupService(configManager);
+            var trayController = new TrayIconController(configManager, history, dictionaryService, backupService);
 
             IKeyboardHook keyboardHook = new Win32KeyboardHook(configManager);
             IAudioRecorder audioRecorder = new WasapiRecorder(configManager);
@@ -146,7 +150,7 @@ namespace TRWhisper
 
                             overlayWindow.ApplyOverlaySettings();
                             keyboardHook.ReloadConfig();
-                        }, llmCleaner, overlayWindow);
+                        }, llmCleaner, overlayWindow, backupService);
                         settingsWindow.Closed += (_, _) => settingsWindow = null;
                         settingsWindow.Show();
                         settingsWindow.Activate();
@@ -191,6 +195,10 @@ namespace TRWhisper
 
             FileLog.Write("[Program] Servisler başlatıldı, coordinator.Start() çağrılıyor...");
             coordinator.Start();
+
+            // Otomatik yedek: son yedeğin üzerinden yeterli gün geçtiyse açılışta alınır.
+            // Arka planda çalışır; başarısızlık yalnızca günlüğe yazılır, dikteyi etkilemez.
+            _ = Task.Run(() => backupService.RunAutomaticBackupIfDue());
 
             // Modeli arka planda ısıt: açılıştan sonraki ilk dikte de model yükleme
             // bedelini (~1-3 sn) ödemesin. Başarısız olursa dikte yine çalışır,
