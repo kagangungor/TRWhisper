@@ -68,6 +68,34 @@ namespace TRWhisper.Core.Speech
             _idleTimer = new System.Threading.Timer(OnIdleTimeout, null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
         }
 
+        // Ayarlar penceresinin canlı durum kartı için salt okunur anlık görüntü. Kilit
+        // alınmaz: değerler yalnızca gösterim içindir, bir sonraki yoklamada tazelenir.
+        public bool IsModelLoaded => _processor != null || _factory != null;
+        public string? LoadedModelPath => _loadedModelPath;
+        public string? LoadedLanguage => _loadedLanguage;
+
+        // Yalnızca TranscribeAsync yazar (kilit altında); canlı önizleme dokunmaz.
+        private volatile string? _lastDetectedLanguage;
+        public string? LastDetectedLanguage => _lastDetectedLanguage;
+
+        /// <summary>
+        /// Modeli kullanıcı isteğiyle bellekten (ve VRAM'den) atar. Dikte sürüyorsa native
+        /// bağlamı altından çekmemek için hiçbir şey yapmaz ve false döner.
+        /// </summary>
+        public bool UnloadModel(string reason = "Kullanıcı isteği")
+        {
+            if (_disposed || !_gate.Wait(0)) return false;
+            try
+            {
+                Unload(reason);
+                return true;
+            }
+            finally
+            {
+                _gate.Release();
+            }
+        }
+
         /// <summary>
         /// Modeli önceden belleğe alır. Uygulama açılışında arka planda çağrılır ki ilk
         /// dikte de model yükleme bedelini ödemesin.
@@ -141,6 +169,7 @@ namespace TRWhisper.Core.Speech
             await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {
+                _lastDetectedLanguage = null;
                 var sw = Stopwatch.StartNew();
 
                 var processor = await EnsureLoadedAsync(modelPath, language).ConfigureAwait(false);
@@ -163,15 +192,19 @@ namespace TRWhisper.Core.Speech
                 cancellationToken.ThrowIfCancellationRequested();
 
                 var builder = new StringBuilder();
+                string? detectedLanguage = null;
                 await foreach (var segment in processor.ProcessAsync(speech, cancellationToken).ConfigureAwait(false))
                 {
                     builder.Append(segment.Text);
+                    if (detectedLanguage == null && !string.IsNullOrWhiteSpace(segment.Language))
+                        detectedLanguage = segment.Language;
                 }
+                _lastDetectedLanguage = detectedLanguage;
 
                 sw.Stop();
                 var cleaned = TranscriptCleaner.Clean(builder.ToString());
                 FileLog.Write(
-                    $"[WhisperNetEngine] bitti: {sw.ElapsedMilliseconds}ms (yükleme {loadMs}ms), " +
+                    $"[WhisperNetEngine] bitti: {sw.ElapsedMilliseconds}ms (yükleme {loadMs}ms), dil={language}->{detectedLanguage ?? "?"}, " +
                     $"ses={samples.Length / (double)WhisperSampleRate:0.0}sn -> konuşma={speech.Length / (double)WhisperSampleRate:0.0}sn, " +
                     $"sonuç={cleaned.Length} char");
 

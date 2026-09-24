@@ -16,6 +16,7 @@ using TRWhisper.Core.Llm;
 using TRWhisper.Core.Native;
 using TRWhisper.Core.Speech;
 using TRWhisper.Core.Tray;
+using TRWhisper.Core.Update;
 using TRWhisper.UI;
 
 namespace TRWhisper
@@ -86,6 +87,7 @@ namespace TRWhisper
             overlayWindow.AttachConfig(configManager);
             var dictionaryService = new CustomDictionaryService(configManager);
             var textNormalizer = new TurkishTextNormalizer(configManager);
+            var punctuationNormalizer = new SpokenPunctuationNormalizer(configManager);
             var history = new TranscriptHistory();
             var logger = new MarkdownLogger(configManager);
             var llmCleaner = new LlmCleanerService(configManager);
@@ -99,6 +101,7 @@ namespace TRWhisper
             ITranscriptionEngine transcriptionEngine = whisperEngine;
             IClipboardPaster clipboardPaster = new ClipboardPaster(configManager);
             IForegroundAppDetector appDetector = new ForegroundAppDetector();
+            using var soundFeedback = new SoundFeedbackService(configManager);
 
             using var coordinator = new DictationCoordinator(
                 configManager,
@@ -109,13 +112,16 @@ namespace TRWhisper
                 clipboardPaster,
                 dictionaryService,
                 textNormalizer,
+                punctuationNormalizer,
                 logger,
                 history,
                 trayController,
                 overlayWindow,
-                appDetector);
+                appDetector,
+                soundFeedback);
 
-            // Tepsiden Ayarlar: pencere tekilddir, açıksa öne getirilir.
+            // Tepsiden Ayarlar: pencere tekildir, açıksa öne getirilir. Kapatılınca yok edilmez,
+            // gizlenir; sonraki açılış pencereyi yeniden kurmadan anında gelir.
             UI.SettingsWindow? settingsWindow = null;
             trayController.SettingsRequested += () =>
             {
@@ -123,6 +129,20 @@ namespace TRWhisper
                 {
                     try
                     {
+                        // Mica yalnızca pencere kurulurken uygulanabilir: ayar değiştiyse gizli
+                        // pencere yeniden kullanılmaz, kapatılıp yenisi kurulur (Closed → null).
+                        if (settingsWindow is { IsVisible: false, NeedsRecreate: true })
+                        {
+                            settingsWindow.AllowClose = true;
+                            settingsWindow.Close();
+                        }
+
+                        if (settingsWindow is { IsVisible: false })
+                        {
+                            settingsWindow.ShowAgain();
+                            return;
+                        }
+
                         if (settingsWindow != null)
                         {
                             if (settingsWindow.WindowState == WindowState.Minimized)
@@ -150,7 +170,7 @@ namespace TRWhisper
 
                             overlayWindow.ApplyOverlaySettings();
                             keyboardHook.ReloadConfig();
-                        }, llmCleaner, overlayWindow, backupService);
+                        }, llmCleaner, overlayWindow, backupService, soundFeedback, whisperEngine);
                         settingsWindow.Closed += (_, _) => settingsWindow = null;
                         settingsWindow.Show();
                         settingsWindow.Activate();
@@ -171,6 +191,11 @@ namespace TRWhisper
                 coordinator.Stop();
                 wpfApp.Dispatcher.Invoke(() =>
                 {
+                    if (settingsWindow != null)
+                    {
+                        settingsWindow.AllowClose = true;
+                        settingsWindow.Close();
+                    }
                     overlayWindow.Close();
                     wpfApp.Shutdown();
                 });
@@ -204,6 +229,20 @@ namespace TRWhisper
             // bedelini (~1-3 sn) ödemesin. Başarısız olursa dikte yine çalışır,
             // yalnızca ilk çağrıda model yüklenir.
             _ = Task.Run(() => whisperEngine.WarmUpAsync());
+
+            // Güncelleme denetimi (varsayılan KAPALI): açılıştan 10 sn sonra arka planda bir kez.
+            // Servis istisna fırlatmaz; hata yalnızca günlüğe yazılır.
+            if (configManager.Current.General.EnableAutomaticUpdateCheck)
+            {
+                _ = Task.Run(async () =>
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(10));
+                    var update = await new UpdateCheckerService().CheckForUpdatesAsync();
+                    FileLog.Write($"[Program] Güncelleme denetimi: mevcut v{update.CurrentVersion}, son v{update.LatestVersion}");
+                    if (update.IsUpdateAvailable)
+                        trayController.ShowUpdateAvailable(update.LatestVersion, update.ReleaseUrl);
+                });
+            }
 
             // WPF Message Loop çalıştır
             FileLog.Write("[Program] wpfApp.Run() başlatılıyor...");

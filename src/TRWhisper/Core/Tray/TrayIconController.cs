@@ -44,6 +44,10 @@ namespace TRWhisper.Core.Tray
         private AppState _currentState = AppState.Idle;
         private bool _isLlmCleaningEnabled;
 
+        // Bulunan yeni sürüm (yoksa null); menünün en üstünde gösterilir.
+        private string? _availableUpdateVersion;
+        private string _availableUpdateUrl = "";
+
         // Tepsiden seçilebilen whisper modelleri (WhisperModelManager kataloğundan dinamik).
         public static (string Label, string Path, bool NeedsGpu)[] WhisperModels =>
             WhisperModelManager.Catalog
@@ -54,6 +58,9 @@ namespace TRWhisper.Core.Tray
         public event Action<bool>? LlmCleaningToggled;
         public event Action<string>? LlmModeChanged;
         public event Action<string>? WhisperModelChanged;
+
+        /// <summary>Tepsiden dikte dili seçildi (DictationCoordinator kaydeder ve duyurur).</summary>
+        public event Action<string>? LanguageChanged;
         public event Action? ExitRequested;
 
         /// <summary>Tepsiden Ayarlar penceresi istendi (Program.cs açar).</summary>
@@ -101,6 +108,20 @@ namespace TRWhisper.Core.Tray
                 BuildContextMenu();
             });
         }
+
+        /// <summary>Menünün en üstüne yeni sürümün sayfasını açan bir öğe ekler.</summary>
+        public void ShowUpdateAvailable(string latestVersion, string releaseUrl)
+        {
+            RunOnUiThread(() =>
+            {
+                _availableUpdateVersion = latestVersion;
+                _availableUpdateUrl = releaseUrl;
+                BuildContextMenu();
+            });
+        }
+
+        /// <summary>Yapılandırma dışarıdan değiştiğinde (ör. dil kısayolu) menüyü tazeler.</summary>
+        public void RefreshMenu() => RunOnUiThread(BuildContextMenu);
 
         // UI thread'indeysek hemen çalıştır; değilsse sıraya koy (FIFO, çağıranı bloklamaz).
         private void RunOnUiThread(Action action)
@@ -195,6 +216,28 @@ namespace TRWhisper.Core.Tray
         private void BuildContextMenu()
         {
             var menu = new ContextMenuStrip();
+
+            if (_availableUpdateVersion != null)
+            {
+                var updateItem = new ToolStripMenuItem($"⭐ Yeni Sürüm Mevcut: v{_availableUpdateVersion}")
+                {
+                    Font = new Font(Control.DefaultFont, FontStyle.Bold)
+                };
+                var url = _availableUpdateUrl;
+                updateItem.Click += (_, _) =>
+                {
+                    try
+                    {
+                        Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+                    }
+                    catch (Exception ex)
+                    {
+                        FileLog.Write($"[TrayIconController] Sürüm sayfası açılamadı: {ex.Message}");
+                    }
+                };
+                menu.Items.Add(updateItem);
+                menu.Items.Add(new ToolStripSeparator());
+            }
 
             // Başlık / Durum
             var pttName = TRWhisper.Core.Native.HotkeyBinding.Parse(_configManager.Current.Hotkey.PushToTalkKey).DisplayName;
@@ -298,6 +341,25 @@ namespace TRWhisper.Core.Tray
                 modelMenu.DropDownItems.Add(modelItem);
             }
             menu.Items.Add(modelMenu);
+
+            // Dikte Dili Alt Menüsü
+            var languageMenu = new ToolStripMenuItem("🌐 Dikte Dili");
+            var currentLanguage = _configManager.Current.General.Language;
+            foreach (var (code, name) in DictationLanguage.Supported)
+            {
+                var label = code == "auto" ? "Otomatik Algıla [Auto]" : $"{name} [{code.ToUpperInvariant()}]";
+                var languageItem = new ToolStripMenuItem(label)
+                {
+                    Checked = string.Equals(code, currentLanguage, StringComparison.OrdinalIgnoreCase)
+                };
+                languageItem.Click += (_, _) =>
+                {
+                    if (languageItem.Checked) return;
+                    LanguageChanged?.Invoke(code);
+                };
+                languageMenu.DropDownItems.Add(languageItem);
+            }
+            menu.Items.Add(languageMenu);
 
             menu.Items.Add(new ToolStripSeparator());
 

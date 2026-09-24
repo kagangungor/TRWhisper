@@ -40,6 +40,15 @@ namespace TRWhisper.Core.Backup
         private const string TranscriptFolder = "transkriptler/";
         private const string ManifestEntry = "YEDEK-BILGI.txt";
 
+        // Geri yükleme üst sınırları. Yedek dışarıdan gelmiş olabilir; aşırı sıkıştırılmış
+        // bir ZIP (zip bombası) diski ya da belleği doldurmasın. Gerçek bir yedekte ayarlar
+        // birkaç KB, sözlük birkaç yüz KB, aylık günlük birkaç MB'tır.
+        public const long MaxConfigBytes = 1L * 1024 * 1024;
+        public const long MaxDictionaryBytes = 5L * 1024 * 1024;
+        public const long MaxTranscriptBytes = 64L * 1024 * 1024;
+        public const long MaxTotalRestoreBytes = 1024L * 1024 * 1024;
+        public const int MaxTranscriptEntries = 5000;
+
         private static readonly JsonSerializerOptions JsonOptions = new()
         {
             WriteIndented = true,
@@ -214,7 +223,9 @@ namespace TRWhisper.Core.Backup
         /// <summary>
         /// Verilen ZIP'ten ayarları, sözlüğü ve transkriptleri geri yükler. Üzerine yazmadan
         /// önce mevcut durumun yedeğini alır: yanlış dosya seçilmesi geri alınamaz olmasın.
-        /// Mevcut API anahtarı korunur (yedekte zaten yoktur).
+        /// Bu bilgisayara bağlı ayarlar (API anahtarı, yapay zeka bağlantısı, dosya yolları)
+        /// yedekten alınmaz, mevcut hâliyle korunur; bkz. <see cref="KeepMachineBoundSettings"/>.
+        /// Boyut sınırlarını aşan bir yedek hiçbir şeye dokunulmadan reddedilir.
         /// </summary>
         public RestoreResult Restore(string zipPath)
         {
@@ -223,25 +234,31 @@ namespace TRWhisper.Core.Backup
                 if (!File.Exists(zipPath))
                     throw new FileNotFoundException("Yedek dosyası bulunamadı.", zipPath);
 
-                var safety = CreateBackup(prune: false);
-
                 using var archive = ZipFile.OpenRead(zipPath);
+
+                // Önce yalnızca okunur denetim: sınır aşılıyorsa emniyet yedeği bile alınmaz.
+                ValidateArchiveSize(archive);
+
+                var configEntry = archive.GetEntry(ConfigEntry);
+                var dictionaryEntry = archive.GetEntry(DictionaryEntry);
+                var configJson = configEntry != null ? ReadEntry(configEntry, MaxConfigBytes) : null;
+                var dictionaryJson = dictionaryEntry != null ? ReadEntry(dictionaryEntry, MaxDictionaryBytes) : null;
+
+                var safety = CreateBackup(prune: false);
 
                 bool configRestored = false;
                 bool dictionaryRestored = false;
                 var transcriptsRestored = 0;
 
-                var configEntry = archive.GetEntry(ConfigEntry);
-                if (configEntry != null)
+                if (configJson != null)
                 {
-                    RestoreConfig(ReadEntry(configEntry));
+                    RestoreConfig(configJson);
                     configRestored = true;
                 }
 
-                var dictionaryEntry = archive.GetEntry(DictionaryEntry);
-                if (dictionaryEntry != null)
+                if (dictionaryJson != null)
                 {
-                    File.WriteAllText(DictionaryPath, ReadEntry(dictionaryEntry), Encoding.UTF8);
+                    File.WriteAllText(DictionaryPath, dictionaryJson, Encoding.UTF8);
                     dictionaryRestored = true;
                 }
 
@@ -254,7 +271,7 @@ namespace TRWhisper.Core.Backup
                     if (name == null) continue;
 
                     Directory.CreateDirectory(logDir);
-                    entry.ExtractToFile(Path.Combine(logDir, name), overwrite: true);
+                    ExtractEntry(entry, Path.Combine(logDir, name), MaxTranscriptBytes);
                     transcriptsRestored++;
                 }
 
@@ -298,22 +315,108 @@ namespace TRWhisper.Core.Backup
             return JsonSerializer.Serialize(clone, JsonOptions);
         }
 
-        /// <summary>Yedekteki ayarları uygular; mevcut API anahtarı ve damgası korunur.</summary>
+        /// <summary>Yedekteki ayarları uygular; bu bilgisayara bağlı ayarlar korunur.</summary>
         private void RestoreConfig(string json)
         {
             var restored = JsonSerializer.Deserialize<AppConfig>(json, JsonOptions)
                            ?? throw new InvalidDataException("Yedekteki config.json okunamadı.");
 
-            var current = _configManager.Current;
+            KeepMachineBoundSettings(restored, _configManager.Current);
+            _configManager.Save(restored);
+        }
+
+        /// <summary>
+        /// Yedekten gelmemesi gereken ayarları <paramref name="current"/>'tan geri kopyalar.
+        ///
+        /// Yedek başkasından gelmiş olabilir. Mevcut API anahtarı korunurken sağlayıcı ve uç
+        /// nokta yedekten alınsaydı, hazırlanmış bir yedek anahtarı ve her dikteyi saldırganın
+        /// sunucusuna yönlendirebilirdi. Dosya yolları da yedekten alınırsa model bir ağ
+        /// paylaşımından (\\sunucu\...) yüklenip Windows kimlik bilgisi sızdırılabilirdi.
+        /// Ayrıca bu ayarlar zaten makineye özgüdür: başka bilgisayarın yolları burada geçersizdir.
+        /// </summary>
+        public static void KeepMachineBoundSettings(AppConfig restored, AppConfig current)
+        {
+            // Verinin nereye gittiği: bağlantı, anahtar ve "her dikteyi LLM'e gönder" anahtarı.
             restored.LlmCleaning.ApiKey = current.LlmCleaning.ApiKey;
             restored.LlmCleaning.ApiKeyUpdatedUtc = current.LlmCleaning.ApiKeyUpdatedUtc;
+            restored.LlmCleaning.Provider = current.LlmCleaning.Provider;
+            restored.LlmCleaning.Endpoint = current.LlmCleaning.Endpoint;
+            restored.LlmCleaning.Model = current.LlmCleaning.Model;
+            restored.LlmCleaning.EnabledByDefault = current.LlmCleaning.EnabledByDefault;
 
-            _configManager.Save(restored);
+            // Dosyaların nereden okunup nereye yazıldığı.
+            restored.Whisper.CliPath = current.Whisper.CliPath;
+            restored.Whisper.ModelPath = current.Whisper.ModelPath;
+            restored.Whisper.VadModelPath = current.Whisper.VadModelPath;
+            restored.General.LogDirectory = current.General.LogDirectory;
+            restored.General.TempAudioPath = current.General.TempAudioPath;
+            restored.Backup.BackupDirectory = current.Backup.BackupDirectory;
+            restored.Backup.LastBackupUtc = current.Backup.LastBackupUtc;
+        }
+
+        /// <summary>
+        /// Yedek klasörü bulutla eşitlenen bir klasörde mi (OneDrive). Yedekler şifresiz
+        /// dikte metni taşıdığı için Ayarlar penceresi bu durumda uyarır.
+        /// </summary>
+        public static bool IsCloudSyncedPath(string? path)
+        {
+            if (string.IsNullOrWhiteSpace(path)) return false;
+
+            string full;
+            try { full = Path.GetFullPath(Environment.ExpandEnvironmentVariables(path.Trim())); }
+            catch (Exception) { return false; }
+
+            foreach (var variable in new[] { "OneDrive", "OneDriveConsumer", "OneDriveCommercial" })
+            {
+                var root = Environment.GetEnvironmentVariable(variable);
+                if (string.IsNullOrWhiteSpace(root)) continue;
+
+                root = Path.TrimEndingDirectorySeparator(root);
+                if (full.Equals(root, StringComparison.OrdinalIgnoreCase) ||
+                    full.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// ZIP başlıklarındaki boyutlara göre yedeği hiçbir şey yazmadan önce denetler. Başlık
+        /// yalan söyleyebileceği için okuma/çıkarma sırasında da sınır ayrıca uygulanır.
+        /// </summary>
+        private static void ValidateArchiveSize(ZipArchive archive)
+        {
+            long total = 0;
+            var transcripts = 0;
+
+            foreach (var entry in archive.Entries)
+            {
+                long limit;
+                if (entry.FullName == ConfigEntry) limit = MaxConfigBytes;
+                else if (entry.FullName == DictionaryEntry) limit = MaxDictionaryBytes;
+                else if (entry.FullName.StartsWith(TranscriptFolder, StringComparison.Ordinal) &&
+                         SafeTranscriptName(entry.Name) != null)
+                {
+                    limit = MaxTranscriptBytes;
+                    if (++transcripts > MaxTranscriptEntries)
+                        throw new InvalidDataException($"Yedek çok fazla günlük dosyası içeriyor (en fazla {MaxTranscriptEntries}).");
+                }
+                else continue; // geri yüklenmeyen girdiler okunmaz bile
+
+                if (entry.Length > limit)
+                    throw new InvalidDataException($"Yedekteki \"{entry.FullName}\" boyut sınırını aşıyor ({limit / (1024 * 1024)} MB).");
+
+                total += entry.Length;
+                if (total > MaxTotalRestoreBytes)
+                    throw new InvalidDataException($"Yedeğin açılmış boyutu sınırı aşıyor ({MaxTotalRestoreBytes / (1024 * 1024)} MB).");
+            }
         }
 
         private List<string> CollectTranscripts(AppConfig cfg)
         {
-            if (!cfg.Backup.IncludeTranscripts) return new List<string>();
+            // Geçmiş kaydı kapatıldıysa kullanıcı dikte metinlerinin saklanmasını istemiyor;
+            // diskte kalmış eski günlükler her yedekte yeniden çoğaltılmaz.
+            if (!cfg.Backup.IncludeTranscripts || !cfg.General.EnableHistoryLogging) return new List<string>();
 
             try
             {
@@ -356,10 +459,46 @@ namespace TRWhisper.Core.Backup
             writer.Write(content);
         }
 
-        private static string ReadEntry(ZipArchiveEntry entry)
+        private static string ReadEntry(ZipArchiveEntry entry, long maxBytes)
         {
-            using var reader = new StreamReader(entry.Open(), Encoding.UTF8);
+            using var buffer = new MemoryStream();
+            using (var source = entry.Open())
+            {
+                CopyLimited(source, buffer, maxBytes, entry.FullName);
+            }
+            buffer.Position = 0;
+            using var reader = new StreamReader(buffer, Encoding.UTF8);
             return reader.ReadToEnd();
+        }
+
+        /// <summary>Girdiyi sınırlı olarak dosyaya çıkarır; sınır aşılırsa yarım dosya silinir.</summary>
+        private static void ExtractEntry(ZipArchiveEntry entry, string destinationPath, long maxBytes)
+        {
+            try
+            {
+                using var source = entry.Open();
+                using var target = new FileStream(destinationPath, FileMode.Create, FileAccess.Write, FileShare.None);
+                CopyLimited(source, target, maxBytes, entry.FullName);
+            }
+            catch (InvalidDataException)
+            {
+                try { File.Delete(destinationPath); } catch { }
+                throw;
+            }
+        }
+
+        private static void CopyLimited(Stream source, Stream target, long maxBytes, string entryName)
+        {
+            var chunk = new byte[81920];
+            long copied = 0;
+            int read;
+            while ((read = source.Read(chunk, 0, chunk.Length)) > 0)
+            {
+                copied += read;
+                if (copied > maxBytes)
+                    throw new InvalidDataException($"Yedekteki \"{entryName}\" boyut sınırını aşıyor ({maxBytes / (1024 * 1024)} MB).");
+                target.Write(chunk, 0, read);
+            }
         }
     }
 }

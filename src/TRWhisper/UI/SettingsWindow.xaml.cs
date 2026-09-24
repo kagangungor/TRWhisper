@@ -11,21 +11,28 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
+using System.Windows.Shell;
+using System.Windows.Threading;
 using NAudio.CoreAudioApi;
+using TRWhisper.Core.Audio;
 using TRWhisper.Core.Backup;
 using TRWhisper.Core.Config;
 using TRWhisper.Core.Diagnostics;
 using TRWhisper.Core.Dictionary;
+using TRWhisper.Core.History;
 using TRWhisper.Core.Llm;
 using TRWhisper.Core.Native;
 using TRWhisper.Core.Speech;
 using TRWhisper.Core.Tray;
+using TRWhisper.Core.Update;
 
 // Proje hem WPF hem WinForms kullanıyor; örtük using'ler yüzünden bu tip adları belirsiz
 // kalıyor. Ayarlar penceresi tamamen WPF olduğundan WPF karşılıkları sabitleniyor.
 using Brush = System.Windows.Media.Brush;
 using Button = System.Windows.Controls.Button;
+using CheckBox = System.Windows.Controls.CheckBox;
 using Color = System.Windows.Media.Color;
 using ComboBox = System.Windows.Controls.ComboBox;
 using MessageBox = System.Windows.MessageBox;
@@ -50,12 +57,34 @@ namespace TRWhisper.UI
         private readonly ILlmCleaner _llmCleaner;
         private readonly PillOverlayWindow? _overlayWindow;
         private readonly BackupService _backupService;
+        private readonly ISoundFeedbackService? _soundFeedback;
+
+        // Model sekmesindeki canlı durum kartı; zamanlayıcı yalnızca o sekme görünürken çalışır.
+        private readonly WhisperNetEngine? _whisperEngine;
+        private readonly DispatcherTimer _modelStatusTimer = new() { Interval = TimeSpan.FromSeconds(2.5) };
 
         /// <summary>
         /// Günlük bulut çağrısı sayacı. Temizleyiciden ayrı örnek ama aynı dosyayı okur;
         /// böylece pencere <see cref="ILlmCleaner"/> arayüzünü genişletmeden sayacı gösterebilir.
         /// </summary>
         private readonly ApiUsageTracker _usageTracker;
+
+        // Geçmiş sekmesi: günlükler sekme ilk açıldığında okunur (pencere açılışını yavaşlatmaz).
+        private readonly HistoryService _historyService;
+        private List<HistoryEntry> _historyEntries = new();
+        private bool _historyLoaded;
+        private const int HistoryPageIndex = 8;
+
+        /// <summary>
+        /// Sol menüde tek öğede birleşen sayfalar: menü dizini → (ilk alt sayfa, ikinci alt sayfa).
+        /// Alt sayfalar arasında içerik üstündeki segmentli seçiciyle geçilir.
+        /// </summary>
+        private static readonly Dictionary<int, (int First, string FirstLabel, int Second, string SecondLabel)> PageGroups = new()
+        {
+            [2] = (2, "Model", 5, "Yapay Zeka"),
+            [7] = (7, "Yedekleme", HistoryPageIndex, "Geçmiş"),
+        };
+        private (int First, string FirstLabel, int Second, string SecondLabel)? _activeGroup;
 
         /// <summary>Kaydedilen ayarların canlı uygulanması için geri çağrı (Program.cs bağlar).</summary>
         private readonly Action<AppConfig>? _onApplied;
@@ -73,8 +102,10 @@ namespace TRWhisper.UI
         // Kısayollar (Hotkey) durumları
         private string _currentPttKey = "RightCtrl";
         private string _currentLlmKey = "Shift";
+        private string _currentLangKey = "Alt+L";
         private bool _recordingPtt;
         private bool _recordingLlm;
+        private bool _recordingLang;
 
         // Model indirme durumu
         private CancellationTokenSource? _modelDownloadCts;
@@ -95,12 +126,23 @@ namespace TRWhisper.UI
         /// <summary>Yükleme bittiğindeki alan imzası; kaydedilmemiş değişiklik tespiti için.</summary>
         private string _savedSignature = "";
 
+        // Mica açıkken pencere arka planı DWM dokusunu gösterecek kadar saydam olur.
+        private static readonly Brush MicaBackground = new SolidColorBrush(Color.FromArgb(0x0A, 0x0F, 0x0F, 0x11));
+
+        /// <summary>Bu pencere örneği Mica ile mi kuruldu? Kurulduktan sonra değişmez.</summary>
+        private bool _micaApplied;
+
+        /// <summary>Son denetimde bulunan sürüm sayfası; banner düğmesi açar.</summary>
+        private string _updateReleaseUrl = UpdateCheckerService.ReleasesPageUrl;
+
         public SettingsWindow(ConfigManager configManager,
                               CustomDictionaryService dictionaryService,
                               Action<AppConfig>? onApplied = null,
                               ILlmCleaner? llmCleaner = null,
                               PillOverlayWindow? overlayWindow = null,
-                              BackupService? backupService = null)
+                              BackupService? backupService = null,
+                              ISoundFeedbackService? soundFeedback = null,
+                              WhisperNetEngine? whisperEngine = null)
         {
             InitializeComponent();
 
@@ -110,9 +152,26 @@ namespace TRWhisper.UI
             _llmCleaner = llmCleaner ?? new LlmCleanerService(configManager);
             _overlayWindow = overlayWindow;
             _backupService = backupService ?? new BackupService(configManager);
-            _usageTracker = new ApiUsageTracker(ApiUsageTracker.ResolveDefaultPath(configManager));
+            _soundFeedback = soundFeedback;
+            _whisperEngine = whisperEngine;
+            _modelStatusTimer.Tick += (_, _) => UpdateModelStatus();
+            IsVisibleChanged += (_, _) => UpdateModelStatusTimer();
 
-            _pages = new[] { PageGeneral, PageAudio, PageModel, PageHotkey, PageDictionary, PageAi, PageOverlay, PageBackup };
+            // Dil pencere dışından da değişir (Alt+L, tepsi menüsü); açık pencere bunu
+            // göstermeli, yoksa sonraki "Kaydet" eski dili geri yazardı.
+            _configManager.ConfigChanged += OnConfigChangedElsewhere;
+            Closed += (_, _) => _configManager.ConfigChanged -= OnConfigChangedElsewhere;
+            _usageTracker = new ApiUsageTracker(ApiUsageTracker.ResolveDefaultPath(configManager));
+            _historyService = new HistoryService(configManager);
+
+            _pages = new[] { PageGeneral, PageAudio, PageModel, PageHotkey, PageDictionary, PageAi, PageOverlay, PageBackup, PageHistory };
+            FillCombo(HistoryDateCombo, new[]
+            {
+                new ComboEntry(HistoryService.FilterAll, HistoryService.FilterAll),
+                new ComboEntry(HistoryService.FilterToday, HistoryService.FilterToday),
+                new ComboEntry(HistoryService.FilterThisWeek, HistoryService.FilterThisWeek),
+                new ComboEntry(HistoryService.FilterThisMonth, HistoryService.FilterThisMonth),
+            }, HistoryService.FilterAll);
 
             RulesList.ItemsSource = _rules;
             AppMappingsList.ItemsSource = _appMappings;
@@ -121,10 +180,44 @@ namespace TRWhisper.UI
             PreviewKeyDown += SettingsWindow_PreviewKeyDown;
             PreviewKeyUp += SettingsWindow_PreviewKeyUp;
             PreviewMouseDown += SettingsWindow_PreviewMouseDown;
+            DictationModeCombo.SelectionChanged += (_, _) => UpdateModeHint();
+            BuildFastSwitchLanguageChips();
+            txtUpdateStatus.Text = $"Mevcut sürüm: v{UpdateCheckerService.CurrentVersionText}";
 
             LoadSettings();
             _loading = false;
             _savedSignature = UiSignature();
+
+            if (WantsMica(_configManager.Current)) PrepareMicaChrome();
+            MicaToggle_Changed(MicaToggle, new RoutedEventArgs());
+        }
+
+        /// <summary>
+        /// Uygulama kapanırken true yapılır. Aksi hâlde pencereyi kapatmak onu yalnızca gizler:
+        /// pencerenin kurulması UI iş parçacığını ~0.4-1 sn meşgul eder, gizli pencere ise anında açılır.
+        /// </summary>
+        public bool AllowClose { get; set; }
+
+        /// <summary>
+        /// Gizlenmiş pencereyi güncel ayarlarla yeniden gösterir. Ayarlar diskten tazelenir:
+        /// kaydedilmeden kapatılan düzenlemeler yeni bir pencerede olduğu gibi geri gelmemeli.
+        /// </summary>
+        public void ShowAgain()
+        {
+            _loading = true;
+            _closingWithoutSave = false;
+            _historyLoaded = false;   // yeni diktelerin görünmesi için Geçmiş yeniden okunur
+            LoadSettings();
+            _loading = false;
+            _savedSignature = UiSignature();
+
+            // Yeni pencere gibi Genel sekmesinden başla.
+            if (NavGeneral.IsChecked == true) Nav_Checked(NavGeneral, new RoutedEventArgs());
+            else NavGeneral.IsChecked = true;
+
+            if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
+            Show();
+            Activate();
         }
 
         /// <summary>
@@ -184,22 +277,32 @@ namespace TRWhisper.UI
 
             TryLoad(problems, "genel", () =>
             {
-                FillCombo(LanguageCombo, new[]
-                {
-                    new ComboEntry("tr", "Türkçe"),
-                    new ComboEntry("en", "İngilizce"),
-                    new ComboEntry("de", "Almanca"),
-                    new ComboEntry("fr", "Fransızca"),
-                    new ComboEntry("auto", "Otomatik algıla"),
-                }, cfg.General.Language);
+                FillCombo(LanguageCombo,
+                    DictationLanguage.Supported.Select(l => new ComboEntry(l.Code, l.Name)).ToArray(),
+                    cfg.General.Language);
 
                 AutostartToggle.IsChecked = AutostartManager.IsEnabled();
                 NormalizationToggle.IsChecked = cfg.General.EnableTextNormalization;
                 DictionaryToggle.IsChecked = cfg.General.EnableCustomDictionary;
+                chkSpokenPunctuation.IsChecked = cfg.General.EnableSpokenPunctuation;
                 StreamingPreviewToggle.IsChecked = cfg.General.EnableStreamingPreview;
+                chkLanguageFastSwitch.IsChecked = cfg.General.EnableLanguageFastSwitch;
+                AutoUpdateToggle.IsChecked = cfg.General.EnableAutomaticUpdateCheck;
+                MicaToggle.IsChecked = cfg.General.EnableMicaEffect;
+                _fastSwitchOrder.Clear();
+                _fastSwitchOrder.AddRange(DictationLanguage.NormalizeFastSwitchLanguages(cfg.General.FastSwitchLanguages));
+                foreach (var chip in FastSwitchLanguagesPanel.Children.OfType<CheckBox>())
+                    chip.IsChecked = _fastSwitchOrder.Contains((string)chip.Tag);
+                RefreshFastSwitchOrder();
             });
 
-            TryLoad(problems, "ses", () => LoadMicrophones(cfg.Audio.InputDeviceId));
+            TryLoad(problems, "ses", () =>
+            {
+                LoadMicrophones(cfg.Audio.InputDeviceId);
+                chkSoundFeedback.IsChecked = cfg.Audio.EnableSoundFeedback;
+                sliderSoundVolume.Value = Math.Clamp(cfg.Audio.SoundFeedbackVolume, 0, 100);
+                UpdateSoundVolumeText();
+            });
 
             TryLoad(problems, "model", () =>
             {
@@ -216,7 +319,6 @@ namespace TRWhisper.UI
                     new ComboEntry("Toggle", "Aç/Kapa (Toggle)"),
                     new ComboEntry("HandsFree", "Eller Serbest (Sessizlikte otomatik bitir)"),
                 }, cfg.Hotkey.DictationMode);
-                DictationModeCombo.SelectionChanged += (_, _) => UpdateModeHint();
 
                 SilenceMsBox.Text = cfg.Hotkey.HandsFreeSilenceMs.ToString(CultureInfo.InvariantCulture);
                 SilenceThresholdBox.Text = cfg.Hotkey.HandsFreeSilenceThreshold.ToString("0.###", CultureInfo.InvariantCulture);
@@ -224,6 +326,7 @@ namespace TRWhisper.UI
 
                 _currentPttKey = string.IsNullOrWhiteSpace(cfg.Hotkey.PushToTalkKey) ? "RightCtrl" : cfg.Hotkey.PushToTalkKey;
                 _currentLlmKey = string.IsNullOrWhiteSpace(cfg.Hotkey.LlmModifierKey) ? "Shift" : cfg.Hotkey.LlmModifierKey;
+                _currentLangKey = string.IsNullOrWhiteSpace(cfg.General.FastSwitchHotkey) ? "Alt+L" : cfg.General.FastSwitchHotkey;
                 UpdateHotkeyDisplays();
             });
 
@@ -237,6 +340,10 @@ namespace TRWhisper.UI
                     new ComboEntry("Ollama", "Ollama (Yerel)"),
                     new ComboEntry("Gemini", "Google Gemini (Bulut)"),
                     new ComboEntry("OpenAI", "OpenAI (Bulut)"),
+                    new ComboEntry("Groq", "Groq (Ultra Hızlı Bulut)"),
+                    new ComboEntry("DeepSeek", "DeepSeek (Bulut)"),
+                    new ComboEntry("Claude", "Anthropic Claude (Bulut)"),
+                    new ComboEntry("CustomOpenAI", "Özel / Yerel OpenAI-Uyumlu"),
                 }, cfg.LlmCleaning.Provider);
 
                 LlmEndpointBox.Text = cfg.LlmCleaning.Endpoint ?? "";
@@ -286,6 +393,7 @@ namespace TRWhisper.UI
 
                 UpdateOverlayCoordsUI();
                 OverlayDurationBox.Text = cfg.Overlay.ResultDurationSeconds.ToString(CultureInfo.InvariantCulture);
+                EdgeSnappingToggle.IsChecked = cfg.Overlay.EnableEdgeSnapping;
             });
 
             TryLoad(problems, "yedekleme", () =>
@@ -295,6 +403,7 @@ namespace TRWhisper.UI
                 BackupRetentionBox.Text = cfg.Backup.RetentionCount.ToString(CultureInfo.InvariantCulture);
                 IncludeTranscriptsToggle.IsChecked = cfg.Backup.IncludeTranscripts;
                 BackupDirBox.Text = cfg.Backup.BackupDirectory ?? "";
+                UpdateBackupCloudWarning();
 
                 BackupStatusText.Text = cfg.Backup.LastBackupUtc is { } last
                     ? $"Son yedek: {last.ToLocalTime():dd.MM.yyyy HH:mm}"
@@ -409,6 +518,168 @@ namespace TRWhisper.UI
                 : "CUDA çalışma zamanı bulunamadı. Large-v3 Turbo CPU'da çok yavaştır (~20+ sn); Small modelini tercih edin.";
         }
 
+        private void OnConfigChangedElsewhere(AppConfig cfg)
+        {
+            var language = cfg.General.Language;
+            Dispatcher.BeginInvoke(() =>
+            {
+                if (_loading || string.Equals(SelectedValue(LanguageCombo, ""), language, StringComparison.OrdinalIgnoreCase))
+                    return;
+
+                // Başka kaydedilmemiş düzenleme yoksa dil değişimi "kaydedilmemiş" sayılmasın:
+                // zaten diskte, kullanıcıya kapanışta soru sorulmamalı.
+                var wasClean = UiSignature() == _savedSignature;
+                SelectComboValue(LanguageCombo, language);
+                if (wasClean) _savedSignature = UiSignature();
+            });
+        }
+
+        // ------------------------------------------------------------------ hızlı dil geçişi dilleri
+
+        private void BuildFastSwitchLanguageChips()
+        {
+            foreach (var (code, name) in DictationLanguage.Supported)
+            {
+                var chip = new CheckBox
+                {
+                    Content = name,
+                    Tag = code,
+                    Style = (Style)FindResource("SelectChip"),
+                };
+                System.Windows.Automation.AutomationProperties.SetName(chip, $"{name} dil geçişine dahil");
+                chip.Checked += FastSwitchLanguageChip_Changed;
+                chip.Unchecked += FastSwitchLanguageChip_Changed;
+                FastSwitchLanguagesPanel.Children.Add(chip);
+            }
+        }
+
+        /// <summary>Kısayolun geçiş sırası (seçili dil kodları, kullanıcının dizdiği sırayla).</summary>
+        private readonly List<string> _fastSwitchOrder = new();
+
+        private List<string> SelectedFastSwitchLanguages() => new(_fastSwitchOrder);
+
+        private void FastSwitchLanguageChip_Changed(object sender, RoutedEventArgs e)
+        {
+            if (_loading || sender is not CheckBox { Tag: string code } chip) return;
+
+            if (chip.IsChecked == true)
+            {
+                if (!_fastSwitchOrder.Contains(code)) _fastSwitchOrder.Add(code);   // yeni dil sona
+            }
+            else
+            {
+                // Tek dille "geçiş" olmaz: son iki dilden biri bırakılamaz.
+                if (_fastSwitchOrder.Count <= 2)
+                {
+                    chip.IsChecked = true;
+                    StatusText.Text = "Hızlı dil geçişi için en az iki dil seçili olmalı.";
+                    return;
+                }
+                _fastSwitchOrder.Remove(code);
+            }
+
+            RefreshFastSwitchOrder();
+        }
+
+        /// <summary>Dili geçiş sırasında <paramref name="newIndex"/> konumuna taşır.</summary>
+        private void MoveFastSwitchLanguage(string code, int newIndex)
+        {
+            var oldIndex = _fastSwitchOrder.IndexOf(code);
+            if (oldIndex < 0) return;
+            newIndex = Math.Clamp(newIndex, 0, _fastSwitchOrder.Count - 1);
+            if (newIndex == oldIndex) return;
+
+            _fastSwitchOrder.RemoveAt(oldIndex);
+            _fastSwitchOrder.Insert(newIndex, code);
+            RefreshFastSwitchOrder();
+        }
+
+        private void RefreshFastSwitchOrder()
+        {
+            string Name(string code) => DictationLanguage.Supported.First(l => l.Code == code).Name;
+
+            FastSwitchOrderList.ItemsSource = _fastSwitchOrder
+                .Select((code, i) => new FastSwitchOrderItem(
+                    code, $"{i + 1}. {Name(code)}", i > 0, i < _fastSwitchOrder.Count - 1, Name(code)))
+                .ToList();
+            FastSwitchLanguagesSummary.Text = $"Geçiş yapılacak diller: {string.Join(" → ", _fastSwitchOrder.Select(Name))}";
+        }
+
+        private void FastSwitchMoveEarlier_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button { Tag: string code }) MoveFastSwitchLanguage(code, _fastSwitchOrder.IndexOf(code) - 1);
+        }
+
+        private void FastSwitchMoveLater_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button { Tag: string code }) MoveFastSwitchLanguage(code, _fastSwitchOrder.IndexOf(code) + 1);
+        }
+
+        private void UpdateModelStatusTimer()
+        {
+            if (IsVisible && PageModel.Visibility == Visibility.Visible)
+            {
+                UpdateModelStatus();
+                _modelStatusTimer.Start();
+            }
+            else
+            {
+                _modelStatusTimer.Stop();
+            }
+        }
+
+        private void UpdateModelStatus()
+        {
+            var loaded = _whisperEngine?.IsModelLoaded == true;
+            if (loaded)
+            {
+                var file = Path.GetFileName(_whisperEngine!.LoadedModelPath ?? "");
+                var model = WhisperModelManager.Catalog.FirstOrDefault(m =>
+                    string.Equals(m.FileName, file, StringComparison.OrdinalIgnoreCase))?.DisplayName
+                    ?? Path.GetFileNameWithoutExtension(file);
+                ModelStatusText.Text = $"Model Bellekte Hazır ({model}) — Dil: {DictationLanguage.DisplayName(_whisperEngine.LoadedLanguage)}";
+            }
+            else
+            {
+                ModelStatusText.Text = "Model Boşta (İlk diktede otomatik yüklenecek)";
+            }
+
+            var color = loaded ? Color.FromRgb(0x22, 0xC5, 0x5E) : Color.FromRgb(0x71, 0x71, 0x7A);
+            ModelStatusDot.Fill = new SolidColorBrush(color);
+            ModelStatusBadge.BorderBrush = new SolidColorBrush(color);
+            ModelStatusBadge.Background = new SolidColorBrush(loaded
+                ? Color.FromRgb(0x16, 0x30, 0x1F)
+                : Color.FromRgb(0x1D, 0x1D, 0x20));
+            btnUnloadModel.IsEnabled = loaded;
+
+            txtMemoryUsage.Text =
+                $"İşlem RAM: {ResourceMonitor.FormatBytes(ResourceMonitor.ProcessWorkingSetBytes())} | " +
+                ResourceMonitor.AccelerationLabel(WhisperNetRuntime.CudaEligible);
+        }
+
+        private void UnloadModel_Click(object sender, RoutedEventArgs e)
+        {
+            if (_whisperEngine?.UnloadModel("Kullanıcı isteğiyle boşaltıldı") == false)
+            {
+                txtMemoryUsage.Text = "Dikte sürerken model boşaltılamaz; birazdan tekrar deneyin.";
+                return;
+            }
+            UpdateModelStatus();
+        }
+
+        private void SoundVolume_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+            => UpdateSoundVolumeText();
+
+        private void UpdateSoundVolumeText()
+        {
+            if (txtSoundVolumePercent != null && sliderSoundVolume != null)
+                txtSoundVolumePercent.Text = $"%{(int)Math.Round(sliderSoundVolume.Value)}";
+        }
+
+        /// <summary>Kaydetmeden, kaydırıcıdaki düzeyle başarı sesini çalar (ayar kapalı olsa da).</summary>
+        private void TestSound_Click(object sender, RoutedEventArgs e)
+            => _soundFeedback?.PlayTestSound((int)Math.Round(sliderSoundVolume.Value));
+
         private void LlmProviderCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (_loading) return;
@@ -420,18 +691,10 @@ namespace TRWhisper.UI
             var provider = SelectedValue(LlmProviderCombo, "Ollama");
             bool isOllama = provider.Equals("Ollama", StringComparison.OrdinalIgnoreCase);
 
-            if (OllamaOfflineBadge != null)
-                OllamaOfflineBadge.Visibility = isOllama ? Visibility.Visible : Visibility.Collapsed;
-
-            if (CloudWarningBadge != null)
-                CloudWarningBadge.Visibility = isOllama ? Visibility.Collapsed : Visibility.Visible;
-
+            // Özel OpenAI-uyumlu yerel sunucular (vLLM --api-key vb.) anahtar isteyebilir;
+            // alan yalnızca Ollama'da gizlenir.
             if (LlmApiKeyPanel != null)
                 LlmApiKeyPanel.Visibility = isOllama ? Visibility.Collapsed : Visibility.Visible;
-
-            // Kota yalnızca ücret doğuran bulut sağlayıcılar için anlamlıdır.
-            if (QuotaCard != null)
-                QuotaCard.Visibility = isOllama ? Visibility.Collapsed : Visibility.Visible;
 
             if (isOllama)
             {
@@ -441,10 +704,8 @@ namespace TRWhisper.UI
                     LlmModelHint.Text = "Önerilen yerel modeller: qwen2.5:3b, llama3.2:3b, gemma2:2b";
                 if (autoFillDefaults)
                 {
-                    if (string.IsNullOrWhiteSpace(LlmEndpointBox.Text) || LlmEndpointBox.Text.Contains("googleapis") || LlmEndpointBox.Text.Contains("openai"))
-                        LlmEndpointBox.Text = "http://localhost:11434/v1/chat/completions";
-                    if (string.IsNullOrWhiteSpace(LlmModelBox.Text) || LlmModelBox.Text.StartsWith("gemini") || LlmModelBox.Text.StartsWith("gpt"))
-                        LlmModelBox.Text = "qwen2.5:3b";
+                    LlmEndpointBox.Text = "http://localhost:11434/v1/chat/completions";
+                    LlmModelBox.Text = "qwen2.5:3b";
                 }
             }
             else if (provider.Equals("Gemini", StringComparison.OrdinalIgnoreCase))
@@ -456,8 +717,7 @@ namespace TRWhisper.UI
                 if (autoFillDefaults)
                 {
                     LlmEndpointBox.Text = "https://generativelanguage.googleapis.com/v1beta/models";
-                    if (string.IsNullOrWhiteSpace(LlmModelBox.Text) || LlmModelBox.Text.Contains(":") || LlmModelBox.Text.StartsWith("gpt"))
-                        LlmModelBox.Text = "gemini-2.0-flash";
+                    LlmModelBox.Text = "gemini-2.0-flash";
                 }
             }
             else if (provider.Equals("OpenAI", StringComparison.OrdinalIgnoreCase))
@@ -469,10 +729,52 @@ namespace TRWhisper.UI
                 if (autoFillDefaults)
                 {
                     LlmEndpointBox.Text = "https://api.openai.com/v1/chat/completions";
-                    if (string.IsNullOrWhiteSpace(LlmModelBox.Text) || LlmModelBox.Text.Contains(":") || LlmModelBox.Text.StartsWith("gemini"))
-                        LlmModelBox.Text = "gpt-4o-mini";
+                    LlmModelBox.Text = "gpt-4o-mini";
                 }
             }
+            else if (LlmCleanerService.GetProviderDefaults(provider) is { } defaults)
+            {
+                // Groq, DeepSeek, Claude, Özel OpenAI-uyumlu: varsayılanlar servisteki tablodan gelir.
+                if (LlmEndpointHint != null)
+                    LlmEndpointHint.Text = provider.Equals("CustomOpenAI", StringComparison.OrdinalIgnoreCase)
+                        ? $"LM Studio, LocalAI, vLLM, OpenRouter vb. Varsayılan: {defaults.Endpoint}"
+                        : $"Varsayılan: {defaults.Endpoint}";
+                if (LlmModelHint != null)
+                    LlmModelHint.Text = $"Önerilen model: {defaults.Model}";
+                if (autoFillDefaults)
+                {
+                    LlmEndpointBox.Text = defaults.Endpoint;
+                    LlmModelBox.Text = defaults.Model;
+                }
+            }
+
+            UpdateLlmPrivacyUI();
+        }
+
+        private void LlmEndpointBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (_loading) return;
+            UpdateLlmPrivacyUI();
+        }
+
+        /// <summary>
+        /// Çevrimdışı/bulut rozetleri ve kota kartı. Yerel/bulut kararı servisle aynı
+        /// kuraldan gelir: Özel OpenAI-uyumlu sağlayıcı localhost'ta yerel sayılır.
+        /// </summary>
+        private void UpdateLlmPrivacyUI()
+        {
+            bool isLocal = LlmCleanerService.IsLocalProvider(
+                SelectedValue(LlmProviderCombo, "Ollama"), LlmEndpointBox?.Text);
+
+            if (OllamaOfflineBadge != null)
+                OllamaOfflineBadge.Visibility = isLocal ? Visibility.Visible : Visibility.Collapsed;
+
+            if (CloudWarningBadge != null)
+                CloudWarningBadge.Visibility = isLocal ? Visibility.Collapsed : Visibility.Visible;
+
+            // Kota yalnızca ücret doğuran bulut sağlayıcılar için anlamlıdır.
+            if (QuotaCard != null)
+                QuotaCard.Visibility = isLocal ? Visibility.Collapsed : Visibility.Visible;
         }
 
         private void RefreshLlmModesCombo(string? selectModeId = null)
@@ -744,12 +1046,144 @@ namespace TRWhisper.UI
             if (_pages == null) return;   // ctor içindeki ilk IsChecked=True için
             if (sender is not RadioButton { Tag: string tag } || !int.TryParse(tag, out var index)) return;
 
+            if (PageGroups.TryGetValue(index, out var group))
+            {
+                _activeGroup = group;
+                SubNavFirst.Content = group.FirstLabel;
+                SubNavSecond.Content = group.SecondLabel;
+                SubNavBar.Visibility = Visibility.Visible;
+
+                // Her menü girişinde ilk alt sayfayla başla; zaten seçiliyse Checked tetiklenmez.
+                if (SubNavFirst.IsChecked == true) ShowPage(group.First);
+                else SubNavFirst.IsChecked = true;
+            }
+            else
+            {
+                _activeGroup = null;
+                SubNavBar.Visibility = Visibility.Collapsed;
+                ShowPage(index);
+            }
+        }
+
+        private void SubNav_Checked(object sender, RoutedEventArgs e)
+        {
+            if (_activeGroup is not { } group) return;
+            ShowPage(ReferenceEquals(sender, SubNavSecond) ? group.Second : group.First);
+        }
+
+        private void ShowPage(int index)
+        {
             for (int i = 0; i < _pages.Length; i++)
                 _pages[i].Visibility = i == index ? Visibility.Visible : Visibility.Collapsed;
 
             // Sekmeler tek bir ScrollViewer'i paylasiyor; onceki sayfanin kaydirma
             // konumu kalirsa yeni sayfa bos bir alanla aciliyor.
             ContentScroll?.ScrollToTop();
+            UpdateModelStatusTimer();
+
+            if (index == HistoryPageIndex && !_historyLoaded) _ = LoadHistoryAsync();
+        }
+
+        // ------------------------------------------------------------------ geçmiş
+
+        private async Task LoadHistoryAsync()
+        {
+            ShowHistoryStatus("Kayıtlar yükleniyor...");
+            try
+            {
+                // Dosya okuma/ayrıştırma arka planda; arayüz kilitlenmez.
+                _historyEntries = await _historyService.LoadHistoryAsync();
+            }
+            catch (Exception ex)
+            {
+                FileLog.Write($"[Settings] Geçmiş yüklenemedi: {ex.Message}");
+                _historyEntries = new List<HistoryEntry>();
+            }
+            _historyLoaded = true;
+
+            var stats = _historyService.CalculateStats(_historyEntries);
+            HistoryTimeSavedText.Text = HistoryService.FormatDuration(stats.EstimatedMinutesSaved);
+            HistoryWordsText.Text = stats.TotalWords.ToString("N0", CultureInfo.GetCultureInfo("tr-TR"));
+            HistoryCountText.Text = stats.TotalTranscripts.ToString("N0", CultureInfo.GetCultureInfo("tr-TR"));
+            ApplyHistoryFilter();
+        }
+
+        private void ApplyHistoryFilter()
+        {
+            if (!_historyLoaded) return;
+
+            var items = _historyService
+                .Filter(_historyEntries, HistorySearchBox.Text, SelectedValue(HistoryDateCombo, HistoryService.FilterAll))
+                .Select(e => new HistoryItemView(e))
+                .ToList();
+            HistoryListControl.ItemsSource = items;
+
+            if (_historyEntries.Count == 0)
+                ShowHistoryStatus("Henüz dikte kaydı bulunmuyor.");
+            else if (items.Count == 0)
+                ShowHistoryStatus("Aramanızla eşleşen kayıt yok.");
+            else
+                ShowHistoryStatus(null);
+        }
+
+        private void ShowHistoryStatus(string? message)
+        {
+            HistoryStatusText.Text = message ?? "";
+            HistoryStatusText.Visibility = message == null ? Visibility.Collapsed : Visibility.Visible;
+        }
+
+        private void HistorySearch_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            HistorySearchPlaceholder.Visibility = string.IsNullOrEmpty(HistorySearchBox.Text)
+                ? Visibility.Visible : Visibility.Collapsed;
+            ApplyHistoryFilter();
+        }
+
+        private void HistoryDateCombo_SelectionChanged(object sender, SelectionChangedEventArgs e) => ApplyHistoryFilter();
+
+        private void HistoryRefresh_Click(object sender, RoutedEventArgs e) => _ = LoadHistoryAsync();
+
+        private void OpenHistoryFolder_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                var dir = _historyService.LogDirectory;
+                Directory.CreateDirectory(dir);
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = "explorer.exe",
+                    Arguments = $"\"{dir}\"",
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                ShowHistoryStatus($"Klasör açılamadı: {ex.Message}");
+            }
+        }
+
+        private async void HistoryCopy_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not Button { Tag: HistoryItemView item }) return;
+            try
+            {
+                System.Windows.Clipboard.SetText(item.Entry.Text);
+                item.CopyLabel = "Kopyalandı ✓";
+            }
+            catch (Exception ex)
+            {
+                // Pano başka bir uygulama tarafından kilitli olabilir.
+                FileLog.Write($"[Settings] Geçmiş kaydı kopyalanamadı: {ex.Message}");
+                item.CopyLabel = "Kopyalanamadı";
+            }
+
+            await Task.Delay(1500);
+            item.CopyLabel = HistoryItemView.DefaultCopyLabel;
+        }
+
+        private void HistoryToggleDetails_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button { Tag: HistoryItemView item }) item.Expanded = !item.Expanded;
         }
 
         // ------------------------------------------------------------------ sözlük
@@ -858,6 +1292,117 @@ namespace TRWhisper.UI
                 : WindowState.Maximized;
         }
 
+        // ------------------------------------------------------------------ güncelleme ve görünüm
+
+        private async void CheckUpdates_Click(object sender, RoutedEventArgs e)
+        {
+            btnCheckUpdates.IsEnabled = false;
+            txtUpdateStatus.Text = "Denetleniyor...";
+
+            // Servis istisna fırlatmaz; hata durumunda CheckFailed döner.
+            var result = await new UpdateCheckerService().CheckForUpdatesAsync();
+            btnCheckUpdates.IsEnabled = true;
+
+            if (result.CheckFailed)
+            {
+                txtUpdateStatus.Text = "Güncelleme denetlenemedi.";
+                borderUpdateAvailable.Visibility = Visibility.Collapsed;
+            }
+            else if (result.IsUpdateAvailable)
+            {
+                _updateReleaseUrl = result.ReleaseUrl;
+                txtUpdateStatus.Text = $"Mevcut sürüm: v{result.CurrentVersion}";
+                txtUpdateTitle.Text = $"Yeni bir sürüm mevcut: v{result.LatestVersion}! (Mevcut: v{result.CurrentVersion})";
+                var notes = result.ReleaseNotes;
+                txtUpdateNotes.Text = notes.Length > 300 ? notes[..300].TrimEnd() + "…" : notes;
+                txtUpdateNotes.Visibility = notes.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+                borderUpdateAvailable.Visibility = Visibility.Visible;
+            }
+            else
+            {
+                txtUpdateStatus.Text = $"TRWhisper güncel (v{result.CurrentVersion}).";
+                borderUpdateAvailable.Visibility = Visibility.Collapsed;
+            }
+        }
+
+        private void OpenReleasePage_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(_updateReleaseUrl) { UseShellExecute = true });
+            }
+            catch (Exception ex)
+            {
+                FileLog.Write($"[Settings] Sürüm sayfası açılamadı: {ex.Message}");
+                StatusText.Text = "Sürüm sayfası açılamadı.";
+            }
+        }
+
+        private static bool WantsMica(AppConfig cfg) =>
+            cfg.General.EnableMicaEffect && WindowsBackdropHelper.IsWindows11;
+
+        /// <summary>
+        /// Kayıtlı Mica ayarı bu pencere örneğinin kuruluşundan farklı. Program gizli pencereyi
+        /// yeniden göstermek yerine kapatıp yenisini kurar.
+        /// </summary>
+        public bool NeedsRecreate => _micaApplied != WantsMica(_configManager.Current);
+
+        /// <summary>
+        /// Mica yalnızca pencere KURULURKEN uygulanır. Açık pencerede WindowChrome'un cam
+        /// çerçevesini ve kompozisyon arka planını değiştirmek görüntüyü bozuyordu (yeniden
+        /// çizilmeyen alanlar, DWM'in kendi başlık düğmeleri); bu yüzden canlı geçiş yok.
+        /// </summary>
+        private void PrepareMicaChrome()
+        {
+            var chrome = (WindowChrome)WindowChrome.GetWindowChrome(this).Clone();
+            chrome.GlassFrameThickness = new Thickness(-1);
+            WindowChrome.SetWindowChrome(this, chrome);
+            Background = MicaBackground;
+            WindowBorder.Background = MicaBackground;
+            // ClearType saydam yüzeyde renk saçağı bırakır.
+            TextOptions.SetTextRenderingMode(this, TextRenderingMode.Grayscale);
+            _micaApplied = true;
+        }
+
+        private void RevertMicaChrome()
+        {
+            var chrome = (WindowChrome)WindowChrome.GetWindowChrome(this).Clone();
+            chrome.GlassFrameThickness = new Thickness(0);
+            WindowChrome.SetWindowChrome(this, chrome);
+            Background = WindowBorder.Background = new SolidColorBrush(Color.FromRgb(0x0F, 0x0F, 0x11));
+            TextOptions.SetTextRenderingMode(this, TextRenderingMode.Auto);
+            _micaApplied = false;
+        }
+
+        protected override void OnSourceInitialized(EventArgs e)
+        {
+            base.OnSourceInitialized(e);
+            if (!_micaApplied) return;
+
+            // İlk çizimden önce: DWM reddederse düz koyu arka plana dönülür, saydam pencere kalmaz.
+            var hwnd = new WindowInteropHelper(this).Handle;
+            if (!WindowsBackdropHelper.ApplyMica(hwnd))
+            {
+                RevertMicaChrome();
+                MicaToggle_Changed(MicaToggle, new RoutedEventArgs());
+                return;
+            }
+            if (HwndSource.FromHwnd(hwnd)?.CompositionTarget is { } target)
+                target.BackgroundColor = Colors.Transparent;
+            WindowsBackdropHelper.HideSystemCaptionButtons(hwnd);
+        }
+
+        private void MicaToggle_Changed(object sender, RoutedEventArgs e)
+        {
+            var want = MicaToggle.IsChecked == true;
+            MicaPendingHint.Text = want && !WindowsBackdropHelper.IsWindows11
+                ? "Bu Windows sürümü Mica'yı desteklemiyor; ayar yalnızca Windows 11'de etkinleşir."
+                : want != _micaApplied
+                    ? "Kaydettikten sonra Ayarlar penceresini kapatıp yeniden açtığınızda uygulanır."
+                    : "";
+            MicaPendingHint.Visibility = MicaPendingHint.Text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
+        }
+
         private void CloseButton_Click(object sender, RoutedEventArgs e)
         {
             Close();
@@ -879,7 +1424,9 @@ namespace TRWhisper.UI
         {
             // Karar verilmeden önce indirme iptal EDİLMEZ: kullanıcı "İptal" derse
             // pencere açık kalır ve sürmekte olan indirme boşuna kesilmiş olurdu.
-            if (!_loading && !_closingWithoutSave && UiSignature() != _savedSignature)
+            // Gizli pencere (uygulama kapanırken) sormaz: içindeki eski düzenlemeler zaten
+            // kullanıcı gizlerken kaydedildi ya da reddedildi.
+            if (!_loading && !_closingWithoutSave && IsVisible && UiSignature() != _savedSignature)
             {
                 var answer = MessageBox.Show(
                     "Kaydedilmemiş değişiklikler var. Kaydedilsin mi?",
@@ -908,6 +1455,14 @@ namespace TRWhisper.UI
                 _modelDownloadCts = null;
             }
 
+            if (!AllowClose)
+            {
+                e.Cancel = true;
+                CancelRecording();
+                Hide();
+                return;
+            }
+
             base.OnClosing(e);
         }
 
@@ -925,12 +1480,18 @@ namespace TRWhisper.UI
             Add(NormalizationToggle.IsChecked);
             Add(DictionaryToggle.IsChecked);
             Add(StreamingPreviewToggle.IsChecked);
+            Add(chkLanguageFastSwitch.IsChecked);
+            Add(string.Join(",", SelectedFastSwitchLanguages()));
             Add(AutostartToggle.IsChecked);
+            Add(chkSpokenPunctuation.IsChecked);
             Add(SelectedValue(MicrophoneCombo, ""));
+            Add(chkSoundFeedback.IsChecked);
+            Add((int)Math.Round(sliderSoundVolume.Value));
             Add(SelectedValue(ModelCombo, ""));
             Add(IdleMinutesBox.Text);
             Add(_currentPttKey);
             Add(_currentLlmKey);
+            Add(_currentLangKey);
             Add(SelectedValue(DictationModeCombo, ""));
             Add(SilenceMsBox.Text);
             Add(SilenceThresholdBox.Text);
@@ -954,6 +1515,9 @@ namespace TRWhisper.UI
             Add(_customX);
             Add(_customY);
             Add(OverlayDurationBox.Text);
+            Add(AutoUpdateToggle.IsChecked);
+            Add(MicaToggle.IsChecked);
+            Add(EdgeSnappingToggle.IsChecked);
 
             foreach (var kv in _promptDrafts.OrderBy(k => k.Key, StringComparer.Ordinal))
             {
@@ -987,15 +1551,23 @@ namespace TRWhisper.UI
                 cfg.General.Language = SelectedValue(LanguageCombo, cfg.General.Language);
                 cfg.General.EnableTextNormalization = NormalizationToggle.IsChecked == true;
                 cfg.General.EnableCustomDictionary = DictionaryToggle.IsChecked == true;
+                cfg.General.EnableSpokenPunctuation = chkSpokenPunctuation.IsChecked == true;
                 cfg.General.EnableStreamingPreview = StreamingPreviewToggle.IsChecked == true;
+                cfg.General.EnableLanguageFastSwitch = chkLanguageFastSwitch.IsChecked == true;
+                cfg.General.FastSwitchLanguages = SelectedFastSwitchLanguages();
+                cfg.General.EnableAutomaticUpdateCheck = AutoUpdateToggle.IsChecked == true;
+                cfg.General.EnableMicaEffect = MicaToggle.IsChecked == true;
 
                 cfg.Audio.InputDeviceId = SelectedValue(MicrophoneCombo, "");
+                cfg.Audio.EnableSoundFeedback = chkSoundFeedback.IsChecked == true;
+                cfg.Audio.SoundFeedbackVolume = (int)Math.Round(sliderSoundVolume.Value);
 
                 cfg.Whisper.ModelPath = SelectedValue(ModelCombo, cfg.Whisper.ModelPath);
                 cfg.Whisper.IdleTimeoutMinutes = ParseInt(IdleMinutesBox.Text, cfg.Whisper.IdleTimeoutMinutes, 0, 600);
 
                 cfg.Hotkey.PushToTalkKey = _currentPttKey;
                 cfg.Hotkey.LlmModifierKey = _currentLlmKey;
+                cfg.General.FastSwitchHotkey = _currentLangKey;
                 cfg.Hotkey.DictationMode = SelectedValue(DictationModeCombo, cfg.Hotkey.DictationMode);
                 cfg.Hotkey.HandsFreeSilenceMs = ParseInt(SilenceMsBox.Text, cfg.Hotkey.HandsFreeSilenceMs, 300, 10000);
                 cfg.Hotkey.HandsFreeSilenceThreshold =
@@ -1060,6 +1632,7 @@ namespace TRWhisper.UI
                 cfg.Overlay.CustomX = _customX;
                 cfg.Overlay.CustomY = _customY;
                 cfg.Overlay.ResultDurationSeconds = ParseInt(OverlayDurationBox.Text, cfg.Overlay.ResultDurationSeconds, 1, 120);
+                cfg.Overlay.EnableEdgeSnapping = EdgeSnappingToggle.IsChecked == true;
 
                 // Otomatik başlatma config.json'da değil kayıt defterinde tutulur.
                 var wantAutostart = AutostartToggle.IsChecked == true;
@@ -1101,6 +1674,12 @@ namespace TRWhisper.UI
                 return "https://aistudio.google.com/app/apikey";
             if (provider.Equals("OpenAI", StringComparison.OrdinalIgnoreCase))
                 return "https://platform.openai.com/api-keys";
+            if (provider.Equals("Groq", StringComparison.OrdinalIgnoreCase))
+                return "https://console.groq.com/keys";
+            if (provider.Equals("DeepSeek", StringComparison.OrdinalIgnoreCase))
+                return "https://platform.deepseek.com/api_keys";
+            if (provider.Equals("Claude", StringComparison.OrdinalIgnoreCase))
+                return "https://console.anthropic.com/settings/keys";
             return null;
         }
 
@@ -1248,6 +1827,16 @@ namespace TRWhisper.UI
             NoBackupsText.Visibility = _backupItems.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         }
 
+        private void BackupDirBox_TextChanged(object sender, TextChangedEventArgs e) => UpdateBackupCloudWarning();
+
+        private void UpdateBackupCloudWarning()
+        {
+            if (BackupCloudWarning == null || BackupDirBox == null) return;
+            BackupCloudWarning.Visibility = BackupService.IsCloudSyncedPath(BackupDirBox.Text)
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+        }
+
         private void OpenBackupFolder_Click(object sender, RoutedEventArgs e)
         {
             try
@@ -1311,7 +1900,10 @@ namespace TRWhisper.UI
                 $"\"{System.IO.Path.GetFileName(dialog.FileName)}\" geri yüklenecek.\n\n" +
                 "Ayarlarınızın, özel sözlüğünüzün ve aynı adlı dikte günlüklerinizin ÜZERİNE YAZILIR. " +
                 "İşlemden hemen önce mevcut durumun yedeği otomatik alınır.\n\n" +
-                "API anahtarınız yedekte bulunmaz; mevcut anahtarınız korunur.\n\nDevam edilsin mi?",
+                "Bu bilgisayara bağlı ayarlar yedekten alınmaz, olduğu gibi kalır: API anahtarı, " +
+                "yapay zeka sağlayıcısı/uç noktası/modeli ve dosya yolları.\n\n" +
+                "Yalnızca kendi aldığınız ya da güvendiğiniz birinden gelen yedekleri geri yükleyin: " +
+                "sözlük kuralları ve yapay zeka komutları dikte metninizi değiştirebilir.\n\nDevam edilsin mi?",
                 "TRWhisper", MessageBoxButton.YesNo, MessageBoxImage.Warning);
 
             if (answer != MessageBoxResult.Yes) return;
@@ -1469,12 +2061,18 @@ namespace TRWhisper.UI
 
             var llmBinding = HotkeyBinding.Parse(_currentLlmKey, "Shift");
             LlmKeyDisplayText.Text = llmBinding.DisplayName;
+
+            var langName = HotkeyBinding.Parse(_currentLangKey, "Alt+L").DisplayName;
+            LangKeyDisplayText.Text = langName;
+            LanguageFastSwitchHint.Text =
+                $"Dikte sırasında veya masaüstündeyken {langName} kısayolu ile seçtiğiniz diller arasında sırayla geçiş yapın. Kısayolu Kısayol sekmesinden değiştirebilirsiniz.";
         }
 
         private void RecordPttButton_Click(object sender, RoutedEventArgs e)
         {
-            _recordingLlm = false;
-            LlmRecordingBanner.Visibility = Visibility.Collapsed;
+            var wasRecording = _recordingPtt;
+            CancelRecording();
+            _recordingPtt = wasRecording;
 
             _recordingPtt = !_recordingPtt;
             PttRecordingBanner.Visibility = _recordingPtt ? Visibility.Visible : Visibility.Collapsed;
@@ -1484,13 +2082,48 @@ namespace TRWhisper.UI
 
         private void RecordLlmButton_Click(object sender, RoutedEventArgs e)
         {
-            _recordingPtt = false;
-            PttRecordingBanner.Visibility = Visibility.Collapsed;
+            var wasRecording = _recordingLlm;
+            CancelRecording();
+            _recordingLlm = wasRecording;
 
             _recordingLlm = !_recordingLlm;
             LlmRecordingBanner.Visibility = _recordingLlm ? Visibility.Visible : Visibility.Collapsed;
             RecordLlmButton.Content = _recordingLlm ? "Tuşa Basın..." : "Kısayol Ata";
             _lastModifierDown = Key.None;
+        }
+
+        private void RecordLangButton_Click(object sender, RoutedEventArgs e)
+        {
+            var wasRecording = _recordingLang;
+            CancelRecording();
+
+            _recordingLang = !wasRecording;
+            LangRecordingBanner.Visibility = _recordingLang ? Visibility.Visible : Visibility.Collapsed;
+            RecordLangButton.Content = _recordingLang ? "Tuşa Basın..." : "Kısayol Ata";
+        }
+
+        private void PresetLang_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn && btn.Tag is string keyTag)
+            {
+                CancelRecording();
+                SetLanguageSwitchKey(keyTag);
+            }
+        }
+
+        /// <summary>Geçersizse (tek değiştirici, fare, bas-konuşla çakışma) eski kısayol korunur.</summary>
+        private bool SetLanguageSwitchKey(string hotkeyStr)
+        {
+            if (!DictationLanguage.IsValidFastSwitchHotkey(hotkeyStr, _currentPttKey))
+            {
+                StatusText.Text = $"'{HotkeyBinding.Parse(hotkeyStr, "None").DisplayName}' dil geçişi için kullanılamaz; Alt+L gibi bir tuş kombinasyonu seçin.";
+                return false;
+            }
+
+            _currentLangKey = hotkeyStr;
+            UpdateHotkeyDisplays();
+            StatusText.Text = $"Hızlı dil geçişi kısayolu '{LangKeyDisplayText.Text}' olarak ayarlandı.";
+            return true;
         }
 
         private void DisableLlmButton_Click(object sender, RoutedEventArgs e)
@@ -1527,7 +2160,7 @@ namespace TRWhisper.UI
 
         private void SettingsWindow_PreviewKeyDown(object sender, KeyEventArgs e)
         {
-            if (!_recordingPtt && !_recordingLlm) return;
+            if (!_recordingPtt && !_recordingLlm && !_recordingLang) return;
 
             var key = e.Key == Key.System ? e.SystemKey : e.Key;
 
@@ -1556,7 +2189,7 @@ namespace TRWhisper.UI
 
         private void SettingsWindow_PreviewKeyUp(object sender, KeyEventArgs e)
         {
-            if (!_recordingPtt && !_recordingLlm) return;
+            if (!_recordingPtt && !_recordingLlm && !_recordingLang) return;
 
             var key = e.Key == Key.System ? e.SystemKey : e.Key;
 
@@ -1571,7 +2204,7 @@ namespace TRWhisper.UI
 
         private void SettingsWindow_PreviewMouseDown(object sender, MouseButtonEventArgs e)
         {
-            if (!_recordingPtt && !_recordingLlm) return;
+            if (!_recordingPtt && !_recordingLlm && !_recordingLang) return;
 
             if (e.XButton1 == MouseButtonState.Pressed)
             {
@@ -1599,6 +2232,11 @@ namespace TRWhisper.UI
                 UpdateHotkeyDisplays();
                 StatusText.Text = $"Yeni LLM temizleme kısayolu atandı: {LlmKeyDisplayText.Text}";
             }
+            else if (_recordingLang)
+            {
+                // Geçersiz tuşta kayıt açık kalır; kullanıcı hemen başka bir kombinasyon deneyebilir.
+                if (!SetLanguageSwitchKey(hotkeyStr)) return;
+            }
 
             CancelRecording();
         }
@@ -1607,11 +2245,14 @@ namespace TRWhisper.UI
         {
             _recordingPtt = false;
             _recordingLlm = false;
+            _recordingLang = false;
             _lastModifierDown = Key.None;
             if (PttRecordingBanner != null) PttRecordingBanner.Visibility = Visibility.Collapsed;
             if (LlmRecordingBanner != null) LlmRecordingBanner.Visibility = Visibility.Collapsed;
+            if (LangRecordingBanner != null) LangRecordingBanner.Visibility = Visibility.Collapsed;
             if (RecordPttButton != null) RecordPttButton.Content = "Kısayol Ata";
             if (RecordLlmButton != null) RecordLlmButton.Content = "Kısayol Ata";
+            if (RecordLangButton != null) RecordLangButton.Content = "Kısayol Ata";
         }
 
         private static bool IsModifierKey(Key key)
@@ -1730,7 +2371,8 @@ namespace TRWhisper.UI
                 onCancel: () =>
                 {
                     StatusText.Text = "Konumlandırma iptal edildi.";
-                });
+                },
+                edgeSnapping: EdgeSnappingToggle.IsChecked == true);
         }
 
         private void ResetPosition_Click(object sender, RoutedEventArgs e)
@@ -1831,5 +2473,68 @@ namespace TRWhisper.UI
             Info = info;
             IsActive = isActive;
         }
+    }
+
+    /// <summary>Geçmiş sekmesindeki bir kayıt kartı.</summary>
+    public class HistoryItemView : System.ComponentModel.INotifyPropertyChanged
+    {
+        public const string DefaultCopyLabel = "Kopyala";
+        private static readonly CultureInfo Turkish = CultureInfo.GetCultureInfo("tr-TR");
+
+        public HistoryEntry Entry { get; }
+        public string TimestampText => Entry.Timestamp.ToString("d MMMM yyyy, HH:mm", Turkish);
+
+        /// <summary>Ham dikte varsayılan durumdur; rozet yalnızca LLM ile temizlenmiş kayıtta görünür.</summary>
+        public Visibility BadgeVisibility => Entry.CleanedWithLlm ? Visibility.Visible : Visibility.Collapsed;
+
+        /// <summary>Daraltılmış kartta metin en fazla bu kadar satır gösterilir.</summary>
+        private const int CollapsedLines = 2;
+        private const double LineHeight = 19;
+
+        /// <summary>Ham metin yalnızca temiz metinden farklıysa gösterilebilir.</summary>
+        public bool HasDistinctRaw => !string.IsNullOrWhiteSpace(Entry.RawText) && Entry.RawText != Entry.Text;
+
+        /// <summary>
+        /// Açılacak bir şey var mı: farklı ham metin ya da iki satıra sığmayacak kadar uzun metin.
+        /// (Satır sayısı ölçülmez; ~2 satırlık karakter sayısı ve satır sonları yeterli bir tahmindir.)
+        /// </summary>
+        public bool HasDetails => HasDistinctRaw || Entry.Text.Length > 140 || Entry.Text.Contains('\n');
+        public Visibility DetailsToggleVisibility => HasDetails ? Visibility.Visible : Visibility.Collapsed;
+
+        private bool _expanded;
+        public bool Expanded
+        {
+            get => _expanded;
+            set
+            {
+                _expanded = value;
+                OnPropertyChanged(nameof(RawVisibility));
+                OnPropertyChanged(nameof(TextMaxHeight));
+                OnPropertyChanged(nameof(DetailsToggleText));
+            }
+        }
+        public double TextMaxHeight => _expanded ? double.PositiveInfinity : CollapsedLines * LineHeight;
+        public Visibility RawVisibility => HasDistinctRaw && _expanded ? Visibility.Visible : Visibility.Collapsed;
+        public string DetailsToggleText => _expanded ? "Daralt" : "Ayrıntı";
+
+        private string _copyLabel = DefaultCopyLabel;
+        public string CopyLabel
+        {
+            get => _copyLabel;
+            set { _copyLabel = value; OnPropertyChanged(nameof(CopyLabel)); }
+        }
+
+        public HistoryItemView(HistoryEntry entry) => Entry = entry;
+
+        public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+        private void OnPropertyChanged(string name)
+            => PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(name));
+    }
+
+    /// <summary>Geçiş sırası listesindeki bir dil (Ayarlar > Genel).</summary>
+    public sealed record FastSwitchOrderItem(string Code, string Label, bool CanMoveEarlier, bool CanMoveLater, string Name)
+    {
+        public string MoveEarlierName => $"{Name} dilini öne al";
+        public string MoveLaterName => $"{Name} dilini sona doğru al";
     }
 }

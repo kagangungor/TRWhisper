@@ -18,14 +18,15 @@
 
 ## 🚀 Temel Özellikler
 
-- **Modern Grafiksel Ayarlar Penceresi (WPF)**: Sistem tepsisinden tek tıkla açılan zengin ve modern ayarlar paneli; **Genel**, **Ses**, **Model**, **Kısayol**, **Sözlük**, **Yapay Zeka (LLM)** ve **Kapsül** ve **Yedekleme** sekmeleriyle tüm ayarları görsel olarak yönetme ve anında test etme.
+- **Modern Grafiksel Ayarlar Penceresi (WPF)**: Sistem tepsisinden tek tıkla açılan zengin ve modern ayarlar paneli; **Genel**, **Ses**, **Model ve Yapay Zeka**, **Kısayol**, **Sözlük**, **Kapsül** ve **Yedekleme ve Geçmiş** sekmeleriyle tüm ayarları görsel olarak yönetme ve anında test etme. İsteğe bağlı Windows 11 **Mica** arka planı (`EnableMicaEffect`, varsayılan kapalı; pencere bir sonraki açılışta uygulanır).
 - **Özel Sözlük & Jargon Desteği (Custom Dictionary)**: Kullanıcı tanımlı fonetik ve mesleki jargon eşlemeleri (`dictionary.json`). Sektörel terimler, özel isimler veya Whisper'ın karıştırabileceği teknik kelimeler kelime sınırı kurallarıyla ve Türkçe çekim ekleri kesme işaretiyle korunarak otomatik düzeltilir (ör. `pitonda` -> `Python'da`).
 - **Gelişmiş Türkçe Metin Normalizasyonu**:
   - Konuşma dilindeki sayı, yüzde, para birimi, tarih, saat ve ölçü birimlerini kural tabanlı olarak iş yazışmasına uygun rakamsal biçime çevirir (ör. `yüzde yirmi` -> `%20`, `on beş eylül` -> `15 Eylül`, `üç buçuk kilo` -> `3,5 kg`, `iki buçukta` -> `02:30'da`, `yüz dolar` -> `100 USD`).
   - Sayılara ve sembollere gelen Türkçe çekim eklerinde kalınlık-incelik ve sertleşme gibi ses uyumu kurallarını eksiksiz uygular.
 - **Bağlama Duyarlı (Context-Aware) LLM Modları & Uygulama Algılama**:
-  - Yerleşik hazır modlar & kişilikler: **Temiz Metin** (✨ dolgu kelimeleri, kekelemeleri atar, yazım ve noktalama hatalarını düzeltir, anlama sadık kalır), **Kurumsal E-posta** (📧 taslağı saygılı ve akıcı bir iş e-postasına dönüştürür), **Maddeli Özet** (📝 ana fikirleri ve kararları `- ` maddeli listesine döker), **Kod & Teknik** (💻 teknik terimleri korur, komut ve kod parçalarını Markdown bloklarına alır) ve **İngilizce Çeviri** (🌐 Türkçe konuşmayı profesyonel İngilizceye çevirir).
+  - Yerleşik hazır modlar & kişilikler: **Temiz Metin** (✨ dolgu kelimeleri, kekelemeleri atar, yazım ve noktalama hatalarını düzeltir, anlama sadık kalır), **Kurumsal E-posta** (📧 taslağı saygılı ve akıcı bir iş e-postasına dönüştürür), **Maddeli Özet** (📝 ana fikirleri ve kararları `- ` maddeli listesine döker), **Kod & Teknik** (💻 teknik terimleri korur, komut ve kod parçalarını Markdown bloklarına alır), **İngilizce Çeviri** (🌐 Türkçe konuşmayı profesyonel İngilizceye çevirir) ve **AI Asistanı** (🤖 metni temizlemek yerine dikte ettiğiniz talimatı ya da soruyu uygular, yanıtı yapıştırır).
   - Kullanıcı tanımlı **Özel Modlar (Custom Modes)** ekleme ve ham metin çıktısı alma desteği.
+  - **LLM sağlayıcıları**: **Ollama** (yerel), **Google Gemini**, **OpenAI**, **Groq**, **DeepSeek**, **Anthropic Claude** (varsayılan `claude-haiku-4-5`) ve **OpenAI uyumlu herhangi bir uç nokta** (LM Studio, OpenRouter vb.). Sağlayıcı seçilince varsayılan uç nokta ve model kendiliğinden dolar.
   - Aktif ön plan uygulamasını otomatik algılama (`ForegroundAppDetector`): VS Code, Visual Studio, Outlook, Thunderbird veya Terminal gibi pencereleri anında tespit edip uygun LLM moduna otomatik geçer ve kapsül üzerinde aktif uygulama rozetini gösterir.
   - **Donanım Seviyesinde Güvenli API Anahtarı Saklama**: Windows DPAPI (`Data Protection API`) ve uygulamaya özel entropy (`TRWhisper_DPAPI_Entropy_v2`) ile şifrelenmiş depolama; API anahtarlarınız asla düz metin olarak saklanmaz veya güvenli olmayan HTTP üzerinden iletilmez.
 - **Esnek Kısayol Tuşları & 3 Farklı Dikte Modu**:
@@ -33,12 +34,18 @@
   - **İki Basışla Aç/Kapa (Toggle)** modu (bir kez basıp konuşmaya başlayın, bitirmek için tekrar basın).
   - **Eller Serbest (Hands-Free)** modu (bir kez basıp konuşun; konuşmanız bitip sessizlik algılandığında kendiliğinden tamamlansın).
   - Özelleştirilebilir kısayollar (Sağ/Sol Ctrl, Shift, Alt, CapsLock, F8/F9, Mouse4/Mouse5 ve özel tuş kombinasyonları).
+- **Sesli Noktalama** (`EnableSpokenPunctuation`): `nokta`, `virgül`, `soru işareti`, `ünlem`, `iki nokta`, `noktalı virgül`, `üç nokta`, `tire`, `uzun çizgi`, `yeni satır`, `yeni paragraf`, `parantez aç/kapa`, `tırnak aç/kapa` dediğinizde `. , ? ! : ; ... - — ↵ ( ) "` işaretlerine dönüşür. Komutun yanındaki Whisper noktalaması yutulur, işaret iki kez yazılmaz. Bilinen sınır: "bu nokta önemli" gibi bağımsız isim kullanımı da dönüşür; özellik kapatılabilir.
+- **Hızlı Dil Geçişi**: Bir kısayol (varsayılan **Alt+L**, varsayılan kapalı) dikte dilini seçtiğiniz diller (Türkçe, İngilizce, Almanca, Fransızca, Otomatik algılama) arasında kendi belirlediğiniz sırayla değiştirir; kapsül yeni dili kısa süre gösterir. Dil tepsi menüsünden de değiştirilebilir. Sayı/tarih normalizasyonu yalnızca Türkçe çıktıda çalışır.
+- **Sesli Geri Bildirim** (`EnableSoundFeedback`, varsayılan kapalı): Başlama, başarı ve iptal/hata için kodda üretilen kısa, yumuşak tınılar; ses düzeyi ayarı ve **Sesi Test Et** düğmesi.
+- **Dikte Geçmişi**: **Ayarlar → Yedekleme ve Geçmiş → Geçmiş** kaydedilen tüm dikteleri listeler: Türkçe harflere duyarlı arama (ham metinde de arar), Bugün / Bu Hafta / Bu Ay süzgeçleri, kelime sayıları, tahmini "kazanılan süre" özeti ve temizlenmiş metinle ham metni birlikte gösteren ayrıntı görünümü.
+- **Güncelleme Denetimi** (`EnableAutomaticUpdateCheck`, varsayılan kapalı): Açılıştan 10 saniye sonra GitHub'daki son sürüm kurulu sürümle karşılaştırılır; daha yenisi varsa tepsi menüsünde bir öğe belirir. Ayarlar'da elle **Şimdi Denetle** düğmesi de vardır. Hiçbir şey kendiliğinden indirilmez veya kurulmaz.
 - **Gerçek Zamanlı Canlı Akış Önizlemesi (Streaming Preview)**:
   - Canlı akış (`EnableStreamingPreview`): Siz mikrofona konuşurken kelimeler eşzamanlı olarak ekrandaki kayan kapsülde akar; konuşma tamamlandığında nihai yüksek kaliteli metin işlenip yapıştırılır.
 - **Whisper.net Yerleşik C# Motoru & Dinamik Model Yönetimi**:
   - `whisper-cli` haricinde süreç içi yüksek performanslı Whisper.net yerel çalışma zamanı entegrasyonu.
   - Ayarlar arayüzünden doğrudan model indirme, silme ve **SHA-256 doğrulama** güvenliği.
   - Sistem boşta kaldığında bellek ve VRAM tasarrufu sağlayan otomatik model boşaltma zamanlayıcısı (`IdleTimeoutMinutes`).
+  - Model sekmesindeki canlı **bellek kartı**; modelin yüklü olup olmadığını, etkin model ve dili, uygulamanın RAM kullanımını ve GPU (CUDA) mı CPU mu kullanıldığını gösterir. Modeli anında bellekten boşaltan bir düğme içerir.
 - **Otomatik Yapıştırma & Çift Pano Modu**:
   - **Pano (Clipboard)** modu: Transkripti panoya kopyalar ve `Ctrl + V` simülasyonu ile yapıştırır; isteğe bağlı `RestoreClipboard` ile panonun eski içeriği korunur.
   - **Doğrudan Yazma (DirectType)** modu: Panoya hiç dokunmadan metni `KEYEVENTF_UNICODE` ile karakter karakter yazar.
@@ -49,12 +56,12 @@
 - **Sessizlik Algılama ve Uydurma Metin Filtresi**:
   - Yerleşik **Silero VAD** özelliği konuşma olmayan kısımları atlar. Boş kayıtlarda uydurma metin yapıştırılmaz.
   - Whisper'ın bilinen hayalet altyazıları (`Altyazı M.K.`, `İzlediğiniz için teşekkür ederim.`) ve ses etiketleri (`[MÜZİK ÇALIYOR]`) filtrelenir.
-- **Kayan Durum Kapsülü (Pill Overlay)**: Canlı ses dalgası animasyonu, gerçek zamanlı metin akışı, çözümleme durumu, aktif uygulama/mod rozeti, düşük mikrofon sesi uyarısı, ham/temiz metin geçişi ve iptal (✕) / bitir (✓) / kopyala düğmeleriyle serbest konumlandırma.
+- **Kayan Durum Kapsülü (Pill Overlay)**: Canlı ses dalgası animasyonu, gerçek zamanlı metin akışı, çözümleme durumu, aktif uygulama/mod rozeti, düşük mikrofon sesi uyarısı, ham/temiz metin geçişi ve iptal (✕) / bitir (✓) / kopyala düğmeleriyle serbest konumlandırma. İsteğe bağlı **kenetlenme** (`EnableEdgeSnapping`) konumlandırırken kapsülü ekran kenarlarına ve yatay ortaya oturtur.
 - **Windows Açılışında Başlatma (Autostart)**: Ayarlar menüsünden tek tıkla Windows başlangıcına eklenebilir (HKCU Run anahtarı, yönetici hakkı gerekmez).
 - **Yedekleme ve Geri Yükleme**: Dikte günlükleri (`.md`), özel sözlük ve ayarlar tek bir ZIP dosyasına alınır; tepsi menüsünden veya Ayarlar'dan tek tıkla yedek alınır, seçilen yedekten geri yüklenir. Açılışta otomatik yedek, saklama sayısı sınırı ve geri yüklemeden hemen önce alınan emniyet yedeği içerir. API anahtarı yedeğe yazılmaz.
 - **Günlük API Çağrı Tavanı (Maliyet Denetimi)**: Bulut sağlayıcı seçiliyken günlük istek tavanı uygulanır (varsayılan 200). Tavan dolunca ya LLM temizleme atlanır (**Engelle**) ya da yalnızca uyarı verilip çağrı sürdürülür (**Yalnızca uyar**) — seçim sizindir. Tavanın %80'inde önceden uyarı çıkar.
 - **API Anahtarı Yaşam Döngüsü**: Anahtarın en son ne zaman değiştirildiği kaydedilir; eşik aşılınca (varsayılan 90 gün) Ayarlar penceresi rotasyon hatırlatır. Tek tıkla anahtar silme ve sağlayıcı anahtar paneline doğrudan geçiş.
-- **Kapsamlı Test Paketi**: 152 adet otomatik birim testi ve XAML şablon duman testi (`uismoke`) ile yüksek kod kalitesi.
+- **Kapsamlı Test Paketi**: 420 adet otomatik birim testi ve XAML şablon duman testi (`uismoke`) ile yüksek kod kalitesi.
 - **Yerel Günlük**: Transkriptler zaman damgasıyla `%USERPROFILE%\Dictation\YYYY-MM.md` dosyasına kaydedilebilir. Operasyonel günlükler `%USERPROFILE%\Dictation\trwhisper.log` dosyasına yazılır.
 
 ---
@@ -96,14 +103,14 @@ Sihirbaz Türkçe ve İngilizce'dir ve kuruluma başlamadan önce ne kurulacağ�
   silinip silinmeyeceği size sorulur.
 - Sessiz kurulum (kurumsal dağıtım):
   ```powershell
-  TRWhisper-Setup-2.1.0.exe /SILENT /ENGINE=cuda /MODELS=turbo,small /TASKS=desktopicon
+  TRWhisper-Setup-2.2.0.exe /SILENT /ENGINE=cuda /MODELS=turbo,small /TASKS=desktopicon
   ```
 
 > [!NOTE]
 > **Güvenlik & VirusTotal Sonuçları (68/69 Temiz):**  
 > Kurulum dosyası açık kaynaklı ve bağımsız bir proje olduğundan ticari kod imzalama sertifikası (EV Code Signing) içermez. Windows SmartScreen ilk çalıştırmada "bilinmeyen yayımcı" uyarısı verebilir: **Daha fazla bilgi > Yine de çalıştır**.  
 >  
-> Güncel [VirusTotal Tarama Raporu (v2.1.0)](https://www.virustotal.com/gui/file/bc7f92be96bae06c652c572e3da75953c105eba5755d22505e5ad2532d98d3ff?nocache=1)'nu inceleyebilirsiniz. Microsoft Defender, Kaspersky, Bitdefender, ESET, Sophos ve Malwarebytes dahil **68 antivirüs motoru dosyayı %100 temiz** olarak onaylamaktadır.  
+> En son taranan sürümün [VirusTotal Tarama Raporu (v2.1.0)](https://www.virustotal.com/gui/file/bc7f92be96bae06c652c572e3da75953c105eba5755d22505e5ad2532d98d3ff?nocache=1)'nu inceleyebilirsiniz. Microsoft Defender, Kaspersky, Bitdefender, ESET, Sophos ve Malwarebytes dahil **68 antivirüs motoru dosyayı %100 temiz** olarak onaylamaktadır. Daha yeni sürümlerde indirdiğiniz dosyayı sürüm notlarındaki SHA-256 özetiyle doğrulayın.  
 >  
 > **1 Sezgisel/ML Uyarısı (Trapmine) Hakkında:**  
 > Bu motor, imzasız ve yeni yayınlanan dosyalara otomatik düşük olasılıklı makine öğrenimi puanı (`Suspicious.low.ml.score`) vermektedir. TRWhisper'ın global bas-konuş kısayolunu dinlemek için düşük seviyeli Windows klavye kancası (`SetWindowsHookEx` / `WH_KEYBOARD_LL`), dikte edilen metni aktif imleç konumuna yapıştırmak için klavye simülasyonu (`SendInput`) ve API anahtarlarını şifrelemek için Windows DPAPI kullanması, bu tür yapay zeka motorlarında yanlış pozitif (false positive) uyarı oluşturabilmektedir. Yazılım tamamen açık kaynaklıdır ve hiçbir zararlı bileşen barındırmaz.
@@ -173,14 +180,15 @@ TRWhisper düşük seviyeli bir klavye kancası (`WH_KEYBOARD_LL`) ve `SendInput
 - Bulut LLM temizleme için girdiğiniz API anahtarı `config.json` içine **düz metin yazılmaz**: Windows DPAPI (`DataProtectionScope.CurrentUser`) ile şifrelenip `enc:` ön ekiyle saklanır. DPAPI şifreleme başarısız olursa anahtar diske **hiç yazılmaz**.
 - Bu koruma **Windows hesabınıza bağlıdır**: dosya başka bir kullanıcıya, başka bir makineye ya da diskten alınan bir yedeğe taşınırsa çözülemez.
 - **Koruma sağlamadığı durum:** Aynı Windows kullanıcısı olarak çalışan kötü amaçlı bir yazılım aynı DPAPI çağrısını yapabileceği için anahtarı çözebilir. Bu, yerel anahtar saklamanın (Windows Kimlik Bilgisi Yöneticisi dâhil) doğasında olan bir sınırdır. Azami gizlilik için LLM temizlemeyi **Ollama** ile tamamen yerel çalıştırın; bu durumda API anahtarı hiç gerekmez.
-- Uygulama, loopback (`localhost`/`127.0.0.1`) dışındaki `http://` uç noktalarına API anahtarı göndermeyi **reddeder** — sağlayıcı Gemini, OpenAI veya Ollama fark etmez; harici uç noktalar için HTTPS zorunludur.
+- Uygulama, loopback (`localhost`/`127.0.0.1`) dışındaki `http://` uç noktalarına API anahtarı ya da dikte metni göndermeyi **reddeder** — sağlayıcı fark etmez; harici uç noktalar için HTTPS zorunludur.
+- **Yerel, bu bilgisayar demektir.** Bir sağlayıcı yalnızca uç noktası loopback (`localhost`, `127.0.0.1`, `::1`) ise yerel sayılır. Başka bir bilgisayardaki Ollama ya da OpenAI uyumlu sunucu bulut sağlayıcı gibi ele alınır: "metin buluta iletilir" rozeti görünür ve günlük tavan uygulanır, çünkü dikteniz bu bilgisayardan çıkar.
 
 ### Anahtar kapsamı, süresi ve rotasyonu
 TRWhisper'ın kendi oturum/token yaşam döngüsü yoktur: kimlik doğrulaması tek bir statik API anahtarıyla yapılır ve o anahtarın **kapsamını, süresini ve iptalini yalnızca sağlayıcı paneli belirleyebilir**. Uygulama bu gerçeği gizlemek yerine görünür kılar:
 
 - Anahtarın en son ne zaman değiştirildiği (`LlmCleaning.ApiKeyUpdatedUtc`) kaydedilir. **Ayarlar → Yapay Zeka** sekmesi anahtarın yaşını gösterir; `ApiKeyRotationReminderDays` eşiği (varsayılan **90 gün**) aşılırsa rotasyon uyarısı çıkar. Damga yalnızca anahtar gerçekten değiştiğinde tazelenir, her kaydetmede değil.
 - **"Anahtarı Sil"** düğmesi anahtarı bu bilgisayardan anında kaldırır ve ayarları kaydeder. Silmek anahtarı geçersiz kılmaz; sağlayıcı panelinden de iptal edin.
-- **"Anahtar Panelini Aç"** düğmesi doğru sayfaya götürür: [Google AI Studio](https://aistudio.google.com/app/apikey) veya [OpenAI API anahtarları](https://platform.openai.com/api-keys).
+- **"Anahtar Panelini Aç"** düğmesi seçili sağlayıcının doğru sayfasına götürür: [Google AI Studio](https://aistudio.google.com/app/apikey), [OpenAI](https://platform.openai.com/api-keys), [Groq](https://console.groq.com/keys), [DeepSeek](https://platform.deepseek.com/api_keys) veya [Anthropic](https://console.anthropic.com/settings/keys).
 - Sağlayıcı panelinde önerilenler: anahtarı yalnızca kullandığınız modele/API'ye kısıtlayın, mümkünse IP kısıtı tanımlayın, bütçe ve kota uyarısı kurun, kullanılmayan anahtarları silin.
 - En güçlü çözüm anahtarı hiç kullanmamaktır: LLM temizlemeyi **Ollama** ile yerel çalıştırın.
 
@@ -192,7 +200,7 @@ Bulut sağlayıcı seçiliyken LLM temizlemeli her dikte bir API çağrısı do�
   - `Block` (varsayılan) — istek **hiç gönderilmez**, ham transkript yapıştırılır, tepside uyarı çıkar. Ek ücret doğmaz.
   - `WarnOnly` — istek gönderilir, yalnızca uyarı gösterilir. Fatura büyümeye devam edebilir.
 - Tavanın **%80'ine** ulaşıldığında önceden uyarı verilir. Geçersiz/bilinmeyen bir `QuotaExceededAction` değeri sessizce `Block`'a düşer.
-- Yerel sağlayıcılar (Ollama, LlamaCpp) hiç sayılmaz; ücret doğurmazlar.
+- Bu bilgisayarda çalışan sağlayıcılar (loopback uç nokta) hiç sayılmaz; ücret doğurmazlar. Uzaktaki bir Ollama sunucusu sayılır.
 - Güncel sayaç **Ayarlar → Yapay Zeka → Kullanım ve Maliyet Tavanı** altında görünür ve oradan sıfırlanabilir (sağlayıcıdaki gerçek kullanımı değiştirmez).
 
 ### Günlükler ve dikte içeriği
@@ -200,6 +208,9 @@ Bulut sağlayıcı seçiliyken LLM temizlemeli her dikte bir API çağrısı do�
 - 2.0.1 öncesi sürümlerden kalan düz metin transkript satırları, uygulama açılışında bir kez otomatik olarak silinir.
 - Transkript geçmişi (`%USERPROFILE%\Dictation\YYYY-MM.md`) `EnableHistoryLogging: false` ile tamamen kapatılabilir.
 - Geçici ses kayıtları `%TEMP%` altında benzersiz GUID adlarıyla oluşturulur, çözümleme biter bitmez silinir; açılışta yetim kalanlar temizlenir.
+
+### Terminallere yapıştırma
+Konsol penceresinde satır sonu **Enter** demektir. Bir dikte (ör. sesli `yeni satır` komutu ya da çok satırlı bir **AI Asistanı** yanıtı) cmd veya PowerShell'e olduğu gibi yapıştırılsaydı, komut siz okumadan çalışabilirdi. Hedef pencere bir konsolsa — Windows konsolu (cmd/PowerShell), **Windows Terminal**, Git Bash (mintty), ConEmu/Cmder veya PuTTY — TRWhisper satır sonlarını ve sekmeleri boşluğa çevirir, denetim karakterlerini atar; metin istem satırında bekler, Enter'a siz basarsınız. Yönetici olarak açılmış konsol için panoda bırakılan metne de uygulanır. Başka uygulamaların içindeki terminaller (ör. VS Code) pencere sınıfından tanınamaz; onlar kendi çok satırlı yapıştırma uyarılarına güvenir.
 
 ### Yedekleme ve geri yükleme
 Dikte geçmişiniz ve özel sözlüğünüz yeniden üretilemez veriler. TRWhisper bunları tek bir ZIP dosyasında toplar:
@@ -214,26 +225,34 @@ Dikte geçmişiniz ve özel sözlüğünüz yeniden üretilemez veriler. TRWhisp
 - **Yedek alma:** Tepsi menüsünden **"💾 Şimdi Yedek Al"** ya da **Ayarlar → Yedekleme → "Şimdi Yedek Al"**.
 - **Otomatik yedek:** `Backup.EnableAutomaticBackup` açıkken, son yedeğin üzerinden `AutomaticBackupIntervalDays` (varsayılan 1) gün geçtiyse TRWhisper açılışta arka planda sessizce yedek alır. `RetentionCount` (varsayılan 10) en yeni kaç yedeğin saklanacağını belirler; fazlası silinir.
 - **Geri yükleme:** **Ayarlar → Yedekleme → "Yedekten Geri Yükle"**. Ayarların, sözlüğün ve aynı adlı günlük dosyalarının **üzerine yazılır**; bu yüzden işlemden hemen önce mevcut durumun **emniyet yedeği** otomatik alınır ve adı sonuç satırında bildirilir.
-- **API anahtarı yedeğe hiç yazılmaz.** İki nedenle: yedek dosyası taşınabilir sıradan bir dosyadır ve sır taşımamalıdır; ayrıca anahtar DPAPI ile bu Windows hesabına bağlı şifrelendiği için başka bir makinede zaten çözülemezdi. Geri yükleme sonrası mevcut anahtarınız korunur, yedekten gelen boş değer onu ezmez.
+- **API anahtarı yedeğe hiç yazılmaz.** İki nedenle: yedek dosyası taşınabilir sıradan bir dosyadır ve sır taşımamalıdır; ayrıca anahtar DPAPI ile bu Windows hesabına bağlı şifrelendiği için başka bir makinede zaten çözülemezdi.
+- **Bu bilgisayara bağlı ayarlar yedekten hiç alınmaz**, olduğu gibi kalır: API anahtarı, yapay zeka sağlayıcısı/uç noktası/modeli, "her dikteyi LLM ile temizle" seçeneği, Whisper dosya yolları, günlük, geçici ses ve yedek klasörleri. Aksi hâlde hazırlanmış bir yedek, korunan anahtarınızı ve her dikteyi istediği sunucuya gönderebilir ya da modeli bir ağ paylaşımından yükletebilirdi. Yeni bir bilgisayarda geri yükledikten sonra sağlayıcınızı yeniden seçmeniz yeterlidir.
+- **Yalnızca kendi aldığınız ya da güvendiğiniz birinden gelen yedekleri geri yükleyin:** sözlük kuralları ve özel LLM komutları dikte ettiğiniz metni değiştirebilir.
+- Boyut sınırları "zip bombası"na karşı korur: ayarlar 1 MB, sözlük 5 MB, her `.md` 64 MB, toplam 1 GB, en fazla 5.000 günlük dosyası. Sınırı aşan bir arşiv hiçbir şey değiştirilmeden reddedilir.
 - Arşivden dosya açarken yalnızca düz `.md` adları kabul edilir; yol ayracı, `..` veya başka uzantı içeren girdiler yok sayılır (zip-slip koruması).
-- Yedekler yerelde kalır. Farklı bir diske ya da buluta kopyalamak isterseniz `Backup.BackupDirectory` değerini o konuma çevirebilirsiniz (ör. `D:\Yedekler\TRWhisper`).
+- Dikte günlükleri ZIP'e **şifrelenmeden** yazılır. Geçmiş kaydı kapalıysa (`EnableHistoryLogging: false`) yedeğe hiç günlük alınmaz.
+- TRWhisper yedekleri kendisi hiçbir yere yüklemez. Başka bir diskte tutmak isterseniz `Backup.BackupDirectory` değerini oraya çevirin (ör. `D:\Yedekler\TRWhisper`). OneDrive ile eşitlenen bir klasör seçerseniz Ayarlar, yedeklerin dikte metinleriyle birlikte buluta yükleneceği konusunda uyarır.
 
 ### İndirme bütünlüğü
 - `scripts\setup.ps1`, kurulum sihirbazı ve uygulama içi model indirici; whisper.cpp ikilileri, GGML modelleri, Silero VAD ve CUDA runtime paketleri dâhil **indirdiği her dosyayı sabit SHA-256 özetiyle doğrular**. Özet tutmazsa dosya silinir ve işlem durdurulur (fail-closed).
 - Hugging Face adresleri belirli bir commit'e sabitlenmiştir; `main` dalı değişse bile indirilen dosya değişmez.
+- Çevrimdışı kurulumda kurulum dosyasının yanına konan CUDA paketi de aynı SHA-256 denetiminden geçer (kopyalandıktan sonra doğrulanır; denetlenen dosya ile açılan dosya aynıdır). Tutmazsa yok sayılır ve paket internetten indirilir.
+- Microsoft Visual C++ Runtime kurulum dosyası Microsoft tarafından güncellendiği için hash ile sabitlenemez; kurulum onu çalıştırmadan önce **Authenticode imzasını** (geçerli ve Microsoft Corporation tarafından imzalanmış) denetler, uymazsa çalıştırmaz.
+- Güncelleme denetimi yalnızca `https://github.com/kagangungor/TRWhisper/...` adreslerini açar; kendiliğinden hiçbir şey indirmez veya çalıştırmaz.
 
 ### Kurulum, imzalama ve doğrulama
 - Yayınlanan kurulum dosyaları şu an **Authenticode ile imzalı değildir** (SmartScreen uyarısının temel sebebi budur). İndirdiğiniz dosyayı sürüm notlarındaki özetle doğrulayın:
   ```powershell
-  Get-FileHash .\TRWhisper-Setup-2.1.0.exe -Algorithm SHA256
+  Get-FileHash .\TRWhisper-Setup-2.2.0.exe -Algorithm SHA256
   ```
   Derleme betiği imzalamayı destekler: `scripts\build-installer.ps1 -CertThumbprint <sertifika_parmak_izi>` (veya `TRWHISPER_SIGN_THUMBPRINT` ortam değişkeni).
 - Varsayılan kurulum yönetici hakkı istemez ve `%LOCALAPPDATA%\Programs\TRWhisper` altına yapılır. Bu dizin aynı kullanıcı tarafından yazılabilir olduğundan, sertleştirilmiş ortamlarda kurulumu **Program Files** altına alabilirsiniz:
   ```powershell
-  .\TRWhisper-Setup-2.1.0.exe /ALLUSERS
+  .\TRWhisper-Setup-2.2.0.exe /ALLUSERS
   ```
   Bu modda uygulama dizini yalnızca okunur kalır; ayarlar `%APPDATA%\TRWhisper`, sonradan indirilen modeller `%LOCALAPPDATA%\TRWhisper` altına yazılır.
 - Uygulama açılışta DLL aramasını yalnızca kendi dizini ve `System32` ile sınırlar (`SetDefaultDllDirectories`), böylece DLL hijacking/binary planting yüzeyini daraltır.
+- Göreli model ve araç yolları yalnızca uygulama dizininde, kullanıcıya ait veri dizininde ve — geliştirme derlemeleri için — **kullanıcı profilinizin içindeki** üst dizinlerde aranır. Çalışma dizinine hiç bakılmaz; böylece Program Files kurulumunda başka bir kullanıcının bıraktığı model (ör. `C:\tools\` altına) asla yüklenmez.
 
 ---
 
@@ -249,8 +268,14 @@ TRWhisper'ı tepsi simgesine sağ tıklayıp **"⚙️ Ayarlar"** diyerek açıl
     "TempAudioPath": "%TEMP%\\trwhisper_temp.wav",
     "EnableCustomDictionary": true,
     "EnableTextNormalization": true,
+    "EnableSpokenPunctuation": true,
     "EnableStreamingPreview": true,
-    "EnableHistoryLogging": true
+    "EnableHistoryLogging": true,
+    "EnableLanguageFastSwitch": false,
+    "FastSwitchHotkey": "Alt+L",
+    "FastSwitchLanguages": [ "tr", "en" ],
+    "EnableAutomaticUpdateCheck": false,
+    "EnableMicaEffect": false
   },
   "Whisper": {
     "CliPath": "tools\\whisper\\whisper-cli.exe",
@@ -280,7 +305,9 @@ TRWhisper'ı tepsi simgesine sağ tıklayıp **"⚙️ Ayarlar"** diyerek açıl
     "RestoreDelayMs": 200
   },
   "Audio": {
-    "InputDeviceId": ""
+    "InputDeviceId": "",
+    "EnableSoundFeedback": false,
+    "SoundFeedbackVolume": 50
   },
   "Hotkey": {
     "PushToTalkKey": "RightCtrl",
@@ -291,7 +318,8 @@ TRWhisper'ı tepsi simgesine sağ tıklayıp **"⚙️ Ayarlar"** diyerek açıl
   },
   "Overlay": {
     "Position": "Bottom",
-    "ResultDurationSeconds": 10
+    "ResultDurationSeconds": 10,
+    "EnableEdgeSnapping": false
   },
   "Backup": {
     "EnableAutomaticBackup": true,
@@ -305,6 +333,12 @@ TRWhisper'ı tepsi simgesine sağ tıklayıp **"⚙️ Ayarlar"** diyerek açıl
 
 - **`EnableCustomDictionary`**: `dictionary.json` dosyasındaki özel mesleki/teknik kelime eşlemelerini etkinleştirir.
 - **`EnableTextNormalization`**: Konuşma dilindeki sayı, tarih, saat, yüzde, para ve birimlerin kural tabanlı rakamsal dönüşümünü sağlar.
+- **`EnableSpokenPunctuation`**: Sesli noktalama komutlarını (`nokta`, `virgül`, `yeni satır` vb.) noktalama işaretlerine çevirir.
+- **`EnableLanguageFastSwitch` / `FastSwitchHotkey` / `FastSwitchLanguages`**: Dikte dilini döngüyle değiştiren kısayol, tuş birleşimi (Ctrl/Alt/Win içermeli ya da tek bir F tuşu olmalı) ve sırayla geçilecek diller (`tr`, `en`, `de`, `fr`, `auto` içinden en az iki).
+- **`EnableAutomaticUpdateCheck`**: Açılıştan 10 saniye sonra GitHub'da daha yeni sürüm olup olmadığını denetler (varsayılan kapalı).
+- **`EnableMicaEffect`**: Ayarlar penceresi için Windows 11 Mica arka planı (varsayılan kapalı).
+- **`EnableSoundFeedback` / `SoundFeedbackVolume`**: Kısa başlama/başarı/iptal tınıları ve ses düzeyi (0–100).
+- **`EnableEdgeSnapping`**: Konumlandırırken kapsülü ekran kenarlarına ve yatay ortaya kenetler.
 - **`EnableStreamingPreview`**: Konuşma sırasında kelimelerin kayan durum kapsülünde eşzamanlı akmasını sağlar.
 - **`EnableHistoryLogging`**: Transkriptlerin `%USERPROFILE%\Dictation\YYYY-MM.md` dosyasına kaydedilmesini açar/kapatır (gizlilik için devre dışı bırakılabilir).
 - **`IdleTimeoutMinutes`**: Whisper modelinin boşta kaldığında RAM/VRAM'i serbest bırakması için dakika cinsinden süre (varsayılan: 10 dk; 0 modeli sürekli bellekte tutar).
@@ -312,14 +346,14 @@ TRWhisper'ı tepsi simgesine sağ tıklayıp **"⚙️ Ayarlar"** diyerek açıl
 - **`RestoreClipboard`**: Dikte yapıştırıldıktan sonra panonuzda önceden bulunan içeriği otomatik geri yükler (yalnızca Clipboard modunda).
 - **`DictationMode`**: `PushToTalk` (bas-konuş), `Toggle` (iki basışla aç/kapa) veya `HandsFree` (otomatik sessizlik algılamalı eller serbest).
 - **`HandsFreeSilenceMs`**: Eller serbest modunda konuşmanın bittiğini algılayan sessizlik süresi (milisaniye).
-- **`Provider`**: `Ollama`, `Gemini` veya `OpenAI`. Bulut API anahtarları Windows DPAPI (`TRWhisper_DPAPI_Entropy_v2`) ile şifrelenerek korunur. Gemini için `x-goog-api-key` başlığı kullanılır ve harici uç noktalarda HTTPS zorunludur.
-- **`ActiveModeId`**: Aktif LLM kişiliği (`Clean`, `Email`, `Summary`, `Technical`, `TranslateEn` veya özel mod kimlikleri).
+- **`Provider`**: `Ollama`, `Gemini`, `OpenAI`, `Groq`, `DeepSeek`, `Claude` veya `CustomOpenAI` (OpenAI uyumlu herhangi bir uç nokta; yalnızca uç nokta loopback ise yereldir). Bulut API anahtarları Windows DPAPI (`TRWhisper_DPAPI_Entropy_v2`) ile şifrelenerek korunur. Gemini için `x-goog-api-key` başlığı kullanılır ve harici uç noktalarda HTTPS zorunludur.
+- **`ActiveModeId`**: Aktif LLM kişiliği (`Clean`, `Email`, `Summary`, `Technical`, `TranslateEn`, `AiAction` veya özel mod kimlikleri).
 - **`EnableAutoAppMode`**: Ön plandaki uygulamaya (`ForegroundAppDetector`) göre LLM modunu otomatik uyarlar.
 - **`ApiKeyRotationReminderDays`**: API anahtarı bu kadar gündür değişmediyse Ayarlar penceresi rotasyon hatırlatır (varsayılan 90; `0` hatırlatmayı kapatır).
-- **`DailyRequestLimit`**: Bulut sağlayıcıya bir günde yapılabilecek en fazla çağrı (varsayılan 200; `0` = sınırsız). Yerel sağlayıcılar sayılmaz.
+- **`DailyRequestLimit`**: Bulut sağlayıcıya bir günde yapılabilecek en fazla çağrı (varsayılan 200; `0` = sınırsız). Loopback uç noktadaki sağlayıcılar sayılmaz.
 - **`QuotaExceededAction`**: Tavan dolunca `Block` (LLM temizlemeyi atla, ek ücret doğmasın) veya `WarnOnly` (yalnızca uyar, çağrıyı yine de yap).
 - **`Backup.EnableAutomaticBackup` / `AutomaticBackupIntervalDays` / `RetentionCount`**: Açılışta otomatik yedek, yedekler arası en az gün sayısı ve saklanacak yedek adedi (`0` = hepsini sakla).
-- **`Backup.IncludeTranscripts`**: Dikte günlüklerinin (`.md`) yedeğe dahil edilip edilmeyeceği. Kapatılırsa yedek yalnızca ayarları ve sözlüğü içerir.
+- **`Backup.IncludeTranscripts`**: Dikte günlüklerinin (`.md`) yedeğe dahil edilip edilmeyeceği. Kapalıysa — ya da `EnableHistoryLogging` kapalıysa — yedek yalnızca ayarları ve sözlüğü içerir.
 - **`Backup.BackupDirectory`**: Yedek ZIP dosyalarının yazılacağı klasör; `%USERPROFILE%` gibi ortam değişkenleri kullanılabilir.
 
 > **İpucu (Bulut API):** Gemini API anahtarınızı Google AI Studio üzerinden ücretsiz alıp Ayarlar arayüzünden kaydedebilirsiniz. Anahtar boş bırakılırsa LLM temizleme atlanır ve yerel transkript doğrudan yapıştırılır.
@@ -344,7 +378,7 @@ Transkript temizleme işlemini de tıpkı ses tanıma gibi **tamamen çevrimdı�
    - **Model:** `qwen2.5:3b` (veya indirdiğiniz model adı)
    - **API Anahtarı:** Boş bırakabilirsiniz (yerel çalıştığı için anahtar gerekmez).
 
-Böylece hem ses tanıma (Whisper) hem de yapay zeka ile metin düzenleme (Ollama) bilgisayarınızın dışına tek bir bayt dahi göndermeden tamamen yerel ve gizli çalışır.
+Böylece hem ses tanıma (Whisper) hem de yapay zeka ile metin düzenleme (Ollama) bilgisayarınızın dışına tek bir bayt dahi göndermeden tamamen yerel ve gizli çalışır. (Uç noktayı başka bir bilgisayardaki Ollama sunucusuna yönlendirirseniz TRWhisper onu bulut sağlayıcı sayar: HTTPS zorunludur ve günlük tavan uygulanır.)
 
 ---
 
@@ -384,7 +418,7 @@ powershell -ExecutionPolicy Bypass -File scripts\build.ps1 -Run
 powershell -ExecutionPolicy Bypass -File scripts\build.ps1 -Publish
 ```
 
-> **Not:** Paketi her zaman `build.ps1 -Publish` ile oluşturun. Bu komut WPF'in native kütüphanelerini tek dosyalık exe'nin içine gömer (`IncludeNativeLibrariesForSelfExtract`); bu seçenek olmadan yapılan düz bir `dotnet publish`, açılışta çöken bir exe üretir. Uygulama `tools\whisper\` klasörünü exe'nin yanında ya da üst klasörlerinde bulur.
+> **Not:** Paketi her zaman `build.ps1 -Publish` ile oluşturun. Bu komut WPF'in native kütüphanelerini tek dosyalık exe'nin içine gömer (`IncludeNativeLibrariesForSelfExtract`); bu seçenek olmadan yapılan düz bir `dotnet publish`, açılışta çöken bir exe üretir. Uygulama `tools\whisper\` klasörünü exe'nin yanında, `%LOCALAPPDATA%\TRWhisper` altında ya da (geliştirme derlemelerinde) kullanıcı profilinizin içindeki üst klasörlerde bulur.
 
 ---
 
@@ -393,7 +427,7 @@ powershell -ExecutionPolicy Bypass -File scripts\build.ps1 -Publish
 TRWhisper'ın kararlılığı ve mimarisi otomatik test paketleriyle korunmaktadır:
 
 ```powershell
-# 152 adet birim testini (AppMode, Hotkey, LLM, ModelManager, DPAPI, veri yolları vb.) çalıştırır:
+# 420 adet birim testini (LLM sağlayıcıları, yedekleme/geri yükleme, kısayollar, normalizasyon, DPAPI, güvenlik korumaları vb.) çalıştırır:
 dotnet test tests\TRWhisper.Tests\TRWhisper.Tests.csproj
 
 # WPF Ayarlar Penceresi XAML şablon ve duman testini çalıştırır:

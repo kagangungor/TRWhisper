@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
@@ -62,20 +63,66 @@ namespace TRWhisper.Core.Llm
         /// isteğin bir kısmını yankılayabildiği için gövde hem maskelenir hem kısaltılır.
         /// </summary>
         private static readonly Regex SecretPattern = new(
-            "AIza[0-9A-Za-z_-]{10,}|sk-[A-Za-z0-9_-]{10,}|\"(?:api_?key|authorization|x-goog-api-key)\"\\s*:\\s*\"[^\"]*\"",
+            "AIza[0-9A-Za-z_-]{10,}|sk-[A-Za-z0-9_-]{10,}|gsk_[0-9A-Za-z_-]{10,}|\"(?:api_?key|authorization|x-goog-api-key|x-api-key)\"\\s*:\\s*\"[^\"]*\"",
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant,
             TimeSpan.FromMilliseconds(250));
 
+        public const string ClaudeProvider = "Claude";
+        public const string CustomOpenAiProvider = "CustomOpenAI";
+        private const string AnthropicVersion = "2023-06-01";
+
         /// <summary>
-        /// Sağlayıcı bu makinede mi çalışıyor. Yerel sağlayıcılar ücret doğurmaz ve
-        /// veriyi dışarı çıkarmaz; kota ve bulut uyarıları yalnızca diğerleri için geçerlidir.
+        /// Varsayılan uç nokta ve modeller. Claude dışındakilerin hepsi OpenAI Chat
+        /// Completions biçimini (Bearer + choices[0].message.content) konuşur.
         /// </summary>
-        public static bool IsLocalProvider(string? provider)
+        private static readonly Dictionary<string, (string Endpoint, string Model)> ProviderDefaults =
+            new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["OpenAI"] = ("https://api.openai.com/v1/chat/completions", "gpt-4o-mini"),
+                ["Groq"] = ("https://api.groq.com/openai/v1/chat/completions", "llama-3.3-70b-versatile"),
+                ["DeepSeek"] = ("https://api.deepseek.com/chat/completions", "deepseek-chat"),
+                [CustomOpenAiProvider] = ("http://localhost:1234/v1/chat/completions", "local-model"),
+                [ClaudeProvider] = ("https://api.anthropic.com/v1/messages", "claude-haiku-4-5"),
+            };
+
+        /// <summary>Ayarlar penceresinin sağlayıcı değişince dolduracağı varsayılanlar.</summary>
+        public static (string Endpoint, string Model)? GetProviderDefaults(string? provider)
+            => provider != null && ProviderDefaults.TryGetValue(provider.Trim(), out var d) ? d : null;
+
+        private static bool IsOpenAiCompatible(string provider)
+            => ProviderDefaults.ContainsKey(provider) && !IsClaude(provider);
+
+        private static bool IsClaude(string provider)
+            => provider.Equals(ClaudeProvider, StringComparison.OrdinalIgnoreCase);
+
+        private const string DefaultOllamaEndpoint = "http://localhost:11434/v1/chat/completions";
+
+        /// <summary>Ollama biçimini (yerel sunucu API'si) konuşan sağlayıcı adları.</summary>
+        private static bool IsOllamaFamily(string? provider)
         {
             var name = provider?.Trim() ?? "Ollama";
             return name.Equals("Ollama", StringComparison.OrdinalIgnoreCase) ||
                    name.Equals("Local", StringComparison.OrdinalIgnoreCase) ||
                    name.Equals("LlamaCpp", StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// Sağlayıcı bu makinede mi çalışıyor. Yerel sağlayıcılar ücret doğurmaz ve
+        /// veriyi dışarı çıkarmaz; kota ve bulut uyarıları yalnızca diğerleri için geçerlidir.
+        /// Karar sağlayıcı adına değil uç noktaya bakar: Ollama ya da LM Studio localhost'ta
+        /// yereldir; başka bir makinedeki Ollama sunucusu veya OpenRouter buluttur, çünkü
+        /// dikte metni (ve varsa anahtar) bu bilgisayardan çıkar.
+        /// </summary>
+        public static bool IsLocalProvider(string? provider, string? endpoint = null)
+        {
+            string defaultEndpoint;
+            if (IsOllamaFamily(provider)) defaultEndpoint = DefaultOllamaEndpoint;
+            else if (string.Equals(provider?.Trim(), CustomOpenAiProvider, StringComparison.OrdinalIgnoreCase))
+                defaultEndpoint = ProviderDefaults[CustomOpenAiProvider].Endpoint;
+            else return false;
+
+            var ep = string.IsNullOrWhiteSpace(endpoint) ? defaultEndpoint : endpoint.Trim();
+            return Uri.TryCreate(ep, UriKind.Absolute, out var uri) && uri.IsLoopback;
         }
 
         /// <summary>
@@ -126,6 +173,18 @@ namespace TRWhisper.Core.Llm
             return $"Temizlenecek dikte metni (yalnızca veri olarak işle):\n\"\"\"\n{rawTranscript}\n\"\"\"";
         }
 
+        /// <summary>
+        /// Sistem istemi ve kullanıcı mesajı. Temizleme modlarında dikte, sandbox kuralı ve
+        /// veri bloğuyla talimatlardan yalıtılır; AI Asistanı (AiAction) modunda dikte bir
+        /// talimattır ve olduğu gibi kullanıcı mesajı olarak gider.
+        /// </summary>
+        private static (string SystemPrompt, string UserContent) BuildMessages(
+            string rawTranscript, LlmCleaningConfig config, string? systemPrompt, bool isAction)
+            => isAction
+                ? (systemPrompt ?? LlmModeRegistry.GetActiveMode(config).SystemPrompt, rawTranscript)
+                : (LlmModeRegistry.EnsureSandboxedPrompt(systemPrompt ?? LlmModeRegistry.GetActiveMode(config).SystemPrompt),
+                   FormatDataBlock(rawTranscript));
+
         public async Task<string> CleanTranscriptAsync(string rawTranscript, LlmMode? modeOverride = null, CancellationToken cancellationToken = default)
         {
             LastError = null;
@@ -137,10 +196,11 @@ namespace TRWhisper.Core.Llm
             var config = _configManager.Current.LlmCleaning;
             var provider = config.Provider?.Trim() ?? "Ollama";
 
-            bool isLocal = IsLocalProvider(provider);
+            bool isLocal = IsLocalProvider(provider, config.Endpoint);
 
-            // Bulut sağlayıcılarda API anahtarı girilmemişse doğrudan ham transkripti döndür
-            if (!isLocal && string.IsNullOrWhiteSpace(config.ApiKey))
+            // Bulut sağlayıcılarda API anahtarı girilmemişse doğrudan ham transkripti döndür.
+            // Uzak bir Ollama sunucusu anahtarsız çalışabilir; o yine de kotaya tabidir.
+            if (!isLocal && !IsOllamaFamily(provider) && string.IsNullOrWhiteSpace(config.ApiKey))
             {
                 LastError = "API anahtarı girilmedi.";
                 return rawTranscript;
@@ -152,23 +212,28 @@ namespace TRWhisper.Core.Llm
                 return rawTranscript;
 
             var activeMode = modeOverride ?? LlmModeRegistry.GetActiveMode(config);
-            var systemPrompt = LlmModeRegistry.EnsureSandboxedPrompt(activeMode.SystemPrompt);
+            bool isAction = LlmModeRegistry.IsActionMode(activeMode.Id);
+            var systemPrompt = LlmModeRegistry.EnsureSandboxedPrompt(activeMode.SystemPrompt, activeMode.Id);
             FileLog.Write($"[LlmCleanerService] Temizleme başlatılıyor. Sağlayıcı: {provider}, Mod: {activeMode.Name} ({activeMode.Id})");
 
             try
             {
-                if (isLocal)
+                if (IsOpenAiCompatible(provider))
                 {
-                    return await CallOllamaAsync(rawTranscript, config, systemPrompt, cancellationToken);
+                    return await CallOpenAiAsync(rawTranscript, config, systemPrompt, cancellationToken, isAction);
                 }
-                else if (provider.Equals("OpenAI", StringComparison.OrdinalIgnoreCase))
+                else if (IsOllamaFamily(provider))
                 {
-                    return await CallOpenAiAsync(rawTranscript, config, systemPrompt, cancellationToken);
+                    return await CallOllamaAsync(rawTranscript, config, systemPrompt, cancellationToken, isAction);
+                }
+                else if (IsClaude(provider))
+                {
+                    return await CallAnthropicAsync(rawTranscript, config, systemPrompt, cancellationToken, isAction);
                 }
                 else
                 {
                     // Gemini
-                    return await CallGeminiAsync(rawTranscript, config, systemPrompt, cancellationToken);
+                    return await CallGeminiAsync(rawTranscript, config, systemPrompt, cancellationToken, isAction);
                 }
             }
             catch (Exception ex)
@@ -212,9 +277,41 @@ namespace TRWhisper.Core.Llm
             return true;
         }
 
-        public async Task<string> CallOllamaAsync(string rawTranscript, LlmCleaningConfig config, string? systemPrompt = null, CancellationToken cancellationToken = default)
+        /// <summary>Gemini ve Claude isteklerindeki çıktı sınırı (diğerlerinde sağlayıcı varsayılanı geçerlidir).</summary>
+        private const int MaxOutputTokens = 4096;
+
+        private static bool IsStopReason(JsonElement element, string property, string value)
+            => element.TryGetProperty(property, out var reason) && reason.ValueKind == JsonValueKind.String &&
+               string.Equals(reason.GetString(), value, StringComparison.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// Yanıt uzunluk sınırında kesildiyse sessizce yarım metin yapıştırılmaz: AI Asistanı
+        /// yarım yanıtı uyarıyla verir; temizleme modları, kullanıcının kendi sözleri
+        /// kaybolmasın diye ham transkripte döner.
+        /// </summary>
+        private string FinishResponse(string? text, string rawTranscript, bool truncated, bool isAction)
         {
-            systemPrompt = LlmModeRegistry.EnsureSandboxedPrompt(systemPrompt ?? LlmModeRegistry.GetActiveMode(config).SystemPrompt);
+            var cleaned = CleanExtractedLlmText(text, rawTranscript);
+            if (!truncated) return cleaned;
+
+            FileLog.Write("[LlmCleanerService] Yanıt çıktı uzunluk sınırında kesildi.");
+            if (isAction)
+            {
+                AddWarning("Yapay zeka yanıtı uzunluk sınırına ulaştığı için kısaltıldı.");
+                return cleaned;
+            }
+
+            LastError = "Yanıt uzunluk sınırında kesildi.";
+            AddWarning("Temizlenen metin uzunluk sınırında kesildiği için orijinal transkript yazıldı.");
+            return rawTranscript;
+        }
+
+        private void AddWarning(string warning)
+            => LastWarning = string.IsNullOrEmpty(LastWarning) ? warning : $"{LastWarning} {warning}";
+
+        public async Task<string> CallOllamaAsync(string rawTranscript, LlmCleaningConfig config, string? systemPrompt = null, CancellationToken cancellationToken = default, bool isAction = false)
+        {
+            (systemPrompt, var userContent) = BuildMessages(rawTranscript, config, systemPrompt, isAction);
             var endpoint = string.IsNullOrWhiteSpace(config.Endpoint)
                 ? "http://localhost:11434/v1/chat/completions"
                 : config.Endpoint.Trim();
@@ -236,7 +333,6 @@ namespace TRWhisper.Core.Llm
             }
 
             var model = string.IsNullOrWhiteSpace(config.Model) ? "qwen2.5:3b" : config.Model;
-            var dataBlock = FormatDataBlock(rawTranscript);
 
             var payload = new
             {
@@ -244,7 +340,7 @@ namespace TRWhisper.Core.Llm
                 messages = new[]
                 {
                     new { role = "system", content = systemPrompt },
-                    new { role = "user", content = dataBlock }
+                    new { role = "user", content = userContent }
                 },
                 temperature = 0.2,
                 stream = false
@@ -279,29 +375,32 @@ namespace TRWhisper.Core.Llm
                 choices[0].TryGetProperty("message", out var message) &&
                 message.TryGetProperty("content", out var contentProp))
             {
-                return CleanExtractedLlmText(contentProp.GetString(), rawTranscript);
+                return FinishResponse(contentProp.GetString(), rawTranscript,
+                    IsStopReason(choices[0], "finish_reason", "length"), isAction);
             }
 
             // 2. Ollama /api/chat formatı (message.content)
             if (doc.RootElement.TryGetProperty("message", out var directMsg) &&
                 directMsg.TryGetProperty("content", out var directContent))
             {
-                return CleanExtractedLlmText(directContent.GetString(), rawTranscript);
+                return FinishResponse(directContent.GetString(), rawTranscript,
+                    IsStopReason(doc.RootElement, "done_reason", "length"), isAction);
             }
 
             // 3. Ollama /api/generate formatı (response)
             if (doc.RootElement.TryGetProperty("response", out var respProp))
             {
-                return CleanExtractedLlmText(respProp.GetString(), rawTranscript);
+                return FinishResponse(respProp.GetString(), rawTranscript,
+                    IsStopReason(doc.RootElement, "done_reason", "length"), isAction);
             }
 
             LastError = "Ollama geçerli bir yanıt içeriği döndürmedi.";
             return rawTranscript;
         }
 
-        public async Task<string> CallGeminiAsync(string rawTranscript, LlmCleaningConfig config, string? systemPrompt = null, CancellationToken cancellationToken = default)
+        public async Task<string> CallGeminiAsync(string rawTranscript, LlmCleaningConfig config, string? systemPrompt = null, CancellationToken cancellationToken = default, bool isAction = false)
         {
-            systemPrompt = LlmModeRegistry.EnsureSandboxedPrompt(systemPrompt ?? LlmModeRegistry.GetActiveMode(config).SystemPrompt);
+            (systemPrompt, var userContent) = BuildMessages(rawTranscript, config, systemPrompt, isAction);
             var model = string.IsNullOrWhiteSpace(config.Model) ? "gemini-2.0-flash" : config.Model;
             if (model.Equals("gemini-2.5-flash", StringComparison.OrdinalIgnoreCase))
             {
@@ -309,7 +408,6 @@ namespace TRWhisper.Core.Llm
             }
             var safeModel = Uri.EscapeDataString(model);
             var url = $"https://generativelanguage.googleapis.com/v1beta/models/{safeModel}:generateContent";
-            var dataBlock = FormatDataBlock(rawTranscript);
 
             var payload = new
             {
@@ -319,14 +417,14 @@ namespace TRWhisper.Core.Llm
                     {
                         parts = new[]
                         {
-                            new { text = $"{systemPrompt}\n\n{dataBlock}" }
+                            new { text = $"{systemPrompt}\n\n{userContent}" }
                         }
                     }
                 },
                 generationConfig = new
                 {
                     temperature = 0.2,
-                    maxOutputTokens = 1024
+                    maxOutputTokens = MaxOutputTokens
                 }
             };
 
@@ -359,17 +457,20 @@ namespace TRWhisper.Core.Llm
                 parts.GetArrayLength() > 0 &&
                 parts[0].TryGetProperty("text", out var textProp))
             {
-                return CleanExtractedLlmText(textProp.GetString(), rawTranscript);
+                return FinishResponse(textProp.GetString(), rawTranscript,
+                    IsStopReason(candidates[0], "finishReason", "MAX_TOKENS"), isAction);
             }
 
             LastError = "Gemini geçerli bir yanıt içeriği döndürmedi.";
             return rawTranscript;
         }
 
-        public async Task<string> CallOpenAiAsync(string rawTranscript, LlmCleaningConfig config, string? systemPrompt = null, CancellationToken cancellationToken = default)
+        public async Task<string> CallOpenAiAsync(string rawTranscript, LlmCleaningConfig config, string? systemPrompt = null, CancellationToken cancellationToken = default, bool isAction = false)
         {
-            systemPrompt = LlmModeRegistry.EnsureSandboxedPrompt(systemPrompt ?? LlmModeRegistry.GetActiveMode(config).SystemPrompt);
-            var endpoint = string.IsNullOrWhiteSpace(config.Endpoint) ? "https://api.openai.com/v1/chat/completions" : config.Endpoint.Trim();
+            (systemPrompt, var userContent) = BuildMessages(rawTranscript, config, systemPrompt, isAction);
+            var name = config.Provider?.Trim() ?? "OpenAI";
+            var defaults = GetProviderDefaults(name) ?? ProviderDefaults["OpenAI"];
+            var endpoint = string.IsNullOrWhiteSpace(config.Endpoint) ? defaults.Endpoint : config.Endpoint.Trim();
 
             var endpointError = ValidateEndpointSecurity(endpoint);
             if (endpointError != null)
@@ -379,8 +480,7 @@ namespace TRWhisper.Core.Llm
                 return rawTranscript;
             }
 
-            var model = string.IsNullOrWhiteSpace(config.Model) ? "gpt-4o-mini" : config.Model;
-            var dataBlock = FormatDataBlock(rawTranscript);
+            var model = string.IsNullOrWhiteSpace(config.Model) ? defaults.Model : config.Model;
 
             var payload = new
             {
@@ -388,7 +488,7 @@ namespace TRWhisper.Core.Llm
                 messages = new[]
                 {
                     new { role = "system", content = systemPrompt },
-                    new { role = "user", content = dataBlock }
+                    new { role = "user", content = userContent }
                 },
                 temperature = 0.2
             };
@@ -398,14 +498,18 @@ namespace TRWhisper.Core.Llm
             {
                 Content = new StringContent(jsonContent, Encoding.UTF8, "application/json")
             };
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", config.ApiKey);
+            // Yerel OpenAI-uyumlu sunucular (LM Studio vb.) anahtarsız çalışabilir.
+            if (!string.IsNullOrWhiteSpace(config.ApiKey))
+            {
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", config.ApiKey);
+            }
 
             using var response = await _httpClient.SendAsync(request, cancellationToken);
             if (!response.IsSuccessStatusCode)
             {
                 var errorText = await response.Content.ReadAsStringAsync(cancellationToken);
-                FileLog.Write($"[LlmCleanerService] OpenAI API hata döndü ({response.StatusCode}): {SanitizeErrorBody(errorText)}");
-                LastError = $"OpenAI API hatası ({(int)response.StatusCode})";
+                FileLog.Write($"[LlmCleanerService] {name} API hata döndü ({response.StatusCode}): {SanitizeErrorBody(errorText)}");
+                LastError = $"{name} API hatası ({(int)response.StatusCode})";
                 return rawTranscript;
             }
 
@@ -417,11 +521,78 @@ namespace TRWhisper.Core.Llm
                 choices[0].TryGetProperty("message", out var message) &&
                 message.TryGetProperty("content", out var contentProp))
             {
-                return CleanExtractedLlmText(contentProp.GetString(), rawTranscript);
+                return FinishResponse(contentProp.GetString(), rawTranscript,
+                    IsStopReason(choices[0], "finish_reason", "length"), isAction);
             }
 
-            LastError = "OpenAI geçerli bir yanıt içeriği döndürmedi.";
+            LastError = $"{name} geçerli bir yanıt içeriği döndürmedi.";
             return rawTranscript;
+        }
+
+        public async Task<string> CallAnthropicAsync(string rawTranscript, LlmCleaningConfig config, string? systemPrompt = null, CancellationToken cancellationToken = default, bool isAction = false)
+        {
+            (systemPrompt, var userContent) = BuildMessages(rawTranscript, config, systemPrompt, isAction);
+            var defaults = ProviderDefaults[ClaudeProvider];
+            var endpoint = string.IsNullOrWhiteSpace(config.Endpoint) ? defaults.Endpoint : config.Endpoint.Trim();
+
+            var endpointError = ValidateEndpointSecurity(endpoint);
+            if (endpointError != null)
+            {
+                LastError = endpointError;
+                FileLog.Write("[LlmCleanerService] HATA: Harici HTTP uç noktasına API anahtarı gönderimi engellendi.");
+                return rawTranscript;
+            }
+
+            var model = string.IsNullOrWhiteSpace(config.Model) ? defaults.Model : config.Model;
+
+            using var request = CreateClaudeRequest(endpoint, config.ApiKey, new
+            {
+                model = model,
+                max_tokens = MaxOutputTokens,
+                system = systemPrompt,
+                messages = new[] { new { role = "user", content = userContent } },
+                temperature = 0.2
+            });
+
+            using var response = await _httpClient.SendAsync(request, cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorText = await response.Content.ReadAsStringAsync(cancellationToken);
+                FileLog.Write($"[LlmCleanerService] Claude API hata döndü ({response.StatusCode}): {SanitizeErrorBody(errorText)}");
+                LastError = $"Claude API hatası ({(int)response.StatusCode})";
+                return rawTranscript;
+            }
+
+            var responseJson = await response.Content.ReadAsStringAsync(cancellationToken);
+            using var doc = JsonDocument.Parse(responseJson);
+
+            // Yanıt içerik blokları dizisidir; ilk "text" bloğu temizlenmiş metindir.
+            if (doc.RootElement.TryGetProperty("content", out var blocks) && blocks.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var block in blocks.EnumerateArray())
+                {
+                    if (block.TryGetProperty("type", out var type) && type.GetString() == "text" &&
+                        block.TryGetProperty("text", out var textProp))
+                    {
+                        return FinishResponse(textProp.GetString(), rawTranscript,
+                            IsStopReason(doc.RootElement, "stop_reason", "max_tokens"), isAction);
+                    }
+                }
+            }
+
+            LastError = "Claude geçerli bir yanıt içeriği döndürmedi.";
+            return rawTranscript;
+        }
+
+        private static HttpRequestMessage CreateClaudeRequest(string endpoint, string apiKey, object payload)
+        {
+            var request = new HttpRequestMessage(HttpMethod.Post, endpoint)
+            {
+                Content = new StringContent(JsonSerializer.Serialize(payload, JsonOpts), Encoding.UTF8, "application/json")
+            };
+            request.Headers.Add("x-api-key", apiKey);
+            request.Headers.Add("anthropic-version", AnthropicVersion);
+            return request;
         }
 
         public async Task<(bool Success, string Message)> TestConnectionAsync(LlmCleaningConfig? configOverride = null, CancellationToken cancellationToken = default)
@@ -429,14 +600,15 @@ namespace TRWhisper.Core.Llm
             var config = configOverride ?? _configManager.Current.LlmCleaning;
             var provider = config.Provider?.Trim() ?? "Ollama";
 
-            bool isLocal = IsLocalProvider(provider);
+            bool isLocal = IsLocalProvider(provider, config.Endpoint);
+            bool isOllama = IsOllamaFamily(provider);
 
             using var testCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             testCts.CancelAfter(TimeSpan.FromSeconds(30));
 
             try
             {
-                if (isLocal)
+                if (isOllama)
                 {
                     var endpoint = string.IsNullOrWhiteSpace(config.Endpoint)
                         ? "http://localhost:11434/v1/chat/completions"
@@ -541,15 +713,60 @@ namespace TRWhisper.Core.Llm
 
                     return (false, $"Gemini API hata döndürdü ({(int)response.StatusCode}): {SanitizeErrorBody(errBody)}");
                 }
-                else
+                else if (IsClaude(provider))
                 {
-                    // OpenAI
                     if (string.IsNullOrWhiteSpace(config.ApiKey))
                     {
-                        return (false, "OpenAI API anahtarı boş olamaz. Lütfen API anahtarınızı girin.");
+                        return (false, "Claude API anahtarı boş olamaz. Lütfen Anthropic Console API anahtarınızı girin.");
                     }
 
-                    var endpoint = string.IsNullOrWhiteSpace(config.Endpoint) ? "https://api.openai.com/v1/chat/completions" : config.Endpoint.Trim();
+                    var defaults = ProviderDefaults[ClaudeProvider];
+                    var endpoint = string.IsNullOrWhiteSpace(config.Endpoint) ? defaults.Endpoint : config.Endpoint.Trim();
+
+                    var claudeEndpointError = ValidateEndpointSecurity(endpoint);
+                    if (claudeEndpointError != null)
+                    {
+                        return (false, claudeEndpointError);
+                    }
+
+                    var model = string.IsNullOrWhiteSpace(config.Model) ? defaults.Model : config.Model;
+
+                    using var request = CreateClaudeRequest(endpoint, config.ApiKey, new
+                    {
+                        model = model,
+                        max_tokens = 5,
+                        messages = new[] { new { role = "user", content = "ping" } }
+                    });
+
+                    using var response = await _httpClient.SendAsync(request, testCts.Token);
+                    if (response.IsSuccessStatusCode)
+                    {
+                        return (true, $"✅ Bağlantı başarılı! Anthropic Claude ({model}) aktif ve yanıt veriyor.");
+                    }
+
+                    var errBody = await response.Content.ReadAsStringAsync(testCts.Token);
+                    if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized || response.StatusCode == System.Net.HttpStatusCode.Forbidden)
+                    {
+                        return (false, "Claude API anahtarı geçersiz veya yetkisiz. Lütfen anahtarınızı kontrol edin.");
+                    }
+                    if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+                    {
+                        return (false, $"Claude modeli bulunamadı ({model}). '{defaults.Model}' modelini kullanın.");
+                    }
+
+                    return (false, $"Claude API hata döndürdü ({(int)response.StatusCode}): {SanitizeErrorBody(errBody)}");
+                }
+                else
+                {
+                    // OpenAI ve OpenAI-uyumlu sağlayıcılar (Groq, DeepSeek, Özel)
+                    var name = provider;
+                    if (!isLocal && string.IsNullOrWhiteSpace(config.ApiKey))
+                    {
+                        return (false, $"{name} API anahtarı boş olamaz. Lütfen API anahtarınızı girin.");
+                    }
+
+                    var defaults = GetProviderDefaults(provider) ?? ProviderDefaults["OpenAI"];
+                    var endpoint = string.IsNullOrWhiteSpace(config.Endpoint) ? defaults.Endpoint : config.Endpoint.Trim();
 
                     var openAiEndpointError = ValidateEndpointSecurity(endpoint);
                     if (openAiEndpointError != null)
@@ -557,7 +774,7 @@ namespace TRWhisper.Core.Llm
                         return (false, openAiEndpointError);
                     }
 
-                    var model = string.IsNullOrWhiteSpace(config.Model) ? "gpt-4o-mini" : config.Model;
+                    var model = string.IsNullOrWhiteSpace(config.Model) ? defaults.Model : config.Model;
 
                     var payload = new
                     {
@@ -574,27 +791,30 @@ namespace TRWhisper.Core.Llm
                     {
                         Content = new StringContent(jsonContent, Encoding.UTF8, "application/json")
                     };
-                    request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", config.ApiKey);
+                    if (!string.IsNullOrWhiteSpace(config.ApiKey))
+                    {
+                        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", config.ApiKey);
+                    }
 
                     using var response = await _httpClient.SendAsync(request, testCts.Token);
                     if (response.IsSuccessStatusCode)
                     {
-                        return (true, $"✅ Bağlantı başarılı! OpenAI ({model}) aktif ve yanıt veriyor.");
+                        return (true, $"✅ Bağlantı başarılı! {name} ({model}) aktif ve yanıt veriyor.");
                     }
 
                     var errBody = await response.Content.ReadAsStringAsync(testCts.Token);
-                    return (false, $"OpenAI API hata döndürdü ({(int)response.StatusCode}): {SanitizeErrorBody(errBody)}");
+                    return (false, $"{name} API hata döndürdü ({(int)response.StatusCode}): {SanitizeErrorBody(errBody)}");
                 }
             }
             catch (TaskCanceledException)
             {
-                return (false, isLocal
+                return (false, isOllama
                     ? "Zaman aşımı (30 sn): Ollama yanıt vermedi. Model çok büyük olabilir veya sistem kaynakları meşgul."
                     : "Zaman aşımı (30 sn): Sağlayıcı yanıt vermedi.");
             }
             catch (HttpRequestException ex)
             {
-                if (isLocal)
+                if (isOllama)
                 {
                     return (false, "Ollama sunucusuna bağlanılamadı. Ollama'nın kurulu ve arka planda açık olduğundan emin olun (localhost:11434).");
                 }

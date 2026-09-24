@@ -133,6 +133,16 @@ namespace TRWhisper.Core.Native
         [DllImport("user32.dll", SetLastError = true)]
         private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
 
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+        private static extern int GetClassName(IntPtr hWnd, System.Text.StringBuilder lpClassName, int nMaxCount);
+
+        private static string GetWindowClassName(IntPtr hWnd)
+        {
+            if (hWnd == IntPtr.Zero) return string.Empty;
+            var sb = new System.Text.StringBuilder(256);
+            return GetClassName(hWnd, sb, sb.Capacity) > 0 ? sb.ToString() : string.Empty;
+        }
+
         [DllImport("user32.dll", SetLastError = true)]
         private static extern bool OpenClipboard(IntPtr hWndNewOwner);
 
@@ -187,6 +197,21 @@ namespace TRWhisper.Core.Native
 
             // Dikte edilen hedef pencereyi not al (yapıştırma öncesi tekrar kontrol edilir)
             var targetWindow = GetForegroundWindow();
+
+            // Konsolda satır sonu Enter'dır: metin tek satıra indirilir ki hiçbir komut
+            // kullanıcı onaylamadan çalışmasın. Yükseltilmiş (yönetici) konsola panodan elle
+            // yapıştırılacak metin için de geçerli, bu yüzden UIPI dalından önce yapılır.
+            if (ConsolePasteGuard.IsConsoleWindowClass(GetWindowClassName(targetWindow)))
+            {
+                var singleLine = ConsolePasteGuard.ToSingleLine(text);
+                if (!string.Equals(singleLine, text, StringComparison.Ordinal))
+                {
+                    FileLog.Write("[ClipboardPaster] Hedef bir konsol: satır sonları ve denetim karakterleri kaldırıldı.");
+                    text = singleLine;
+                }
+                if (string.IsNullOrEmpty(text)) return PasteResult.Failed;
+            }
+
             bool blockedByUipi = !SelfElevated.Value && IsWindowElevated(targetWindow);
 
             // UIPI: standart kullanıcıdan yükseltilmiş pencereye giden SendInput sessizce yutulur.

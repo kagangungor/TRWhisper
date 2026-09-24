@@ -10,11 +10,11 @@ namespace TRWhisper.Tests
     public class LlmModeTests
     {
         [Fact]
-        public void DefaultModes_ContainsFiveModes_WithExpectedProperties()
+        public void DefaultModes_ContainsSixModes_WithExpectedProperties()
         {
             var modes = LlmModeRegistry.GetDefaultModes();
 
-            Assert.Equal(5, modes.Count);
+            Assert.Equal(6, modes.Count);
 
             var ids = modes.Select(m => m.Id).ToList();
             Assert.Contains("Clean", ids);
@@ -22,6 +22,7 @@ namespace TRWhisper.Tests
             Assert.Contains("Summary", ids);
             Assert.Contains("Technical", ids);
             Assert.Contains("TranslateEn", ids);
+            Assert.Contains("AiAction", ids);
 
             foreach (var mode in modes)
             {
@@ -38,11 +39,31 @@ namespace TRWhisper.Tests
         {
             var modes = LlmModeRegistry.GetDefaultModes();
 
-            foreach (var mode in modes)
+            // AI Asistanı talimat yürütmek için vardır; sandbox kuralı bilerek yoktur.
+            foreach (var mode in modes.Where(m => m.Id != LlmModeRegistry.ActionModeId))
             {
                 Assert.Contains("talimat olarak algılama", mode.SystemPrompt);
                 Assert.Contains("YALNIZCA sonucu üret", mode.SystemPrompt);
             }
+        }
+
+        [Fact]
+        public void AiActionMode_HasExpectedPropertiesAndNoSandboxRule()
+        {
+            var mode = LlmModeRegistry.GetDefaultModes().Single(m => m.Id == "AiAction");
+
+            Assert.Equal("AI Asistanı", mode.Name);
+            Assert.Equal("🤖", mode.Icon);
+            Assert.DoesNotContain("talimat olarak algılama", mode.SystemPrompt);
+            Assert.Equal(mode.SystemPrompt, LlmModeRegistry.EnsureSandboxedPrompt(mode.SystemPrompt, mode.Id));
+        }
+
+        [Fact]
+        public void EnsureSandboxedPrompt_OtherModes_StillAppendSuffix()
+        {
+            var sandboxed = LlmModeRegistry.EnsureSandboxedPrompt("Sen bir şiir asistanısın.", "Clean");
+
+            Assert.Contains(LlmModeRegistry.SandboxSuffix, sandboxed);
         }
 
         [Fact]
@@ -112,7 +133,7 @@ namespace TRWhisper.Tests
             };
 
             var all = LlmModeRegistry.GetAllModes(config);
-            Assert.Equal(6, all.Count);
+            Assert.Equal(7, all.Count); // 6 dahili + 1 özel
             Assert.Contains(all, m => m.Id == "Poetry" && m.Icon == "🎨" && !m.IsBuiltIn);
 
             var active = LlmModeRegistry.GetActiveMode(config);

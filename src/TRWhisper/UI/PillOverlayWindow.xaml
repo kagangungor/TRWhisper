@@ -363,6 +363,20 @@
                         </Button>
                     </StackPanel>
                 </Grid>
+
+                <!-- 4. MOD: DİL DEĞİŞİMİ BİLDİRİMİ (LANGUAGE TOAST) -->
+                <StackPanel x:Name="LanguageToastPanel" Visibility="Collapsed" Orientation="Horizontal"
+                            Height="36" Margin="12,0" VerticalAlignment="Center" HorizontalAlignment="Center">
+                    <Viewbox Width="16" Height="16" VerticalAlignment="Center" Margin="0,0,10,0">
+                        <Canvas Width="24" Height="24">
+                            <Ellipse Canvas.Left="3" Canvas.Top="3" Width="18" Height="18" Stroke="#A1A1AA" StrokeThickness="2" />
+                            <Line X1="3" Y1="12" X2="21" Y2="12" Stroke="#A1A1AA" StrokeThickness="2" />
+                            <Path Data="M12,3 C8.5,6.5 8.5,17.5 12,21 C15.5,17.5 15.5,6.5 12,3 Z" Stroke="#A1A1AA" StrokeThickness="2" />
+                        </Canvas>
+                    </Viewbox>
+                    <TextBlock x:Name="LanguageToastText" Text="Dil: Türkçe (TR)" Foreground="#F4F4F5"
+                               FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" />
+                </StackPanel>
             </Grid>
         </Border>
     </Grid>

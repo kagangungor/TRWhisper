@@ -4,7 +4,13 @@
     "LogDirectory": "%USERPROFILE%\\Dictation",
     "TempAudioPath": "%TEMP%\\trwhisper_temp.wav",
     "EnableCustomDictionary": true,
-    "EnableTextNormalization": true
+    "EnableTextNormalization": true,
+    "EnableSpokenPunctuation": true,
+    "EnableLanguageFastSwitch": false,
+    "FastSwitchHotkey": "Alt+L",
+    "FastSwitchLanguages": [ "tr", "en" ],
+    "EnableAutomaticUpdateCheck": false,
+    "EnableMicaEffect": false
   },
   "Whisper": {
     "CliPath": "tools\\whisper\\whisper-cli.exe",
@@ -32,7 +38,9 @@
     "RestoreDelayMs": 200
   },
   "Audio": {
-    "InputDeviceId": ""
+    "InputDeviceId": "",
+    "EnableSoundFeedback": false,
+    "SoundFeedbackVolume": 50
   },
   "Hotkey": {
     "PushToTalkKey": "RightCtrl",
@@ -43,7 +51,8 @@
   },
   "Overlay": {
     "Position": "Bottom",
-    "ResultDurationSeconds": 10
+    "ResultDurationSeconds": 10,
+    "EnableEdgeSnapping": false
   },
   "Backup": {
     "EnableAutomaticBackup": true,

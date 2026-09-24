@@ -16,5 +16,11 @@ namespace TRWhisper.Core.Speech
         /// </summary>
         Task<string> TranscribeLivePreviewAsync(float[] samples, string language = "tr", CancellationToken cancellationToken = default)
             => Task.FromResult(string.Empty);
+
+        /// <summary>
+        /// Son <see cref="TranscribeAsync"/> çıktısının dili (ör. "auto" seçiliyken Whisper'ın
+        /// algıladığı dil). Motor bunu bildirmiyorsa null; çağıran ayardaki dile düşer.
+        /// </summary>
+        string? LastDetectedLanguage => null;
     }
 }

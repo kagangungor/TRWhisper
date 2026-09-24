@@ -25,11 +25,13 @@ namespace TRWhisper.Core
         private readonly IClipboardPaster _clipboardPaster;
         private readonly CustomDictionaryService _dictionaryService;
         private readonly TurkishTextNormalizer _normalizer;
+        private readonly SpokenPunctuationNormalizer _punctuationNormalizer;
         private readonly MarkdownLogger _logger;
         private readonly TranscriptHistory _history;
         private readonly TrayIconController _trayController;
         private readonly UI.PillOverlayWindow? _overlayWindow;
         private readonly IForegroundAppDetector _appDetector;
+        private readonly ISoundFeedbackService? _soundFeedback;
 
         private bool _isProcessing;
         private DateTime _recordingStartTime;
@@ -75,11 +77,13 @@ namespace TRWhisper.Core
             IClipboardPaster clipboardPaster,
             CustomDictionaryService dictionaryService,
             TurkishTextNormalizer normalizer,
+            SpokenPunctuationNormalizer punctuationNormalizer,
             MarkdownLogger logger,
             TranscriptHistory history,
             TrayIconController trayController,
             UI.PillOverlayWindow? overlayWindow = null,
-            IForegroundAppDetector? appDetector = null)
+            IForegroundAppDetector? appDetector = null,
+            ISoundFeedbackService? soundFeedback = null)
         {
             _configManager = configManager;
             _keyboardHook = keyboardHook;
@@ -89,11 +93,13 @@ namespace TRWhisper.Core
             _clipboardPaster = clipboardPaster;
             _dictionaryService = dictionaryService;
             _normalizer = normalizer;
+            _punctuationNormalizer = punctuationNormalizer;
             _logger = logger;
             _history = history;
             _trayController = trayController;
             _overlayWindow = overlayWindow;
             _appDetector = appDetector ?? new ForegroundAppDetector();
+            _soundFeedback = soundFeedback;
 
             if (_overlayWindow != null)
             {
@@ -108,6 +114,7 @@ namespace TRWhisper.Core
                         {
                             if (!_audioRecorder.IsRecording) return;
                         }
+                        _soundFeedback?.PlayCancelSound();
                         var path = await _audioRecorder.StopRecordingAsync().ConfigureAwait(false);
                         if (File.Exists(path)) { try { File.Delete(path); } catch { } }
                         _trayController.SetState(AppState.Idle);
@@ -120,21 +127,56 @@ namespace TRWhisper.Core
 
             _keyboardHook.HotkeyDown += OnHotkeyDown;
             _keyboardHook.HotkeyUp += OnHotkeyUp;
+            _keyboardHook.LanguageSwitchRequested += OnLanguageSwitchRequested;
+            _trayController.LanguageChanged += SetLanguage;
 
             CleanupOrphanedTempAudioFiles();
+        }
+
+        // ------------------------------------------------------------------ dikte dili
+
+        private void OnLanguageSwitchRequested(object? sender, EventArgs e)
+        {
+            var general = _configManager.Current.General;
+            if (!DictationLanguage.TryFastSwitch(general)) return;
+            SetLanguage(general.Language);
+        }
+
+        /// <summary>
+        /// Dili kaydeder ve duyurur. Motor yeni dili bir sonraki diktede görür: model
+        /// bellekte kalır, yalnızca processor yeni dille kurulur (EnsureLoadedAsync).
+        /// </summary>
+        private void SetLanguage(string language)
+        {
+            var cfg = _configManager.Current;
+            cfg.General.Language = language;
+            _configManager.Save(cfg);
+            FileLog.Write($"[DictationCoordinator] Dikte dili değişti: {language}");
+
+            _overlayWindow?.ShowLanguageToast(language);
+            _trayController.RefreshMenu();
         }
 
         /// <summary>
         /// LLM temizleyicinin bıraktığı, akışı durdurmayan uyarıyı (günlük API tavanı)
         /// tepsi balonu olarak gösterir. Uyarı varsa true döner.
         /// </summary>
+        /// <summary>
+        /// LLM çıktısına sözlük ve sayı normalizasyonu yeniden uygulanır, çünkü temizleme
+        /// modlarında çıktı hâlâ kullanıcının sözleridir ve LLM terimleri bozabilir. AI Asistanı
+        /// yanıtı ise LLM'in ürettiği yeni metindir (kod, İngilizce vb. olabilir); dokunulmaz.
+        /// </summary>
+        public static string PostProcessLlmOutput(string llmOutput, LlmMode mode,
+            CustomDictionaryService dictionary, TurkishTextNormalizer normalizer, string? language = null)
+            => LlmModeRegistry.IsActionMode(mode.Id) ? llmOutput : normalizer.Normalize(dictionary.Apply(llmOutput), language);
+
         private bool ShowLlmWarningIfAny()
         {
             var warning = _llmCleaner.LastWarning;
             if (string.IsNullOrEmpty(warning)) return false;
 
             _trayController.ShowNotification(
-                "API Kullanım Tavanı",
+                "Yapay Zeka Uyarısı",
                 warning,
                 System.Windows.Forms.ToolTipIcon.Warning);
             return true;
@@ -184,6 +226,7 @@ namespace TRWhisper.Core
                     var tempWav = Path.Combine(tempDir, $"trwhisper_{Guid.NewGuid():N}.wav");
                     _recordingStartTime = DateTime.Now;
                     _audioRecorder.StartRecording(tempWav);
+                    _soundFeedback?.PlayStartSound();
                     _trayController.SetState(AppState.Recording);
 
                     bool llmActive = e.IsLlmModifierActive || _configManager.Current.LlmCleaning.EnabledByDefault;
@@ -213,6 +256,7 @@ namespace TRWhisper.Core
                 catch (Exception ex)
                 {
                     FileLog.Write($"[DictationCoordinator] Kayıt başlatma hatası: {ex.Message}");
+                    _soundFeedback?.PlayCancelSound();
                     StopLivePreview();
                     _trayController.SetState(AppState.Idle);
                     _overlayWindow?.StopAudioReactiveWaveform();
@@ -245,8 +289,11 @@ namespace TRWhisper.Core
             _handsFreeLlmActive = llmActive;
 
             // Yoklama aralığı 100 ms: sessizlik eşiği saniyeler mertebesinde olduğundan
-            // daha sık bakmanın faydası yok, CPU'ya da dokunmuyor.
-            _handsFreeTimer = new System.Threading.Timer(HandsFreeTick, null, 150, 100);
+            // daha sık bakmanın faydası yok, CPU'ya da dokunmuyor. Sesli geri bildirim açıkken
+            // ilk yoklama ertelenir: hoparlörden çıkan başlama tınısı mikrofona girip
+            // "konuşma başladı" sanılmasın (sonra sessizlik kaydı erken kapatırdı).
+            int firstTickMs = _configManager.Current.Audio.EnableSoundFeedback ? 700 : 150;
+            _handsFreeTimer = new System.Threading.Timer(HandsFreeTick, null, firstTickMs, 100);
             FileLog.Write("[DictationCoordinator] Eller serbest: sessizlik izleme başladı.");
         }
 
@@ -431,6 +478,7 @@ namespace TRWhisper.Core
                         FileLog.Write($"[DictationCoordinator] Kayıt süresi çok kısa ({duration.TotalMilliseconds:0}ms) veya dosya geçersiz, iptal edildi.");
                         _overlayWindow?.HideWithFade();
                         _trayController.SetState(AppState.Idle);
+                        _soundFeedback?.PlayCancelSound();
                         if (tooShort)
                         {
                             _trayController.ShowNotification(
@@ -452,6 +500,7 @@ namespace TRWhisper.Core
                     catch (FileNotFoundException fnfEx)
                     {
                         FileLog.Write($"[DictationCoordinator] Model dosyası bulunamadı: {fnfEx.Message}");
+                        _soundFeedback?.PlayCancelSound();
                         _overlayWindow?.HideWithFade();
                         _trayController.ShowNotification(
                             "Model Dosyası Bulunamadı",
@@ -462,6 +511,7 @@ namespace TRWhisper.Core
                     catch (Exception ex) when (ex is not OperationCanceledException)
                     {
                         FileLog.Write($"[DictationCoordinator] Whisper motor hatası: {ex.Message}");
+                        _soundFeedback?.PlayCancelSound();
                         _overlayWindow?.HideWithFade();
                         _trayController.ShowNotification(
                             "Dikte Motoru Hatası",
@@ -474,6 +524,7 @@ namespace TRWhisper.Core
                     if (string.IsNullOrWhiteSpace(rawTranscript))
                     {
                         FileLog.Write("[DictationCoordinator] Boş transkript üretildi.");
+                        _soundFeedback?.PlayCancelSound();
                         _overlayWindow?.HideWithFade();
                         _trayController.ShowNotification(
                             "Ses Algılanamadı",
@@ -483,7 +534,10 @@ namespace TRWhisper.Core
                     }
 
                     rawTranscript = rawTranscript.Trim();
-                    FileLog.Write($"[DictationCoordinator] Whisper tamamlandı ({rawTranscript.Length} karakter).");
+                    // "auto"da metnin gerçek dili motordan gelir; Türkçe kurallar yalnızca
+                    // Türkçe çıktıya uygulanır. Motor bildirmezse ayardaki dile düşülür.
+                    var outputLanguage = _transcriptionEngine.LastDetectedLanguage ?? language;
+                    FileLog.Write($"[DictationCoordinator] Whisper tamamlandı ({rawTranscript.Length} karakter, dil={outputLanguage}).");
 
                     // 2b. Özel sözlük: fonetik yazımları düzelt ("pitonda" -> "Python'da").
                     // rawTranscript bilerek DOKUNULMADAN bırakılır; günlük ve geçmiş ham metni saklar.
@@ -494,12 +548,21 @@ namespace TRWhisper.Core
                     }
 
                     // 2c. Sayı/tarih/saat/yüzde/birim normalizasyonu ("yüzde yirmi" -> "%20").
-                    var normalized = _normalizer.Normalize(finalTranscript);
+                    var normalized = _normalizer.Normalize(finalTranscript, outputLanguage);
                     if (normalized != finalTranscript)
                     {
                         FileLog.Write("[DictationCoordinator] Metin normalizasyonu uygulandı.");
                     }
                     finalTranscript = normalized;
+
+                    // 2d. Sesli noktalama komutları ("nokta", "yeni satır" -> ".", "\n").
+                    // LLM'den önce çalışır: LLM kapalıysa da biçimli metin yapıştırılır.
+                    var punctuated = _punctuationNormalizer.Normalize(finalTranscript);
+                    if (punctuated != finalTranscript)
+                    {
+                        FileLog.Write("[DictationCoordinator] Sesli noktalama komutları uygulandı.");
+                    }
+                    finalTranscript = punctuated;
 
                     // 3. LLM Temizleme Modu (aktifse). LLM'e sözlükten geçmiş metin verilir ki
                     // doğru terimleri görsün; dönen metne sözlük yeniden uygulanır (idempotent)
@@ -513,7 +576,8 @@ namespace TRWhisper.Core
                             if (string.IsNullOrEmpty(_llmCleaner.LastError))
                             {
                                 llmSucceeded = true;
-                                finalTranscript = _normalizer.Normalize(_dictionaryService.Apply(cleaned));
+                                var usedMode = sessionMode ?? LlmModeRegistry.GetActiveMode(_configManager.Current.LlmCleaning);
+                                finalTranscript = PostProcessLlmOutput(cleaned, usedMode, _dictionaryService, _normalizer, outputLanguage);
                                 ShowLlmWarningIfAny();
                             }
                             else if (!ShowLlmWarningIfAny())
@@ -538,6 +602,12 @@ namespace TRWhisper.Core
                     FileLog.Write($"[DictationCoordinator] Yapıştırma başlatılıyor...");
                     var pasteResult = await _clipboardPaster.PasteTextAsync(finalTranscript).ConfigureAwait(false);
                     FileLog.Write($"[DictationCoordinator] Yapıştırma tamamlandı (sonuç={pasteResult}).");
+
+                    // Yönetici penceresi / pano hatasında metin hedefe ulaşmadı: uyarı tınısı.
+                    if (pasteResult is PasteResult.Pasted or PasteResult.PastedClipboardRestored)
+                        _soundFeedback?.PlaySuccessSound();
+                    else
+                        _soundFeedback?.PlayCancelSound();
 
                     // 5. Pop-up penceresinde sonucu göster (Kopyalama butonuyla birlikte).
                     // Yükseltilmiş hedefte kullanıcıya elle Ctrl+V yapması gerektiği bildirilir.
@@ -575,6 +645,7 @@ namespace TRWhisper.Core
                         // Watchdog devreye girdi: hat zaman aşımına uğradı.
                         cts.Cancel();
                         FileLog.Write($"[DictationCoordinator] çözümleme zaman aşımı ({overallTimeout.TotalSeconds:0}s), akış iptal edildi.");
+                        _soundFeedback?.PlayCancelSound();
                         _overlayWindow?.HideWithFade();
                         _trayController.ShowNotification(
                             "Çözümleme Zaman Aşımı",
@@ -601,6 +672,7 @@ namespace TRWhisper.Core
                 catch (Exception ex)
                 {
                     FileLog.Write($"[DictationCoordinator] Transkripsiyon akışı hatası: {ex.Message}");
+                    _soundFeedback?.PlayCancelSound();
                     _overlayWindow?.HideWithFade();
                 }
                 finally
@@ -649,6 +721,8 @@ namespace TRWhisper.Core
             StopLivePreview();
             _keyboardHook.HotkeyDown -= OnHotkeyDown;
             _keyboardHook.HotkeyUp -= OnHotkeyUp;
+            _keyboardHook.LanguageSwitchRequested -= OnLanguageSwitchRequested;
+            _trayController.LanguageChanged -= SetLanguage;
             _keyboardHook.Dispose();
             _audioRecorder.Dispose();
             _trayController.Dispose();

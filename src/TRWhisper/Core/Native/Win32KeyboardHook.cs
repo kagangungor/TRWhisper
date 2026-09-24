@@ -54,6 +54,29 @@ namespace TRWhisper.Core.Native
         [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
         private static extern IntPtr GetModuleHandle(string lpModuleName);
 
+        [DllImport("kernel32.dll")]
+        private static extern uint GetCurrentThreadId();
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct MSG
+        {
+            public IntPtr hwnd;
+            public uint message;
+            public IntPtr wParam;
+            public IntPtr lParam;
+            public uint time;
+            public POINT pt;
+        }
+
+        private const uint WM_QUIT = 0x0012;
+
+        [DllImport("user32.dll")]
+        private static extern int GetMessage(out MSG lpMsg, IntPtr hWnd, uint wMsgFilterMin, uint wMsgFilterMax);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool PostThreadMessage(uint idThread, uint msg, IntPtr wParam, IntPtr lParam);
+
         [StructLayout(LayoutKind.Sequential)]
         private struct POINT
         {
@@ -86,6 +109,10 @@ namespace TRWhisper.Core.Native
         private volatile HotkeyBinding _pushToTalk = HotkeyBinding.Parse("RightCtrl");
         private volatile HotkeyBinding _llmModifier = HotkeyBinding.Parse("Shift");
 
+        // Hızlı dil geçişi; ayar kapalıyken null (callback'te tek bir null kontrolü).
+        private volatile HotkeyBinding? _languageSwitch;
+        private bool _languageSwitchHeld;
+
         public void ReloadConfig()
         {
             lock (_lock)
@@ -103,7 +130,13 @@ namespace TRWhisper.Core.Native
 
             _pushToTalk = HotkeyBinding.Parse(ptt, "RightCtrl");
             _llmModifier = HotkeyBinding.Parse(llm, "Shift");
-            FileLog.Write($"[Win32KeyboardHook] Kısayollar güncellendi: PTT='{_pushToTalk.DisplayName}' ({ptt}), LLM='{_llmModifier.DisplayName}' ({llm})");
+
+            var general = _configManager?.Current.General;
+            _languageSwitch = general?.EnableLanguageFastSwitch == true
+                ? HotkeyBinding.Parse(general.FastSwitchHotkey, "Alt+L")
+                : null;
+
+            FileLog.Write($"[Win32KeyboardHook] Kısayollar güncellendi: PTT='{_pushToTalk.DisplayName}' ({ptt}), LLM='{_llmModifier.DisplayName}' ({llm}), Dil='{_languageSwitch?.DisplayName ?? "kapalı"}'");
         }
 
         private bool IsLlmModifierHeld()
@@ -118,6 +151,7 @@ namespace TRWhisper.Core.Native
 
         public event EventHandler<HotkeyEventArgs>? HotkeyDown;
         public event EventHandler<HotkeyEventArgs>? HotkeyUp;
+        public event EventHandler? LanguageSwitchRequested;
 
         public bool IsHotkeyHeld
         {
@@ -176,18 +210,44 @@ namespace TRWhisper.Core.Native
             }
         }
 
+        // Hook'lar ADANMIŞ bir iş parçacığında, kendi mesaj döngüsüyle yaşar. Düşük seviyeli
+        // hook'lar kuruldukları iş parçacığının mesaj döngüsünde çağrılır ve Windows sistemdeki
+        // HER fare hareketini/tuşu bu çağrı dönene kadar bekletir. Hook'lar UI iş parçacığında
+        // olsaydı, Ayarlar penceresinin kurulması gibi her UI işi (~0.4-1 sn) tüm sistemde
+        // fare/klavye takılmasına (FPS düşüşü hissi) yol açardı.
+        private Thread? _hookThread;
+        private uint _hookThreadId;
+
         public void Start()
         {
             lock (_lock)
             {
-                if (_hookId != IntPtr.Zero) return;
+                if (_hookThread != null) return;
 
-                using var curProcess = Process.GetCurrentProcess();
-                using var curModule = curProcess.MainModule;
-
-                if (curModule != null)
+                using var ready = new ManualResetEventSlim();
+                _hookThread = new Thread(() => HookThreadLoop(ready))
                 {
-                    var moduleHandle = GetModuleHandle(curModule.ModuleName);
+                    IsBackground = true,
+                    Name = "TRWhisper.InputHook",
+                    // Geri çağrılar mikro saniyelik iş yapar; yüksek öncelik, yoğun CPU altında
+                    // bile sistem girdisinin gecikmemesini sağlar.
+                    Priority = ThreadPriority.Highest
+                };
+                _hookThread.Start();
+                ready.Wait(TimeSpan.FromSeconds(5));
+            }
+        }
+
+        private void HookThreadLoop(ManualResetEventSlim ready)
+        {
+            try
+            {
+                _hookThreadId = GetCurrentThreadId();
+
+                using (var curProcess = Process.GetCurrentProcess())
+                using (var curModule = curProcess.MainModule)
+                {
+                    var moduleHandle = curModule != null ? GetModuleHandle(curModule.ModuleName) : IntPtr.Zero;
 
                     _hookId = SetWindowsHookEx(WH_KEYBOARD_LL, _proc, moduleHandle, 0);
                     if (_hookId == IntPtr.Zero)
@@ -195,39 +255,45 @@ namespace TRWhisper.Core.Native
                         FileLog.Write($"[Win32KeyboardHook] Klavye hook'u kurulamadı. Hata: {Marshal.GetLastWin32Error()}");
                     }
 
-                    // Fare hook'u KOŞULSUZ kurulur. Yalnızca Mouse4/Mouse5 seçiliyken kurmak
-                    // daha az yük olurdu ama hook'lar kuruldukları (mesaj döngüsü olan) iş
-                    // parçacığına bağlıdır; ayar değişince oraya iş marshal etmek gerekirdi.
-                    // Geri dönüş: XBUTTON dışındaki her mesajda callback anında çıkar.
+                    // Fare hook'u KOŞULSUZ kurulur (Mouse4/Mouse5 ayarı çalışırken değişebilir).
+                    // XBUTTON dışındaki her mesajda callback anında çıkar.
                     _mouseHookId = SetWindowsHookEx(WH_MOUSE_LL, _mouseProc, moduleHandle, 0);
                     if (_mouseHookId == IntPtr.Zero)
                     {
                         FileLog.Write($"[Win32KeyboardHook] Fare hook'u kurulamadı. Hata: {Marshal.GetLastWin32Error()}");
                     }
 
-                    FileLog.Write($"[Win32KeyboardHook] Hook'lar kuruldu (klavye={_hookId != IntPtr.Zero}, fare={_mouseHookId != IntPtr.Zero}).");
+                    FileLog.Write($"[Win32KeyboardHook] Hook'lar kuruldu (klavye={_hookId != IntPtr.Zero}, fare={_mouseHookId != IntPtr.Zero}, adanmış iş parçacığı).");
                 }
             }
+            finally
+            {
+                ready.Set();
+            }
+
+            // Hook geri çağrıları bu döngü içinde çalışır; WM_QUIT (Stop) gelince çıkılır.
+            while (GetMessage(out _, IntPtr.Zero, 0, 0) > 0) { }
+
+            if (_hookId != IntPtr.Zero) UnhookWindowsHookEx(_hookId);
+            if (_mouseHookId != IntPtr.Zero) UnhookWindowsHookEx(_mouseHookId);
+            _hookId = IntPtr.Zero;
+            _mouseHookId = IntPtr.Zero;
         }
 
         public void Stop()
         {
+            Thread? thread;
             lock (_lock)
             {
-                if (_hookId != IntPtr.Zero)
-                {
-                    UnhookWindowsHookEx(_hookId);
-                    _hookId = IntPtr.Zero;
-                }
-
-                if (_mouseHookId != IntPtr.Zero)
-                {
-                    UnhookWindowsHookEx(_mouseHookId);
-                    _mouseHookId = IntPtr.Zero;
-                }
-
+                thread = _hookThread;
+                _hookThread = null;
                 _isHotkeyHeld = false;
             }
+
+            if (thread == null) return;
+            PostThreadMessage(_hookThreadId, WM_QUIT, IntPtr.Zero, IntPtr.Zero);
+            if (!thread.Join(TimeSpan.FromSeconds(2)))
+                FileLog.Write("[Win32KeyboardHook] Hook iş parçacığı zamanında kapanmadı.");
         }
 
         private IntPtr HookCallback(int nCode, IntPtr wParam, IntPtr lParam)
@@ -244,6 +310,24 @@ namespace TRWhisper.Core.Native
                     bool isExtended = (kbd.flags & LLKHF_EXTENDED) != 0;
                     bool isDown = msg == WM_KEYDOWN || msg == WM_SYSKEYDOWN;
                     bool isUp = msg == WM_KEYUP || msg == WM_SYSKEYUP;
+
+                    // Hızlı dil geçişi: basılı tutulunca gelen tekrarlar tek geçiş sayılır.
+                    var languageSwitch = _languageSwitch;
+                    if (languageSwitch != null)
+                    {
+                        if (isDown && languageSwitch.MatchesKey(kbd.vkCode, isExtended))
+                        {
+                            if (!_languageSwitchHeld)
+                            {
+                                _languageSwitchHeld = true;
+                                Dispatch(() => LanguageSwitchRequested?.Invoke(this, EventArgs.Empty));
+                            }
+                            if (languageSwitch.Suppress) return (IntPtr)1;
+                            return CallNextHookEx(_hookId, nCode, wParam, lParam);
+                        }
+                        if (isUp && kbd.vkCode == (uint)languageSwitch.PrimaryVk)
+                            _languageSwitchHeld = false;
+                    }
 
                     if (isDown && binding.MatchesKey(kbd.vkCode, isExtended))
                     {

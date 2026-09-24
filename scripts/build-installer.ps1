@@ -13,7 +13,7 @@
 
 .EXAMPLE
     # Yayındaki CUDA paketini koruyarak yeni sürüm üretir (olağan durum):
-    powershell -ExecutionPolicy Bypass -File scripts\build-installer.ps1 -Version 2.1.0 -SkipCudaPackage
+    powershell -ExecutionPolicy Bypass -File scripts\build-installer.ps1 -Version 2.2.0 -SkipCudaPackage
 #>
 
 param (

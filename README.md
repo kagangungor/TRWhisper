@@ -18,14 +18,15 @@
 
 ## 🚀 Key Features
 
-- **Modern Graphical Settings Window (WPF)**: A clean and accessible multi-tab settings panel (**General**, **Audio**, **Model**, **Hotkey**, **Dictionary**, **AI / LLM**, **Overlay Pill**, and **Backup**) to configure and test everything in real time.
+- **Modern Graphical Settings Window (WPF)**: A clean and accessible multi-tab settings panel (**General**, **Audio**, **Model & AI**, **Hotkey**, **Dictionary**, **Overlay Pill**, and **Backup & History**) to configure and test everything in real time. Optional Windows 11 **Mica** background (`EnableMicaEffect`, off by default; applied the next time the window opens).
 - **Custom Dictionary & Jargon Support**: User-defined phonetic/jargon replacements (`dictionary.json`). Automatically corrects technical terms, acronyms, brand names, or words frequently misheard by Whisper with word-boundary awareness and preserves Turkish inflection suffixes (e.g. `pitonda` -> `Python'da`).
 - **Advanced Turkish Text Normalization**:
   - Comprehensive rule-based normalization for spoken Turkish numbers, percentages, currency, dates, times, and measurement units (e.g. `yüzde yirmi` -> `%20`, `on beş eylül` -> `15 Eylül`, `üç buçuk kilo` -> `3,5 kg`, `iki buçukta` -> `02:30'da`, `yüz dolar` -> `100 USD`).
   - Strict Turkish vowel and consonant harmony rules when attaching suffixes to numbers and symbols.
 - **Context-Aware LLM Modes & Active Window Detection**:
-  - Multiple built-in personas & modes: **Clean** (✨ removes fillers like `ııı`, `eee`, `şey`, fixes punctuation/grammar, faithful to original meaning), **Business Email** (📧 turns draft speech into professional correspondence), **Bulleted Summary** (📝 extracts key takeaways and action items into `- ` bullet points), **Code & Technical** (💻 preserves technical terms, formats Markdown code blocks and commands), and **English Translation** (🌐 translates Turkish speech into natural, professional English).
+  - Multiple built-in personas & modes: **Clean** (✨ removes fillers like `ııı`, `eee`, `şey`, fixes punctuation/grammar, faithful to original meaning), **Business Email** (📧 turns draft speech into professional correspondence), **Bulleted Summary** (📝 extracts key takeaways and action items into `- ` bullet points), **Code & Technical** (💻 preserves technical terms, formats Markdown code blocks and commands), **English Translation** (🌐 translates Turkish speech into natural, professional English), and **AI Assistant** (🤖 carries out the dictated instruction or question and pastes the answer instead of cleaning the text).
   - Support for user-defined **Custom LLM Modes** and raw transcript fallback.
+  - **LLM providers**: **Ollama** (local), **Google Gemini**, **OpenAI**, **Groq**, **DeepSeek**, **Anthropic Claude** (default `claude-haiku-4-5`), and any **custom OpenAI-compatible** endpoint (LM Studio, OpenRouter, …). Choosing a provider fills in its default endpoint and model.
   - Active foreground window auto-detection (`ForegroundAppDetector`): Intelligently detects active applications (e.g. VS Code, Visual Studio, Outlook, Thunderbird, Windows Terminal) and automatically activates the matching persona, displaying an active app badge on the overlay pill.
   - **Hardware-Backed Secure API Key Storage**: Encrypted with Windows DPAPI (`Data Protection API`) using application-specific entropy (`TRWhisper_DPAPI_Entropy_v2`); keys are never stored in plain text or transmitted over unencrypted HTTP.
 - **Flexible Hotkeys & 3 Dictation Modes**:
@@ -33,12 +34,18 @@
   - **Toggle** mode (press once to start recording, press again to stop).
   - **Hands-Free** mode with intelligent silence detection to automatically finish dictation when you stop speaking (configurable silence threshold & duration).
   - Fully customizable hotkeys and modifier keys (Right/Left Ctrl, Shift, Alt, CapsLock, Function keys F8/F9, Mouse4/Mouse5, and custom combinations).
+- **Spoken Punctuation** (`EnableSpokenPunctuation`): say `nokta`, `virgül`, `soru işareti`, `ünlem`, `iki nokta`, `noktalı virgül`, `üç nokta`, `tire`, `uzun çizgi`, `yeni satır`, `yeni paragraf`, `parantez aç/kapa`, `tırnak aç/kapa` and they become `. , ? ! : ; ... - — ↵ ( ) "`. Whisper's own punctuation next to a command is absorbed so nothing is doubled. Known limit: a standalone noun use such as "bu nokta önemli" is converted too; the feature can be turned off.
+- **Fast Language Switch**: a hotkey (default **Alt+L**, off by default) cycles the dictation language through the languages you pick (Turkish, English, German, French, Auto-detect) in your own order; the pill briefly shows the new language. The language can also be changed from the tray menu. Number/date normalization only runs for Turkish output.
+- **Sound Feedback** (`EnableSoundFeedback`, off by default): short, soft tones generated in code for start, success and cancel/error, with adjustable volume and a **Test sound** button.
+- **Dictation History**: **Settings → Backup & History → History** lists every logged dictation with search (Turkish-aware, also searches the raw text), Today / This Week / This Month filters, word counts, an estimated "time saved" summary, and a detail view showing both the cleaned and raw text.
+- **Update Check** (`EnableAutomaticUpdateCheck`, off by default): 10 seconds after startup the latest GitHub release is compared with the installed version and a tray item appears if a newer one exists. A manual **Check now** button lives in Settings. Nothing is downloaded or installed automatically.
 - **Real-Time Live Streaming Preview**:
   - Real-time live preview (`EnableStreamingPreview`): Words stream dynamically into the floating pill overlay while you speak, followed by the final refined transcription when you finish.
 - **In-Process Whisper.net Engine & Model Management**:
   - High-performance in-process native Whisper.net C# engine alongside Whisper CLI.
   - Download, switch, and delete models directly inside the Settings UI with real-time speed tracking and cryptographic **SHA-256 validation**.
   - Automatic idle memory unloading (`IdleTimeoutMinutes`) to free VRAM/RAM when not dictating.
+  - A live **memory card** in the Model tab shows whether the model is loaded, which model and language are active, the app's RAM usage and whether the GPU (CUDA) or CPU is in use, with a button to unload the model immediately.
 - **Auto-Paste & Dual Clipboard Modes**:
   - **Clipboard** mode: Copies transcript to clipboard and simulates `Ctrl + V` via Win32 `SendInput`, with optional `RestoreClipboard` to automatically restore your previous clipboard content after pasting.
   - **DirectType** mode: Types text character-by-character via `KEYEVENTF_UNICODE` without modifying the clipboard.
@@ -49,12 +56,12 @@
 - **Silence Detection & Hallucination Filter**:
   - Built-in **Silero VAD** skips non-speech segments to avoid phantom text on silent triggers.
   - Filters out known Whisper phantom subtitles (`Altyazı M.K.`, `İzlediğiniz için teşekkür ederim.`) and audio bracket tags (`[MÜZİK ÇALIYOR]`).
-- **Floating Pill Overlay**: Real-time animated audio waveform, live streaming text, processing indicator, active app/mode badge, low-microphone audio warning, raw/cleaned transcript switch, and cancel (✕) / complete (✓) / copy buttons with custom positioning.
+- **Floating Pill Overlay**: Real-time animated audio waveform, live streaming text, processing indicator, active app/mode badge, low-microphone audio warning, raw/cleaned transcript switch, and cancel (✕) / complete (✓) / copy buttons with custom positioning. Optional **edge snapping** (`EnableEdgeSnapping`) snaps the pill to screen edges and the horizontal center when you place it.
 - **Windows Startup Integration**: Enable or disable autostart on Windows boot with a single switch in the Settings UI (HKCU Run key, no admin rights required).
 - **Backup & Restore**: Dictation logs (`.md`), the custom dictionary and your settings are packed into a single ZIP. Back up with one click from the tray menu or Settings, and restore from any archive. Includes automatic backups at startup, a retention limit, and a safety backup taken right before every restore. The API key is never written into a backup.
 - **Daily API Call Cap (Cost Control)**: With a cloud provider selected, a daily request cap is enforced (default 200). When the cap is reached, LLM cleanup is either skipped (**Block**) or merely warned about while the call proceeds (**Warn only**) — your choice. A heads-up warning fires at 80% of the cap.
 - **API Key Lifecycle**: The app records when the key was last changed and reminds you to rotate it once a threshold (default 90 days) is crossed. One-click key deletion and a direct link to the provider's key console.
-- **Automated Test Suite**: 152 automated unit tests and a UI smoke testing utility (`uismoke`) guaranteeing zero XAML template breakage.
+- **Automated Test Suite**: 420 automated unit tests and a UI smoke testing utility (`uismoke`) guaranteeing zero XAML template breakage.
 - **Local Markdown Logging**: Transcripts can be logged with timestamps to `%USERPROFILE%\Dictation\YYYY-MM.md`. Operational logs are written to `%USERPROFILE%\Dictation\trwhisper.log`.
 
 ---
@@ -97,14 +104,14 @@ before it starts:
   (`%USERPROFILE%\Dictation`) should be deleted as well.
 - Silent installation (for deployment):
   ```powershell
-  TRWhisper-Setup-2.1.0.exe /SILENT /ENGINE=cuda /MODELS=turbo,small /TASKS=desktopicon
+  TRWhisper-Setup-2.2.0.exe /SILENT /ENGINE=cuda /MODELS=turbo,small /TASKS=desktopicon
   ```
 
 > [!NOTE]
 > **Security & VirusTotal Results (68/69 Clean):**  
 > Because this is a free, independent open-source project without an expensive commercial EV code signing certificate, Windows SmartScreen may show an "unknown publisher" warning on first launch: **More info > Run anyway**.  
 >  
-> You can review the updated [VirusTotal Scan Report (v2.1.0)](https://www.virustotal.com/gui/file/bc7f92be96bae06c652c572e3da75953c105eba5755d22505e5ad2532d98d3ff?nocache=1). Top-tier security vendors including Microsoft Defender, Kaspersky, Bitdefender, ESET, Sophos, and Malwarebytes (**68 vendors in total**) confirm the binary is **100% clean**.  
+> You can review the [VirusTotal Scan Report of the most recently scanned release (v2.1.0)](https://www.virustotal.com/gui/file/bc7f92be96bae06c652c572e3da75953c105eba5755d22505e5ad2532d98d3ff?nocache=1). Top-tier security vendors including Microsoft Defender, Kaspersky, Bitdefender, ESET, Sophos, and Malwarebytes (**68 vendors in total**) confirm the binary is **100% clean**. For newer releases, verify your download against the SHA-256 digest in the release notes.  
 >  
 > **Regarding the 1 Heuristic/ML Detection (Trapmine):**  
 > This automated machine-learning endpoint engine assigns a generic low-confidence suspicion score (`Suspicious.low.ml.score`) to newly observed unsigned binaries. TRWhisper's implementation of low-level Windows APIs — global low-level keyboard hooks (`SetWindowsHookEx` / `WH_KEYBOARD_LL`) for push-to-talk hotkeys, keyboard event synthesis (`SendInput`) to paste recognized text directly into active fields, and Windows DPAPI for encrypting local user credentials — naturally triggers aggressive heuristic engines. The entire codebase is open source, transparent, and completely safe.
@@ -174,14 +181,15 @@ Because TRWhisper uses a low-level keyboard hook (`WH_KEYBOARD_LL`) and the `Sen
 - The API key you enter for cloud LLM cleanup is **never written in plain text** to `config.json`: it is encrypted with Windows DPAPI (`DataProtectionScope.CurrentUser`) and stored with an `enc:` prefix. If DPAPI encryption fails, the key is **not written to disk at all**.
 - This protection is **bound to your Windows account**: the file cannot be decrypted on another account, another machine, or from an offline disk backup.
 - **What it does not protect against:** malware running as the same Windows user can call the same DPAPI API and decrypt the key. This is an inherent limit of local secret storage (including Windows Credential Manager). For maximum privacy, run LLM cleanup fully locally with **Ollama** — no API key is needed at all.
-- The app **refuses** to send an API key to any non-loopback `http://` endpoint — regardless of provider (Gemini, OpenAI or Ollama); HTTPS is mandatory for external endpoints.
+- The app **refuses** to send an API key or dictation text to any non-loopback `http://` endpoint — regardless of provider; HTTPS is mandatory for external endpoints.
+- **Local means this machine.** A provider counts as local only when its endpoint is loopback (`localhost`, `127.0.0.1`, `::1`). An Ollama or OpenAI-compatible server on another computer is treated as a cloud provider: the "text goes to the cloud" badge is shown and the daily cap applies, because your dictation leaves this PC.
 
 ### Key scope, lifetime and rotation
 TRWhisper has no session or token lifecycle of its own: authentication is a single static API key, and **its scope, lifetime and revocation can only be controlled from the provider's console**. Rather than hiding that fact, the app surfaces it:
 
 - The moment the key was last changed (`LlmCleaning.ApiKeyUpdatedUtc`) is recorded. **Settings → AI** shows the key's age and raises a rotation warning once the `ApiKeyRotationReminderDays` threshold (default **90 days**) is crossed. The stamp is refreshed only when the key actually changes, not on every save.
 - The **"Delete key"** button removes the key from this machine immediately and saves settings. Deleting does not invalidate it — revoke it in the provider console as well.
-- The **"Open key console"** button takes you to the right page: [Google AI Studio](https://aistudio.google.com/app/apikey) or [OpenAI API keys](https://platform.openai.com/api-keys).
+- The **"Open key console"** button takes you to the right page for the selected provider: [Google AI Studio](https://aistudio.google.com/app/apikey), [OpenAI](https://platform.openai.com/api-keys), [Groq](https://console.groq.com/keys), [DeepSeek](https://platform.deepseek.com/api_keys) or [Anthropic](https://console.anthropic.com/settings/keys).
 - Recommended in the provider console: restrict the key to the model/API you actually use, add an IP restriction where possible, set budget and quota alerts, and delete unused keys.
 - The strongest answer is to have no key at all: run LLM cleanup locally with **Ollama**.
 
@@ -193,7 +201,7 @@ With a cloud provider selected, every LLM-cleaned dictation is one API call. A b
   - `Block` (default) — the request is **never sent**, the raw transcript is pasted, and a tray warning appears. No extra cost.
   - `WarnOnly` — the request is still sent and only a warning is shown. Your bill can keep growing.
 - A heads-up warning fires at **80%** of the cap. An invalid or unknown `QuotaExceededAction` value silently falls back to `Block`.
-- Local providers (Ollama, LlamaCpp) are never counted — they cost nothing.
+- Providers running on this machine (a loopback endpoint) are never counted — they cost nothing. A remote Ollama server is counted.
 - The live counter is shown under **Settings → AI → Usage and Cost Cap** and can be reset there (this does not change actual usage at the provider).
 
 ### Logs and dictation content
@@ -201,6 +209,9 @@ With a cloud provider selected, every LLM-cleaned dictation is one API call. A b
 - Plain-text transcript lines left over from builds older than 2.0.1 are purged automatically, once, at startup.
 - Transcript history (`%USERPROFILE%\Dictation\YYYY-MM.md`) can be disabled entirely with `EnableHistoryLogging: false`.
 - Temporary audio files are created under `%TEMP%` with unique GUID names and deleted as soon as transcription finishes; orphans are cleaned up at startup.
+
+### Pasting into terminals
+In a console window a line break means **Enter**. If a dictation (for example a spoken `yeni satır`, or a multi-line **AI Assistant** answer) were pasted into cmd or PowerShell as-is, a command could run before you had read it. When the target window is a console — Windows console (cmd/PowerShell), **Windows Terminal**, Git Bash (mintty), ConEmu/Cmder or PuTTY — TRWhisper turns line breaks and tabs into spaces and removes control characters, so the text waits on the prompt until you press Enter yourself. This also applies to text left on the clipboard for an elevated (administrator) console. Terminals embedded in other apps (e.g. VS Code) cannot be recognised by window class; they rely on their own multi-line paste warning.
 
 ### Backup and restore
 Your dictation history and custom dictionary cannot be regenerated. TRWhisper packs them into a single ZIP:
@@ -215,26 +226,34 @@ Your dictation history and custom dictionary cannot be regenerated. TRWhisper pa
 - **Creating a backup:** tray menu **"💾 Back up now"**, or **Settings → Backup → "Back up now"**.
 - **Automatic backups:** when `Backup.EnableAutomaticBackup` is on and `AutomaticBackupIntervalDays` (default 1) have passed since the last one, TRWhisper takes a backup silently in the background at startup. `RetentionCount` (default 10) decides how many of the newest archives are kept; the rest are deleted.
 - **Restoring:** **Settings → Backup → "Restore from backup"**. Settings, the dictionary and same-named log files are **overwritten**, so a **safety backup** of the current state is taken immediately beforehand and its name is reported in the status line.
-- **The API key is never written into a backup.** Two reasons: a backup is an ordinary, portable file and must not carry secrets; and the key is DPAPI-encrypted against this Windows account, so it could not be decrypted on another machine anyway. After a restore your current key is preserved — the empty value from the archive does not overwrite it.
+- **The API key is never written into a backup.** Two reasons: a backup is an ordinary, portable file and must not carry secrets; and the key is DPAPI-encrypted against this Windows account, so it could not be decrypted on another machine anyway.
+- **Settings tied to this computer are never taken from a backup** and stay as they are: the API key, the AI provider/endpoint/model, "clean every dictation with the LLM", Whisper file paths, the log, temp-audio and backup folders. Otherwise a crafted backup could send your preserved key and every dictation to a server of its choosing, or load a model from a network share. After restoring on a new PC, simply select your provider again.
+- **Only restore backups you made yourself or received from someone you trust:** dictionary rules and custom LLM prompts can change the text you dictate.
+- Size limits protect against "zip bombs": settings 1 MB, dictionary 5 MB, each `.md` 64 MB, 1 GB in total, at most 5,000 log files. An oversized archive is rejected before anything is changed.
 - When extracting, only plain `.md` names are accepted; entries containing path separators, `..` or any other extension are ignored (zip-slip protection).
-- Backups stay local. To copy them to another drive or to cloud-synced storage, point `Backup.BackupDirectory` at that location (e.g. `D:\Backups\TRWhisper`).
+- Dictation logs are stored in the ZIP **unencrypted**. If history logging is off (`EnableHistoryLogging: false`), no logs are put into backups at all.
+- TRWhisper never uploads backups itself. To keep them on another drive, point `Backup.BackupDirectory` there (e.g. `D:\Backups\TRWhisper`). If you choose a OneDrive-synced folder, Settings warns you that the backups — including dictation text — will be uploaded to the cloud.
 
 ### Download integrity
 - `scripts\setup.ps1`, the setup wizard and the in-app model downloader **verify every downloaded file against a pinned SHA-256 digest** — whisper.cpp binaries, GGML models, the Silero VAD model and CUDA runtime packages included. On a mismatch the file is deleted and the operation stops (fail-closed).
 - Hugging Face URLs are pinned to a specific commit, so a change on `main` cannot alter what you download.
+- For an offline install, a CUDA package placed next to the setup file is held to the same SHA-256 check (it is verified after being copied, so the file checked is the file extracted); if it does not match, it is ignored and the package is downloaded instead.
+- The Microsoft Visual C++ Runtime installer cannot be pinned by hash because Microsoft updates it; before running it, setup checks its **Authenticode signature** (valid and signed by Microsoft Corporation) and refuses to run it otherwise.
+- The update check only opens `https://github.com/kagangungor/TRWhisper/...` addresses and never downloads or runs anything by itself.
 
 ### Installation, signing and verification
 - Released installers are currently **not Authenticode signed** (this is the main reason for the SmartScreen prompt). Verify your download against the digest published in the release notes:
   ```powershell
-  Get-FileHash .\TRWhisper-Setup-2.1.0.exe -Algorithm SHA256
+  Get-FileHash .\TRWhisper-Setup-2.2.0.exe -Algorithm SHA256
   ```
   The build script supports signing: `scripts\build-installer.ps1 -CertThumbprint <certificate_thumbprint>` (or the `TRWHISPER_SIGN_THUMBPRINT` environment variable).
 - The default installation requires no administrator rights and goes to `%LOCALAPPDATA%\Programs\TRWhisper`. Because that directory is writable by the same user, hardened environments can install into **Program Files** instead:
   ```powershell
-  .\TRWhisper-Setup-2.1.0.exe /ALLUSERS
+  .\TRWhisper-Setup-2.2.0.exe /ALLUSERS
   ```
   In that mode the application directory stays read-only; settings go to `%APPDATA%\TRWhisper` and downloaded models to `%LOCALAPPDATA%\TRWhisper`.
 - At startup the app restricts DLL search to its own directory and `System32` (`SetDefaultDllDirectories`), narrowing the DLL hijacking / binary planting surface.
+- Relative model and tool paths are looked up only in the application directory, the per-user data directory, and — for development builds — parent directories **inside your user profile**. The current working directory is never searched, so in a Program Files install a model planted by another user (e.g. under `C:\tools\`) is never loaded.
 
 ---
 
@@ -250,8 +269,14 @@ You can configure every setting easily through the graphical interface by right-
     "TempAudioPath": "%TEMP%\\trwhisper_temp.wav",
     "EnableCustomDictionary": true,
     "EnableTextNormalization": true,
+    "EnableSpokenPunctuation": true,
     "EnableStreamingPreview": true,
-    "EnableHistoryLogging": true
+    "EnableHistoryLogging": true,
+    "EnableLanguageFastSwitch": false,
+    "FastSwitchHotkey": "Alt+L",
+    "FastSwitchLanguages": [ "tr", "en" ],
+    "EnableAutomaticUpdateCheck": false,
+    "EnableMicaEffect": false
   },
   "Whisper": {
     "CliPath": "tools\\whisper\\whisper-cli.exe",
@@ -281,7 +306,9 @@ You can configure every setting easily through the graphical interface by right-
     "RestoreDelayMs": 200
   },
   "Audio": {
-    "InputDeviceId": ""
+    "InputDeviceId": "",
+    "EnableSoundFeedback": false,
+    "SoundFeedbackVolume": 50
   },
   "Hotkey": {
     "PushToTalkKey": "RightCtrl",
@@ -292,7 +319,8 @@ You can configure every setting easily through the graphical interface by right-
   },
   "Overlay": {
     "Position": "Bottom",
-    "ResultDurationSeconds": 10
+    "ResultDurationSeconds": 10,
+    "EnableEdgeSnapping": false
   },
   "Backup": {
     "EnableAutomaticBackup": true,
@@ -306,6 +334,12 @@ You can configure every setting easily through the graphical interface by right-
 
 - **`EnableCustomDictionary`**: Enables user-defined phonetic/jargon mappings in `dictionary.json`.
 - **`EnableTextNormalization`**: Enables rule-based spoken numbers, dates, times, currencies, and units normalization.
+- **`EnableSpokenPunctuation`**: Turns spoken punctuation commands (`nokta`, `virgül`, `yeni satır`, …) into punctuation marks.
+- **`EnableLanguageFastSwitch` / `FastSwitchHotkey` / `FastSwitchLanguages`**: Hotkey that cycles the dictation language, the key combination (must include Ctrl/Alt/Win or be a single F-key), and the languages to cycle through in order (at least two of `tr`, `en`, `de`, `fr`, `auto`).
+- **`EnableAutomaticUpdateCheck`**: Check GitHub for a newer release 10 seconds after startup (off by default).
+- **`EnableMicaEffect`**: Windows 11 Mica background for the Settings window (off by default).
+- **`EnableSoundFeedback` / `SoundFeedbackVolume`**: Short start/success/cancel tones and their volume (0–100).
+- **`EnableEdgeSnapping`**: Snap the pill to screen edges and the horizontal center while positioning it.
 - **`EnableStreamingPreview`**: Displays words live in the floating overlay pill in real time while speaking.
 - **`EnableHistoryLogging`**: Toggles saving transcript records to `%USERPROFILE%\Dictation\YYYY-MM.md` (can be disabled for privacy).
 - **`IdleTimeoutMinutes`**: Automatically unloads the model from RAM/VRAM after inactivity (default: 10 minutes; 0 keeps model warm indefinitely).
@@ -313,14 +347,14 @@ You can configure every setting easily through the graphical interface by right-
 - **`RestoreClipboard`**: Automatically restores previous clipboard contents after dictation has been pasted (Clipboard mode only).
 - **`DictationMode`**: `PushToTalk` (press & hold), `Toggle` (press once to start, press again to stop), or `HandsFree` (voice toggle with automatic silence cutoff).
 - **`HandsFreeSilenceMs`**: Silence duration (ms) before hands-free dictation automatically finishes.
-- **`Provider`**: `Ollama`, `Gemini`, or `OpenAI`. Cloud API keys are securely encrypted with Windows DPAPI (`TRWhisper_DPAPI_Entropy_v2`). Gemini transmits keys via the `x-goog-api-key` header, and external endpoints enforce HTTPS.
-- **`ActiveModeId`**: Active LLM persona (`Clean`, `Email`, `Summary`, `Technical`, `TranslateEn`, or custom IDs).
+- **`Provider`**: `Ollama`, `Gemini`, `OpenAI`, `Groq`, `DeepSeek`, `Claude`, or `CustomOpenAI` (any OpenAI-compatible endpoint; local only when the endpoint is loopback). Cloud API keys are securely encrypted with Windows DPAPI (`TRWhisper_DPAPI_Entropy_v2`). Gemini transmits keys via the `x-goog-api-key` header, and external endpoints enforce HTTPS.
+- **`ActiveModeId`**: Active LLM persona (`Clean`, `Email`, `Summary`, `Technical`, `TranslateEn`, `AiAction`, or custom IDs).
 - **`EnableAutoAppMode`**: Automatically adapts LLM mode based on the foreground application detected by `ForegroundAppDetector`.
 - **`ApiKeyRotationReminderDays`**: Show a rotation reminder in Settings once the API key has gone unchanged for this many days (default 90; `0` disables the reminder).
-- **`DailyRequestLimit`**: Maximum cloud calls per day (default 200; `0` = unlimited). Local providers are never counted.
+- **`DailyRequestLimit`**: Maximum cloud calls per day (default 200; `0` = unlimited). Providers on a loopback endpoint are never counted.
 - **`QuotaExceededAction`**: What to do once the cap is hit — `Block` (skip LLM cleanup, incur no extra cost) or `WarnOnly` (warn but still send the request).
 - **`Backup.EnableAutomaticBackup` / `AutomaticBackupIntervalDays` / `RetentionCount`**: Automatic backup at startup, the minimum days between backups, and how many archives to keep (`0` = keep all).
-- **`Backup.IncludeTranscripts`**: Whether dictation logs (`.md`) are packed into the backup. When off, the archive holds only settings and the dictionary.
+- **`Backup.IncludeTranscripts`**: Whether dictation logs (`.md`) are packed into the backup. When off — or when `EnableHistoryLogging` is off — the archive holds only settings and the dictionary.
 - **`Backup.BackupDirectory`**: Folder the backup ZIPs are written to; environment variables such as `%USERPROFILE%` are supported.
 
 > **Tip (Cloud API):** You can obtain a free Gemini API key from Google AI Studio and enter it via the Settings UI. If left empty, LLM cleanup is skipped and raw local transcripts are pasted directly.
@@ -345,7 +379,7 @@ If you prefer to perform LLM cleanup completely offline and private without clou
    - **Model:** `qwen2.5:3b` (or your pulled model name)
    - **API Key:** Leave empty (none required for local inference).
 
-This provides an air-gapped pipeline: STT (Whisper) and text enhancement (Ollama) both run 100% on your local machine with zero data leaving your PC.
+This provides an air-gapped pipeline: STT (Whisper) and text enhancement (Ollama) both run 100% on your local machine with zero data leaving your PC. (If you point the endpoint at an Ollama server on another computer, TRWhisper treats it as a cloud provider: HTTPS is required and the daily cap applies.)
 
 ---
 
@@ -385,7 +419,7 @@ powershell -ExecutionPolicy Bypass -File scripts\build.ps1 -Run
 powershell -ExecutionPolicy Bypass -File scripts\build.ps1 -Publish
 ```
 
-> **Note:** Always create release packages with `build.ps1 -Publish`. This bundles WPF native libraries inside the single-file executable (`IncludeNativeLibrariesForSelfExtract`). A plain `dotnet publish` without these flags produces an executable that crashes on launch. The application locates the `tools\whisper\` folder either beside the executable or in its parent directories.
+> **Note:** Always create release packages with `build.ps1 -Publish`. This bundles WPF native libraries inside the single-file executable (`IncludeNativeLibrariesForSelfExtract`). A plain `dotnet publish` without these flags produces an executable that crashes on launch. The application locates the `tools\whisper\` folder beside the executable, in `%LOCALAPPDATA%\TRWhisper`, or (for development builds) in parent directories inside your user profile.
 
 ---
 
@@ -394,7 +428,7 @@ powershell -ExecutionPolicy Bypass -File scripts\build.ps1 -Publish
 TRWhisper maintains high reliability with automated test suites:
 
 ```powershell
-# Run the 152 automated unit tests (AppMode, Hotkeys, LLM, ModelManager, DPAPI, data paths, etc.):
+# Run the 420 automated unit tests (LLM providers, backup/restore, hotkeys, normalization, DPAPI, security guards, etc.):
 dotnet test tests\TRWhisper.Tests\TRWhisper.Tests.csproj
 
 # Run the WPF Settings Window XAML template & UI smoke test suite:

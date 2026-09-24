@@ -15,7 +15,7 @@
 #endif
 
 #ifndef AppVersion
-  #define AppVersion "2.1.0"
+  #define AppVersion "2.2.0"
 #endif
 
 #define AppName "TRWhisper"
@@ -132,6 +132,7 @@ tr.StatusExtractCuda=NVIDIA GPU dosyaları açılıyor (~680 MB, biraz sürebili
 tr.StatusVcRedist=Microsoft Visual C++ 2015-2022 Runtime kuruluyor...
 tr.ExtractFailed=NVIDIA GPU paketi açılamadı: %1%n%nTRWhisper CPU sürümüyle kurulmaya devam edilecek.
 tr.VcRedistPrompt=TRWhisper'ın ses tanıma motoru için "Microsoft Visual C++ 2015-2022 Runtime (x64)" gereklidir ve bilgisayarınızda bulunamadı.%n%nŞimdi kurulacak. Windows bir kez yönetici izni (UAC) soracak.
+tr.VcRedistUntrusted=İndirilen Microsoft Visual C++ Runtime kurulum dosyasının dijital imzası doğrulanamadı; güvenlik için çalıştırılmadı.%n%nLütfen şu adresten indirip kendiniz kurun:%n{#VcRedistUrl}
 tr.VcRedistFailed=Microsoft Visual C++ Runtime kurulamadı. TRWhisper kuruldu ama ses tanıma ÇALIŞMAYACAK.%n%nLütfen şu adresten indirip kurun:%n{#VcRedistUrl}
 tr.UninstallKeepData=Dikte geçmişiniz ve günlük dosyalarınız burada saklanıyor:%n%1%n%nBu klasör de silinsin mi?%n%n(Hayır derseniz dikte kayıtlarınız korunur.)
 tr.NoDiskSpace=Kurulum için yeterli disk alanı yok. Gerekli: %1 MB, boş alan: %2 MB.
@@ -167,6 +168,7 @@ en.StatusExtractCuda=Extracting NVIDIA GPU files (~680 MB, this may take a while
 en.StatusVcRedist=Installing Microsoft Visual C++ 2015-2022 Runtime...
 en.ExtractFailed=The NVIDIA GPU package could not be extracted: %1%n%nSetup will continue with the CPU build.
 en.VcRedistPrompt=TRWhisper's speech engine requires the "Microsoft Visual C++ 2015-2022 Runtime (x64)", which was not found on your PC.%n%nIt will be installed now. Windows will ask for administrator permission (UAC) once.
+en.VcRedistUntrusted=The digital signature of the downloaded Microsoft Visual C++ Runtime installer could not be verified, so it was not run for security reasons.%n%nPlease download and install it yourself from:%n{#VcRedistUrl}
 en.VcRedistFailed=The Microsoft Visual C++ Runtime could not be installed. TRWhisper is installed but speech recognition WILL NOT WORK.%n%nPlease download and install it from:%n{#VcRedistUrl}
 en.UninstallKeepData=Your dictation history and log files are stored here:%n%1%n%nDelete this folder as well?%n%n(Choose No to keep your dictation records.)
 en.NoDiskSpace=Not enough disk space. Required: %1 MB, available: %2 MB.
@@ -549,6 +551,39 @@ begin
     SuppressibleMsgBox(AddPeriod(LastError), mbCriticalError, MB_OK, IDOK);
 end;
 
+// Kurulum dosyasının yanında duran CUDA paketi (çevrimdışı kurulum) de indirilen paketle
+// aynı SHA-256 denetiminden geçer: aksi hâlde İndirilenler klasörüne bırakılmış sahte bir
+// zip, TRWhisper.exe'nin yanına DLL olarak açılırdı. Denetim {tmp}'teki KOPYA üzerinde
+// yapılır; böylece doğrulanan dosya ile açılan dosya aynıdır. Tutmazsa paket indirilir.
+function LocalCudaZipVerified: Boolean;
+var
+  LocalZip, TmpZip: String;
+begin
+  Result := False;
+  LocalZip := ExpandConstant('{src}\{#CudaZipName}');
+  TmpZip := ExpandConstant('{tmp}\{#CudaZipName}');
+  if ('{#CudaZipSha}' = '') or not FileExists(LocalZip) then
+    Exit;
+
+  if not CopyFile(LocalZip, TmpZip, False) then
+  begin
+    Log('TRWhisper: yerel CUDA paketi kopyalanamadi: ' + LocalZip);
+    Exit;
+  end;
+
+  try
+    Result := CompareText(GetSHA256OfFile(TmpZip), '{#CudaZipSha}') = 0;
+  except
+    Result := False;
+  end;
+
+  if not Result then
+  begin
+    Log('TRWhisper: yerel CUDA paketinin SHA-256 degeri tutmadi, yok sayilip indirilecek: ' + LocalZip);
+    DeleteFile(TmpZip);
+  end;
+end;
+
 function PrepareDownloads: Boolean;
 begin
   Result := True;
@@ -558,18 +593,16 @@ begin
 
   if NeedVcRedist then
   begin
-    // Microsoft bu dosyayı güncellediği için SHA-256 sabitlenemez (imzası kurulumda doğrulanır).
+    // Microsoft bu dosyayı güncellediği için SHA-256 sabitlenemez; çalıştırılmadan önce
+    // Authenticode imzası (geçerli + Microsoft Corporation) InstallVcRedist'te doğrulanır.
     DownloadPage.Add('{#VcRedistUrl}', 'vc_redist.x64.exe', '');
     DownloadBytes := DownloadBytes + {#VcRedistSize};
   end;
 
   if UseCudaEngine and not CudaInstalled then
   begin
-    if FileExists(ExpandConstant('{src}\{#CudaZipName}')) then
-    begin
-      FileCopy(ExpandConstant('{src}\{#CudaZipName}'), ExpandConstant('{tmp}\{#CudaZipName}'), False);
-      CudaDownloaded := True;
-    end
+    if LocalCudaZipVerified then
+      CudaDownloaded := True
     else
     begin
       if '{#CudaZipSha}' = '' then
@@ -741,6 +774,23 @@ begin
   end;
 end;
 
+// Dosyanın geçerli bir Authenticode imzası taşıdığını ve imzalayanın Microsoft olduğunu
+// Windows'un kendi denetimiyle (Get-AuthenticodeSignature) doğrular.
+function IsMicrosoftSigned(const FileName: String): Boolean;
+var
+  Literal, Params: String;
+  ResultCode: Integer;
+begin
+  // PowerShell tek tırnaklı dizgisinde ' karakteri '' olarak yazılır (ör. O'Brien profili).
+  Literal := FileName;
+  StringChangeEx(Literal, '''', '''''', True);
+  Params := '-NoProfile -NonInteractive -Command "$s = Get-AuthenticodeSignature -LiteralPath ''' + Literal + '''; ' +
+            'if ($s.Status -eq ''Valid'' -and $s.SignerCertificate.Subject -like ''*O=Microsoft Corporation*'') { exit 0 } else { exit 1 }"';
+  Result := Exec(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'), Params, '',
+                 SW_HIDE, ewWaitUntilTerminated, ResultCode) and (ResultCode = 0);
+  Log('TRWhisper: vc_redist imza denetimi=' + IntToStr(ResultCode));
+end;
+
 procedure InstallVcRedist;
 var
   Installer: String;
@@ -751,6 +801,13 @@ begin
     Exit;
 
   WizardForm.StatusLabel.Caption := CustomMessage('StatusVcRedist');
+  if not IsMicrosoftSigned(Installer) then
+  begin
+    DeleteFile(Installer);
+    SuppressibleMsgBox(CustomMessage('VcRedistUntrusted'), mbError, MB_OK, IDOK);
+    Exit;
+  end;
+
   SuppressibleMsgBox(CustomMessage('VcRedistPrompt'), mbInformation, MB_OK, IDOK);
 
   if not ShellExec('runas', Installer, '/install /passive /norestart', '',

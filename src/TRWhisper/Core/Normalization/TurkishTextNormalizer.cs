@@ -169,10 +169,21 @@ namespace TRWhisper.Core.Normalization
 
         // ------------------------------------------------------------------ genel akış
 
-        public string Normalize(string text)
+        /// <param name="language">
+        /// Metnin gerçek dili (motorun algıladığı). Verilmezse ayardaki dil kullanılır.
+        /// </param>
+        public string Normalize(string text, string? language = null)
         {
             if (string.IsNullOrWhiteSpace(text)) return text;
             if (!_configManager.Current.General.EnableTextNormalization) return text;
+
+            // Kurallar Türkçe'dir: İngilizce metinde "turn on" → "turn 10" gibi bozulmalar
+            // üretir. "auto"da dil bilinmiyorsa (motor bildirmediyse) Türkçe varsayılır.
+            language = (language ?? _configManager.Current.General.Language)?.Trim();
+            if (!string.IsNullOrEmpty(language) &&
+                !string.Equals(language, "tr", StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(language, "auto", StringComparison.OrdinalIgnoreCase))
+                return text;
 
             var parts = Tokenize(text);
             var wordPos = new List<int>();

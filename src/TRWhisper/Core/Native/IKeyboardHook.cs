@@ -17,6 +17,12 @@ namespace TRWhisper.Core.Native
         event EventHandler<HotkeyEventArgs>? HotkeyUp;
 
         /// <summary>
+        /// Hızlı dil geçişi kısayoluna (varsayılan Alt+L) basıldığında tetiklenir. Ayar
+        /// kapalıyken hiç tetiklenmez.
+        /// </summary>
+        event EventHandler? LanguageSwitchRequested;
+
+        /// <summary>
         /// Hook başlatılır.
         /// </summary>
         void Start();

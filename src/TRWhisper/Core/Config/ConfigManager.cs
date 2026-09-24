@@ -25,6 +25,11 @@ namespace TRWhisper.Core.Config
         public bool EnableTextNormalization { get; set; } = true;
 
         /// <summary>
+        /// Sesli noktalama komutları ("nokta", "virgül", "yeni satır" → ".", ",", "\n").
+        /// </summary>
+        public bool EnableSpokenPunctuation { get; set; } = true;
+
+        /// <summary>
         /// Canlı akış (real-time live preview) transkripsiyonu. Kayıt devam ederken
         /// ekrandaki kapsülde kelimelerin gerçek zamanlı akmasını sağlar.
         /// </summary>
@@ -35,6 +40,30 @@ namespace TRWhisper.Core.Config
         /// Gizlilik öncelikli kullanım için kapatılabilir.
         /// </summary>
         public bool EnableHistoryLogging { get; set; } = true;
+
+        /// <summary>
+        /// Kısayolla (varsayılan Alt+L) Türkçe ↔ İngilizce anında geçiş. Varsayılan KAPALI:
+        /// Alt+L bazı uygulamalarda kendi kısayolu olabilir, kullanıcı bilerek açmalı.
+        /// </summary>
+        public bool EnableLanguageFastSwitch { get; set; } = false;
+        public string FastSwitchHotkey { get; set; } = "Alt+L";
+
+        /// <summary>
+        /// Kısayolun sırayla geçtiği diller (en az iki). Eksik/bozuk değer okunurken
+        /// <see cref="Speech.DictationLanguage.NormalizeFastSwitchLanguages"/> ile düzeltilir.
+        /// </summary>
+        public List<string> FastSwitchLanguages
+        {
+            get => _fastSwitchLanguages;
+            set => _fastSwitchLanguages = value ?? new List<string> { "tr", "en" };
+        }
+        private List<string> _fastSwitchLanguages = new() { "tr", "en" };
+
+        /// <summary>Açılıştan 10 sn sonra GitHub'da yeni sürüm denetimi. Varsayılan KAPALI.</summary>
+        public bool EnableAutomaticUpdateCheck { get; set; } = false;
+
+        /// <summary>Ayarlar penceresinde Windows 11 Mica arka planı. Varsayılan KAPALI.</summary>
+        public bool EnableMicaEffect { get; set; } = false;
 
         [JsonIgnore]
         public string ResolvedLogDirectory => Environment.ExpandEnvironmentVariables(LogDirectory);
@@ -87,28 +116,38 @@ namespace TRWhisper.Core.Config
             get => ResolvePath(VadModelPath);
         }
 
-        public static string ResolvePath(string path)
+        public static string ResolvePath(string path) => ResolvePath(
+            path,
+            AppDomain.CurrentDomain.BaseDirectory,
+            AppPaths.LocalDataDirectory,
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
+
+        /// <summary>
+        /// Göreli yolu yalnızca güvenilir klasörlerde arar. Çalışma dizinine (CWD) bakılmaz:
+        /// uygulamayı başlatan taraf onu istediği yere ayarlayabilir. Üst klasör taraması
+        /// yalnızca kullanıcı profilinin içinde kalır: Program Files kurulumunda tarama
+        /// C:\ köküne çıkardı ve oraya her kullanıcı klasör açabildiği için başka biri
+        /// C:\tools\whisper\ altına sahte bir model bırakıp yükletebilirdi.
+        /// </summary>
+        public static string ResolvePath(string path, string baseDirectory, string localDataDirectory, string userProfileDirectory)
         {
             var expanded = Environment.ExpandEnvironmentVariables(path);
             if (Path.IsPathRooted(expanded) && File.Exists(expanded))
                 return expanded;
 
-            // 1. BaseDirectory kontrolü
-            var direct = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, expanded);
+            // 1. Uygulama dizini
+            var direct = Path.Combine(baseDirectory, expanded);
             if (File.Exists(direct)) return direct;
 
-            // 2. CurrentDirectory kontrolü
-            var current = Path.Combine(Directory.GetCurrentDirectory(), expanded);
-            if (File.Exists(current)) return current;
-
-            // 3. Kullanıcı veri dizini: uygulama dizini yazma korumalıysa (Program Files
+            // 2. Kullanıcı veri dizini: uygulama dizini yazma korumalıysa (Program Files
             // kurulumu) sonradan indirilen modeller buraya yazılır.
-            var userData = Path.Combine(AppPaths.LocalDataDirectory, expanded);
+            var userData = Path.Combine(localDataDirectory, expanded);
             if (File.Exists(userData)) return userData;
 
-            // 4. Üst dizinleri tara (bin/Release/net9.0-windows -> proje kökü)
-            var currentDir = new DirectoryInfo(AppDomain.CurrentDomain.BaseDirectory);
-            for (int i = 0; i < 5 && currentDir != null; i++)
+            // 3. Geliştirme düzeni (bin/Release/net9.0-windows -> proje kökü): üst dizinler,
+            // yalnızca kullanıcı profilinin içindeyken taranır.
+            var currentDir = new DirectoryInfo(baseDirectory).Parent;
+            for (int i = 0; i < 4 && currentDir != null && IsInside(currentDir.FullName, userProfileDirectory); i++)
             {
                 var candidate = Path.Combine(currentDir.FullName, expanded);
                 if (File.Exists(candidate)) return candidate;
@@ -116,6 +155,14 @@ namespace TRWhisper.Core.Config
             }
 
             return direct;
+        }
+
+        private static bool IsInside(string directory, string root)
+        {
+            if (string.IsNullOrWhiteSpace(root)) return false;
+            var dir = Path.TrimEndingDirectorySeparator(Path.GetFullPath(directory));
+            var parent = Path.TrimEndingDirectorySeparator(Path.GetFullPath(root));
+            return dir.StartsWith(parent + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
         }
     }
 
@@ -227,6 +274,12 @@ namespace TRWhisper.Core.Config
         /// Cihaz takılı değilse yine varsayılana düşülür (kayıt asla bu yüzden başarısız olmaz).
         /// </summary>
         public string InputDeviceId { get; set; } = "";
+
+        /// <summary>Dikte başlangıcı/bitişi/iptali için kısa sesli geri bildirim. Varsayılan KAPALI.</summary>
+        public bool EnableSoundFeedback { get; set; } = false;
+
+        /// <summary>Sesli geri bildirim düzeyi (0..100).</summary>
+        public int SoundFeedbackVolume { get; set; } = 50;
     }
 
     public class HotkeyConfig
@@ -274,6 +327,9 @@ namespace TRWhisper.Core.Config
 
         /// <summary>Sonuç kapsülünün kendiliğinden kapanma süresi (saniye).</summary>
         public int ResultDurationSeconds { get; set; } = 10;
+
+        /// <summary>Konum ayarlarken kapsül ekran kenarlarına ve yatay ortaya kenetlenir. Varsayılan KAPALI.</summary>
+        public bool EnableEdgeSnapping { get; set; } = false;
     }
 
     public class PasteConfig

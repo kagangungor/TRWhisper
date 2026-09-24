@@ -75,6 +75,13 @@ namespace TRWhisper.UI
         private Action<double, double>? _onPositionSaved;
         private Action? _onPositionReset;
         private Action? _onPositionCancelled;
+        private bool _edgeSnapping;
+
+        /// <summary>Kenetlenme: kenara/ortaya bu kadar yaklaşan kapsül oraya çekilir.</summary>
+        public const double SnapTolerance = 24;
+
+        /// <summary>Kenara kenetlenen kapsülün ekran kenarıyla arasında bırakılan boşluk.</summary>
+        public const double SnapMargin = 16;
 
         public event Action? RequestCancel;
         public event Action? RequestFinish;
@@ -288,6 +295,7 @@ namespace TRWhisper.UI
 
                 ListeningPanel.Visibility = Visibility.Visible;
                 ResultPanel.Visibility = Visibility.Collapsed;
+                LanguageToastPanel.Visibility = Visibility.Collapsed;
 
                 if (activeMode != null)
                 {
@@ -325,6 +333,7 @@ namespace TRWhisper.UI
 
                 ListeningPanel.Visibility = Visibility.Visible;
                 ResultPanel.Visibility = Visibility.Collapsed;
+                LanguageToastPanel.Visibility = Visibility.Collapsed;
 
                 if (activeMode != null)
                 {
@@ -381,6 +390,7 @@ namespace TRWhisper.UI
 
                 ListeningPanel.Visibility = Visibility.Collapsed;
                 ResultPanel.Visibility = Visibility.Visible;
+                LanguageToastPanel.Visibility = Visibility.Collapsed;
 
                 TranscriptTextBlock.Text = transcriptText;
 
@@ -465,6 +475,34 @@ namespace TRWhisper.UI
             }
         }
 
+        /// <summary>
+        /// Dil değişimini 1.5 sn'lik küçük bir kapsülle duyurur. Kapsül o an dikte ya da
+        /// sonuç gösteriyorsa onu ele geçirmez; dil yine de değişmiş olur.
+        /// </summary>
+        public void ShowLanguageToast(string languageCode)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                if (_isPositioningMode) return;
+                if (IsVisible && LanguageToastPanel.Visibility != Visibility.Visible) return;
+
+                ListeningPanel.Visibility = Visibility.Collapsed;
+                ResultPanel.Visibility = Visibility.Collapsed;
+                LanguageToastPanel.Visibility = Visibility.Visible;
+                LanguageToastText.Text = $"Dil: {Core.Speech.DictationLanguage.DisplayName(languageCode)}";
+
+                BeginAnimation(OpacityProperty, null);
+                Opacity = 1.0;
+                Show();
+                Reposition();
+                BeginAnimation(OpacityProperty, new DoubleAnimation(0.0, 1.0, TimeSpan.FromMilliseconds(150)));
+
+                _autoHideTimer.Stop();
+                _autoHideTimer.Interval = TimeSpan.FromSeconds(1.5);
+                _autoHideTimer.Start();
+            });
+        }
+
         public void HideWithFade()
         {
             Dispatcher.Invoke(() =>
@@ -514,10 +552,14 @@ namespace TRWhisper.UI
             }
         }
 
-        public void ShowPositioningMode(Action<double, double> onSave, Action onResetDefault, Action? onCancel = null)
+        /// <param name="edgeSnapping">
+        /// null ise kayıtlı ayar okunur. Ayarlar penceresi henüz kaydedilmemiş anahtar durumunu verir.
+        /// </param>
+        public void ShowPositioningMode(Action<double, double> onSave, Action onResetDefault, Action? onCancel = null, bool? edgeSnapping = null)
         {
             Dispatcher.Invoke(() =>
             {
+                _edgeSnapping = edgeSnapping ?? _configManager?.Current.Overlay.EnableEdgeSnapping == true;
                 _autoHideTimer.Stop();
                 _processingFailSafeTimer.Stop();
                 StopAudioReactiveWaveform();
@@ -533,6 +575,7 @@ namespace TRWhisper.UI
                 ListeningPanel.Visibility = Visibility.Collapsed;
                 ResultPanel.Visibility = Visibility.Collapsed;
                 PositioningPanel.Visibility = Visibility.Visible;
+                LanguageToastPanel.Visibility = Visibility.Collapsed;
 
                 PillBorder.Cursor = System.Windows.Input.Cursors.SizeAll;
 
@@ -586,6 +629,31 @@ namespace TRWhisper.UI
 
             Left = Math.Clamp(Left, workArea.Left, Math.Max(workArea.Left, workArea.Right - targetWidth));
             Top = Math.Clamp(Top, workArea.Top, Math.Max(workArea.Top, workArea.Bottom - targetHeight));
+            (Left, Top) = SnapToEdges(Left, Top, targetWidth, targetHeight, workArea, _edgeSnapping);
+        }
+
+        /// <summary>
+        /// Kenarı çalışma alanı kenarına <see cref="SnapTolerance"/> kadar yaklaşan kapsülü o kenara
+        /// (<see cref="SnapMargin"/> boşlukla), yatay merkezi ekran ortasına yaklaşanı ortaya çeker.
+        /// Kapalıyken koordinatlar olduğu gibi döner.
+        /// </summary>
+        public static (double Left, double Top) SnapToEdges(double left, double top, double width, double height, Rect workArea, bool enabled)
+        {
+            if (!enabled) return (left, top);
+
+            if (Math.Abs(left - workArea.Left) <= SnapTolerance)
+                left = workArea.Left + SnapMargin;
+            else if (Math.Abs(workArea.Right - (left + width)) <= SnapTolerance)
+                left = workArea.Right - width - SnapMargin;
+            else if (Math.Abs(left + width / 2 - (workArea.Left + workArea.Width / 2)) <= SnapTolerance)
+                left = workArea.Left + (workArea.Width - width) / 2;
+
+            if (Math.Abs(top - workArea.Top) <= SnapTolerance)
+                top = workArea.Top + SnapMargin;
+            else if (Math.Abs(workArea.Bottom - (top + height)) <= SnapTolerance)
+                top = workArea.Bottom - height - SnapMargin;
+
+            return (left, top);
         }
 
         private void ResetPositionButton_Click(object sender, RoutedEventArgs e)
