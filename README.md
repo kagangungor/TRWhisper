@@ -7,6 +7,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%2011%20x64-0078D6?logo=windows11&logoColor=white)](https://github.com/kagangungor/TRWhisper)
 [![License](https://img.shields.io/github/license/kagangungor/TRWhisper?color=orange)](LICENSE)
 [![.NET](https://img.shields.io/badge/.NET-9.0-512BD4?logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/download/dotnet/9.0)
+[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-☕-FFDD00?logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/kagangungor)
 
 **TRWhisper** is a completely local, zero-telemetry "push-to-talk" dictation application built for Windows 11 as an alternative to Superwhisper. It is tuned for Turkish dictation.
 
@@ -434,3 +435,13 @@ dotnet test tests\TRWhisper.Tests\TRWhisper.Tests.csproj
 # Run the WPF Settings Window XAML template & UI smoke test suite:
 dotnet run --project tools\uismoke
 ```
+
+---
+
+## ☕ Support the Project
+
+TRWhisper is a free, independent, and open-source project. If it saves you time or enhances your daily workflow, consider supporting its development:
+
+<a href="https://buymeacoffee.com/kagangungor" target="_blank">
+  <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" height="42">
+</a>

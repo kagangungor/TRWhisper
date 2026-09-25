@@ -7,6 +7,7 @@
 [![Platform](https://img.shields.io/badge/platform-Windows%2011%20x64-0078D6?logo=windows11&logoColor=white)](https://github.com/kagangungor/TRWhisper)
 [![Lisans](https://img.shields.io/github/license/kagangungor/TRWhisper?color=orange)](LICENSE)
 [![.NET](https://img.shields.io/badge/.NET-9.0-512BD4?logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/download/dotnet/9.0)
+[![Buy Me A Coffee](https://img.shields.io/badge/Kahve%20Ismarla-☕-FFDD00?logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/kagangungor)
 
 **TRWhisper**, Windows 11 için geliştirilmiş, Superwhisper alternatifi, tamamen yerel çalışan, sıfır telemetrili bir "bas-konuş" (push-to-talk) dikte uygulamasıdır. Türkçe dikte için ayarlanmıştır.
 
@@ -433,3 +434,13 @@ dotnet test tests\TRWhisper.Tests\TRWhisper.Tests.csproj
 # WPF Ayarlar Penceresi XAML şablon ve duman testini çalıştırır:
 dotnet run --project tools\uismoke
 ```
+
+---
+
+## ☕ Projeye Destek Olun
+
+TRWhisper tamamen açık kaynaklı, bağımsız ve ücretsiz bir projedir. Eğer uygulama işlerinizi kolaylaştırdıysa veya size zaman kazandırdıysa, bir kahve ısmarlayarak projenin gelişimine ve motivasyonuma katkıda bulunabilirsiniz:
+
+<a href="https://buymeacoffee.com/kagangungor" target="_blank">
+  <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" height="42">
+</a>
