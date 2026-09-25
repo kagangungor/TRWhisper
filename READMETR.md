@@ -385,18 +385,20 @@ Böylece hem ses tanıma (Whisper) hem de yapay zeka ile metin düzenleme (Ollam
 
 ## ⚡ Performans
 
-Intel Core i5-12450H + NVIDIA GeForce RTX 3050 Laptop GPU (4 GB) üzerinde, Türkçe konuşma örnekleriyle ölçülmüştür. Süreler, her diktede yeniden yapılan model yüklemesini de içerir.
+**Intel Core i5-12450H** + **NVIDIA GeForce RTX 3050 Laptop GPU (4 GB)** üzerinde, Türkçe konuşma örnekleriyle ölçülmüştür.
 
-| Motor | Model | 3,2 sn konuşma | 10,7 sn konuşma |
-|---|---|---|---|
-| İşlemci (CPU) | Small | 6,5 sn | 9,3 sn |
-| İşlemci (CPU) | Large-v3 Turbo | 23,1 sn | 24,4 sn |
-| CUDA 13 (RTX 3050) | Small | 2,2 sn | 2,8 sn |
-| CUDA 13 (RTX 3050) | Large-v3 Turbo | 2,5 sn | 3,1 sn |
+TRWhisper v2 ile gelen süreç içi **Whisper.net** motoru sayesinde modeller bellekte sıcak tutulur (`IdleTimeoutMinutes: 10`). Her diktede modelin diskten yeniden yüklenme maliyeti tamamen ortadan kalkmıştır.
 
-- GPU'da Turbo, işlemcideki Small'dan hem daha hızlı hem daha doğrudur; ~1,2 GB VRAM kullanır.
-- GPU bir süre boşta kaldıktan sonraki ilk dikte birkaç saniye daha uzun sürebilir.
-- Konuşma yoksa VAD sayesinde ağır işlem atlanır; boş bir kayıt ~1–2 saniyede biter.
+| Motor / Donanım | Model | 3,2 sn Konuşma (Sıcak) | 10,6 sn Konuşma (Sıcak) | İlk Dikte (Soğuk Başlangıç) |
+|---|---|---|---|---|
+| **CUDA 13 (RTX 3050)** | **Large-v3 Turbo** | **0,32 sn** | **0,44 sn** | ~1,5 sn |
+| **CUDA 13 (RTX 3050)** | **Small** | **0,19 sn** | **0,44 sn** | ~1,4 sn |
+| **İşlemci (CPU)** | **Small** | **4,2 sn** | **5,0 sn** | ~4,8 sn |
+| **İşlemci (CPU)** | **Large-v3 Turbo** | **19,0 sn** | **20,1 sn** | ~19,5 sn |
+
+- **GPU Hızlandırması**: RTX 3050 üzerinde sıcak dikte yanıtı **0,3–0,4 saniye** arasındadır (ilk v1 sürümlerine göre ~7–8 kat daha hızlı). Model ~1,2 GB VRAM kullanır.
+- **Soğuk Başlangıç**: Uygulama açılışında veya 10 dakika boşta kaldıktan sonraki ilk diktede, modelin VRAM'e alınması tek seferlik ~1,0–1,2 saniye sürer; sonraki tüm dikteler anında gerçekleşir.
+- **Silero VAD**: Boş veya sessiz kayıtlarda konuşma algılanmazsa model çalıştırılmaz; işlem **~10 ms (0,01 sn)** içinde sonlanır.
 
 ---
 

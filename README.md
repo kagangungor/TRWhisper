@@ -386,18 +386,20 @@ This provides an air-gapped pipeline: STT (Whisper) and text enhancement (Ollama
 
 ## ⚡ Performance
 
-Measured on an Intel Core i5-12450H + NVIDIA GeForce RTX 3050 Laptop GPU (4 GB) with Turkish speech samples. Times include model loading, which happens on every dictation.
+Measured on an **Intel Core i5-12450H** + **NVIDIA GeForce RTX 3050 Laptop GPU (4 GB)** with Turkish speech samples.
 
-| Engine | Model | 3.2 s speech | 10.7 s speech |
-|---|---|---|---|
-| CPU | Small | 6.5 s | 9.3 s |
-| CPU | Large-v3 Turbo | 23.1 s | 24.4 s |
-| CUDA 13 (RTX 3050) | Small | 2.2 s | 2.8 s |
-| CUDA 13 (RTX 3050) | Large-v3 Turbo | 2.5 s | 3.1 s |
+Thanks to the in-process **Whisper.net** engine introduced in TRWhisper v2, models remain warm in memory (`IdleTimeoutMinutes: 10`), eliminating disk and model reload overhead on every dictation.
 
-- On the GPU, Turbo is both faster and more accurate than Small on the CPU; it uses ~1.2 GB of VRAM.
-- The first dictation after the GPU has been idle can take a few seconds longer.
-- Without speech, VAD lets the engine skip the heavy work, so an empty recording finishes in ~1–2 seconds.
+| Engine / Hardware | Model | 3.2 s speech (Warm) | 10.6 s speech (Warm) | Cold Start (First Load) |
+|---|---|---|---|---|
+| **CUDA 13 (RTX 3050)** | **Large-v3 Turbo** | **0.32 s** | **0.44 s** | ~1.5 s |
+| **CUDA 13 (RTX 3050)** | **Small** | **0.19 s** | **0.44 s** | ~1.4 s |
+| **CPU (i5-12450H)** | **Small** | **4.2 s** | **5.0 s** | ~4.8 s |
+| **CPU (i5-12450H)** | **Large-v3 Turbo** | **19.0 s** | **20.1 s** | ~19.5 s |
+
+- **GPU Acceleration**: On RTX 3050, warm dictation completes in **0.3–0.4 seconds** (~7–8x faster than early v1 releases), consuming ~1.2 GB VRAM.
+- **Cold Start**: The very first dictation after launch or after being idle for >10 minutes includes a one-time ~1.0–1.2 s model load into VRAM.
+- **Silero VAD**: Non-speech and silent recordings bypass transcription entirely, completing in **~10 ms** (0.01 s).
 
 ---
 

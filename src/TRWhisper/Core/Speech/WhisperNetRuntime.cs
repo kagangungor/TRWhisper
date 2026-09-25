@@ -58,7 +58,9 @@ namespace TRWhisper.Core.Speech
                         missing.Add(dll);
                 }
 
-                if (missing.Count == 0)
+                var forceCpu = string.Equals(Environment.GetEnvironmentVariable("TRWHISPER_FORCE_CPU"), "1", StringComparison.OrdinalIgnoreCase);
+
+                if (missing.Count == 0 && !forceCpu)
                 {
                     CudaEligible = true;
                     RuntimeOptions.RuntimeLibraryOrder = new List<RuntimeLibrary>
@@ -72,7 +74,10 @@ namespace TRWhisper.Core.Speech
                 {
                     CudaEligible = false;
                     RuntimeOptions.RuntimeLibraryOrder = new List<RuntimeLibrary> { RuntimeLibrary.Cpu };
-                    FileLog.Write($"[WhisperNetRuntime] CUDA devre dışı (eksik: {string.Join(", ", missing)}), CPU runtime'a sabitlendi.");
+                    if (forceCpu)
+                        FileLog.Write("[WhisperNetRuntime] TRWHISPER_FORCE_CPU etkinleştirildi, CPU runtime'a sabitlendi.");
+                    else
+                        FileLog.Write($"[WhisperNetRuntime] CUDA devre dışı (eksik: {string.Join(", ", missing)}), CPU runtime'a sabitlendi.");
                 }
             }
         }
